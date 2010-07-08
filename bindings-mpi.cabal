@@ -1,0 +1,34 @@
+name:                bindings-mpi 
+version:             0.0.1
+cabal-version:       >= 1.6
+synopsis:            Haskell bindings to the MPI library. 
+description:         Haskell bindings to the MPI library.
+category:            FFI, Distributed Computing 
+license:             BSD3
+license-file:        LICENSE
+copyright:           (c) 2010 Bernard James Pope
+author:              Bernard James Pope (Bernie Pope)
+maintainer:          florbitous@gmail.com 
+homepage:            http://wiki.github.com/bjpop/berp/  
+build-type:          Simple
+stability:           experimental
+tested-with:         GHC==6.10.4 
+extra-source-files:  src/cbits, src/include
+
+Library
+   extra-libraries:  mpi
+   build-tools:      c2hs
+   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
+   c-sources:
+      src/cbits/init_wrapper.c
+   include-dirs:
+      src/include 
+   hs-source-dirs:
+      src
+   build-depends:
+      base,
+      haskell98
+   exposed-modules:
+      Bindings.MPI.Internal
+   other-modules:
+      C2HS
