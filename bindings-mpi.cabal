@@ -20,7 +20,8 @@ Library
    build-tools:      c2hs
    ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
    c-sources:
-      src/cbits/init_wrapper.c
+      src/cbits/init_wrapper.c, 
+      src/cbits/constants.c
    include-dirs:
       src/include 
    hs-source-dirs:
