@@ -1,4 +1,7 @@
-#include "constants.h"
+#include <mpi.h>
 
-mpi_comm_world = MPI_COMM_WORLD;
-mpi_int = MPI_INT;
+/* Taken from HMPI */
+#define MPI_CONST(ty, name, defn) inline ty name () { return ((ty)defn); }
+
+MPI_CONST (MPI_Datatype, mpi_int, MPI_INT)
+MPI_CONST (MPI_Comm, mpi_comm_world, MPI_COMM_WORLD)
