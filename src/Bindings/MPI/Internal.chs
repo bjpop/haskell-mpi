@@ -65,4 +65,5 @@ withStorableCast x f = withStorable x (f . castPtr)
 
 -- int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
 -- recv = {# call unsafe MPI_Recv as ^ #}
+-- XXX this should really make the storable thing an output.
 {# fun unsafe Recv as ^ `Storable a' => { withStorableCast* `a', `Int', id `Datatype', `Int', `Int', id `Comm', alloca- `Status' peek* } -> `Int' #}
