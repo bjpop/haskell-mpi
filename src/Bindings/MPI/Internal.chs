@@ -44,6 +44,9 @@ instance Storable Status where
     {#set MPI_Status._count #} p (cIntConv $ status_count x)
     {#set MPI_Status._cancelled #} p (cIntConv $ status_cancelled x)
 
+enumToCInt :: Enum a => a -> CInt
+enumToCInt = cIntConv . fromEnum 
+
 foreign import ccall "mpi_comm_world" commWorld :: Comm
 foreign import ccall "mpi_int" int :: Datatype
 
@@ -61,9 +64,21 @@ withStorableCast x f = withStorable x (f . castPtr)
 {# fun unsafe Comm_rank as ^ { id `Comm', alloca- `Int' peekIntConv* } -> `Int' #}
 
 -- int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
-{# fun unsafe Send as ^ `Storable a' => { withStorableCast* `a', `Int', id `Datatype', `Int', `Int', id `Comm' } -> `Int' #}
+{# fun unsafe Send as ^ `(Storable msg, Enum dest, Enum tag)' => { withStorableCast* `msg', `Int', id `Datatype', enumToCInt `dest', enumToCInt `tag', id `Comm' } -> `Int' #}
 
 -- int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
--- recv = {# call unsafe MPI_Recv as ^ #}
--- XXX this should really make the storable thing an output.
-{# fun unsafe Recv as ^ `Storable a' => { withStorableCast* `a', `Int', id `Datatype', `Int', `Int', id `Comm', alloca- `Status' peek* } -> `Int' #}
+recv_ = {# call unsafe MPI_Recv as mpi_recv #}
+-- Couldn't make this work with fun because of the need to combine alloca with castPtr.
+-- {# fun unsafe Recv as recv_ { id `Ptr ()', `Int', id `Datatype', `Int', `Int', id `Comm', alloca- `Status' peek* } -> `Int' #}
+
+recv :: (Storable msg, Enum source, Enum tag) => Int -> Datatype -> source -> tag -> Comm -> IO (Int, Status, msg)
+recv count dataType source tag comm = do
+  let cCount  = cIntConv count
+      cSource = enumToCInt source
+      cTag    = enumToCInt tag 
+  alloca $ \ storablePtr -> 
+     alloca $ \ statusPtr -> do
+        result <- recv_ (castPtr storablePtr) cCount dataType cSource cTag comm statusPtr
+        status <- peek statusPtr 
+        message <- peek storablePtr
+        return (cIntConv result, status, message)
