@@ -1,14 +1,28 @@
-module Bindings.MPI where
+module Bindings.MPI 
+   ( module Bindings.MPI
+   , module Internal
+   , module Datatype 
+   , module Comm
+   , module Status
+   ) where
 
-import qualified Bindings.MPI.Internal as Internal 
 import C2HS
 import Data.ByteString.Unsafe as BS
 import Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
-import Bindings.MPI.Datatype as Datatype (byte)
-import Bindings.MPI.Comm (Comm)
-import Bindings.MPI.MarshalUtils (enumToCInt)
-import Bindings.MPI.Status (Status (..))
+import Bindings.MPI.Internal as Internal hiding (send, recv, commRank) 
+import qualified Bindings.MPI.Internal as BMI (send, recv, commRank)
+import Bindings.MPI.Datatype as Datatype
+import Bindings.MPI.Comm as Comm
+import Bindings.MPI.Status as Status 
+import Bindings.MPI.MarshalUtils (enumToCInt, enumFromCInt)
+
+commRank :: Enum rank => Comm -> IO (Int, rank)
+commRank comm = 
+   alloca $ \ptr -> do
+      result <- BMI.commRank comm ptr 
+      rank <- peek ptr
+      return (cIntConv result, enumFromCInt rank)
 
 send :: (Serialize msg, Enum dest, Enum tag) => msg -> dest -> tag -> Comm -> IO Int
 send = sendBS . encode
@@ -19,7 +33,7 @@ sendBS bs dest tag comm = do
        cTag  = enumToCInt tag
        cCount = cIntConv $ BS.length bs
    unsafeUseAsCString bs $ \cString -> do 
-       result <- Internal.send (castPtr cString) cCount byte cDest cTag comm
+       result <- BMI.send (castPtr cString) cCount byte cDest cTag comm
        return $ cIntConv result
 
 recv :: (Serialize msg, Enum source, Enum tag) => source -> tag -> Comm -> IO (Int, Status, msg)
@@ -38,7 +52,7 @@ recvBS source tag comm = do
       cTag    = enumToCInt tag
       cCount  = cIntConv count
   alloca $ \ statusPtr -> do
-     result <- Internal.recv bufferPtr cCount byte cSource cTag comm (castPtr statusPtr)
+     result <- BMI.recv bufferPtr cCount byte cSource cTag comm (castPtr statusPtr)
      recvStatus <- peek statusPtr
      message <- packCStringLen (castPtr bufferPtr, count)  
      free bufferPtr

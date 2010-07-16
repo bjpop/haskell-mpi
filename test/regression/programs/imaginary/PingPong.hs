@@ -10,13 +10,16 @@ tag = 42
 data Rank = Pinger | Ponger
    deriving (Enum, Eq)
 
+msg :: Integer
+msg = 0
+
 main :: IO ()
 main = do
    init
    (_, rank) <- commRank commWorld
-   send (0::Integer) Ponger tag commWorld
-   when (toEnum rank == Pinger) ping
-   when (toEnum rank == Ponger) pong
+   send msg Ponger tag commWorld
+   when (rank == Pinger) ping
+   when (rank == Ponger) pong
    finalize
    return ()
 

@@ -18,24 +18,14 @@ import Bindings.MPI.MarshalUtils (enumToCInt)
 
 {# fun unsafe Finalize as finalize {} -> `Int' #}
 
-{-
-withStorable :: Storable a => a -> (Ptr a -> IO b) -> IO b
-withStorable x f = alloca (\ptr -> poke ptr x >> f ptr)
+-- {# fun unsafe Comm_rank as ^ { id `Comm', alloca- `Int' peekIntConv* } -> `Int' #}
+-- {# fun unsafe Comm_rank as ^ `Enum rank' => { id `Comm', alloca- `Int' peekEnum* } -> `rank' id #}
 
-withStorableCast :: Storable a => a -> (Ptr c -> IO b) -> IO b
-withStorableCast x f = withStorable x (f . castPtr)
--}
+commRank = {# call unsafe Comm_rank as commRank_ #}
 
-{# fun unsafe Comm_rank as ^ { id `Comm', alloca- `Int' peekIntConv* } -> `Int' #}
-
--- int MPI_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
--- {# fun unsafe Send as ^ `(Storable msg, Enum dest, Enum tag)' => { withStorableCast* `msg', `Int', id `Datatype', enumToCInt `dest', enumToCInt `tag', id `Comm' } -> `Int' #}
 send = {# call unsafe Send as send_ #}
 
--- int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
 recv = {# call unsafe Recv as recv_ #}
--- Couldn't make this work with fun because of the need to combine alloca with castPtr.
--- {# fun unsafe Recv as recv_ { id `Ptr ()', `Int', id `Datatype', `Int', `Int', id `Comm', alloca- `Status' peek* } -> `Int' #}
 
 probe_ = {# call unsafe Probe as probe__ #}
 

@@ -1,20 +1,30 @@
 module Main where
 
+import Prelude hiding (init)
+
 import Control.Monad (when)
-import Bindings.MPI.Internal as MPI
-import Bindings.MPI as SMPI
-import Bindings.MPI.Comm as MPI
+import Bindings.MPI 
+
+data Rank = Sender | Receiver
+   deriving (Enum, Eq)
+
+data Tag = Tag
+   deriving Enum
+
+type Msg = (Bool, Int, String, [()])
+
+msg :: Msg 
+msg = (True, 12, "fred", [(), (), ()])
 
 main :: IO ()
 main = do
-   MPI.init
-   (_, rank) <- MPI.commRank MPI.commWorld
-   when (rank == 0) $ do
-      SMPI.send (True,42::Int,"fred",[(), (), ()]) 1 42 MPI.commWorld 
+   init
+   (_, rank) <- commRank commWorld
+   when (rank == Sender) $ do
+      send msg Receiver Tag commWorld 
       return ()
-   when (rank == 1) $ do
-      (_, status, result) <- SMPI.recv 0 42 MPI.commWorld
-      print (result :: (Bool, Int, String, [()]))
-      print status
-   MPI.finalize
+   when (rank == Receiver) $ do
+      (_, _status, result) <- recv Sender Tag commWorld
+      print (result :: Msg)
+   finalize
    return ()

@@ -1,7 +1,13 @@
-module Bindings.MPI.MarshalUtils (enumToCInt) where
+module Bindings.MPI.MarshalUtils 
+   ( enumToCInt
+   , enumFromCInt
+   ) where
 
 import C2HS (cIntConv)
 import Foreign.C (CInt)
 
 enumToCInt :: Enum a => a -> CInt
 enumToCInt = cIntConv . fromEnum
+
+enumFromCInt :: Enum a => CInt -> a 
+enumFromCInt = toEnum . fromIntegral
