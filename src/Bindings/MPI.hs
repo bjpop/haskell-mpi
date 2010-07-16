@@ -43,6 +43,7 @@ recv source tag comm = do
       Left e -> fail e
       Right val -> return (i, status, val)
         
+-- XXX should probably bracket here to free malloc'd memory on exceptions.
 recvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Int, Status, ByteString)
 recvBS source tag comm = do
   (_, probeStatus) <- Internal.probe source tag comm
