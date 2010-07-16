@@ -28,8 +28,14 @@ Library
       src
    build-depends:
       base,
-      haskell98
+      haskell98,
+      bytestring
    exposed-modules:
-      Bindings.MPI.Internal
+      Bindings.MPI.Internal,
+      Bindings.MPI.Datatype,
+      Bindings.MPI.Comm,
+      Bindings.MPI.ByteString,
+      Bindings.MPI.Status
    other-modules:
-      C2HS
+      C2HS,
+      Bindings.MPI.MarshalUtils
