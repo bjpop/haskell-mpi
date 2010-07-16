@@ -29,12 +29,13 @@ Library
    build-depends:
       base,
       haskell98,
-      bytestring
+      bytestring,
+      cereal
    exposed-modules:
+      Bindings.MPI,
       Bindings.MPI.Internal,
       Bindings.MPI.Datatype,
       Bindings.MPI.Comm,
-      Bindings.MPI.ByteString,
       Bindings.MPI.Status
    other-modules:
       C2HS,
