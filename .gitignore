@@ -2,3 +2,5 @@
 *.o
 *.swp
 dist/
+test/regression/programs/imaginary/PingPong
+test/regression/programs/imaginary/SendReceive
