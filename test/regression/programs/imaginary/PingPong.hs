@@ -17,8 +17,7 @@ main :: IO ()
 main = do
    init
    (_, rank) <- commRank commWorld
-   send msg Ponger tag commWorld
-   when (rank == Pinger) ping
+   when (rank == Pinger) $ (send msg Ponger tag commWorld) >> ping
    when (rank == Ponger) pong
    finalize
    return ()
