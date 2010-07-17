@@ -8,18 +8,21 @@ module Bindings.MPI.Internal
 
 import Prelude hiding (init, error)
 import C2HS
+import Control.Applicative ((<$>))
 import Bindings.MPI.Comm (Comm)
 import Bindings.MPI.Status (Status, StatusPtr)
 import Bindings.MPI.MarshalUtils (enumToCInt)
+import Bindings.MPI.ErrorClasses (ErrorClass)
+import Bindings.MPI.MarshalUtils (enumFromCInt)
+import Bindings.MPI.Utils (checkError)
 
 {# context prefix = "MPI" #}
 
-{# fun unsafe init_wrapper as init {} -> `Int' #}
+-- {# fun unsafe init_wrapper as init {} -> `ErrorClass' enumFromCInt #}
+init = {# call unsafe init_wrapper as init_wrapper_ #}
 
-{# fun unsafe Finalize as finalize {} -> `Int' #}
-
--- {# fun unsafe Comm_rank as ^ { id `Comm', alloca- `Int' peekIntConv* } -> `Int' #}
--- {# fun unsafe Comm_rank as ^ `Enum rank' => { id `Comm', alloca- `Int' peekEnum* } -> `rank' id #}
+-- {# fun unsafe Finalize as finalize {} -> `ErrorClass' enumFromCInt #}
+finalize = {# call unsafe Finalize as finalize_ #}
 
 commRank = {# call unsafe Comm_rank as commRank_ #}
 
@@ -27,13 +30,4 @@ send = {# call unsafe Send as send_ #}
 
 recv = {# call unsafe Recv as recv_ #}
 
-probe_ = {# call unsafe Probe as probe__ #}
-
-probe :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Int, Status)
-probe source tag comm = do
-   let cSource = enumToCInt source
-       cTag    = enumToCInt tag 
-   alloca $ \statusPtr -> do
-      result <- probe_ cSource cTag comm (castPtr statusPtr)
-      status <- peek statusPtr
-      return (cIntConv result, status)
+probe = {# call unsafe Probe as probe_ #}
