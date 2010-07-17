@@ -16,22 +16,21 @@ msg = 0
 main :: IO ()
 main = do
    init
-   (_, rank) <- commRank commWorld
+   rank <- commRank commWorld
    when (rank == Pinger) $ (send msg Ponger tag commWorld) >> ping
    when (rank == Ponger) pong
    finalize
-   return ()
 
 ping :: IO ()
 ping = do
-   (_, _, i) <- recv Ponger tag commWorld 
+   (_status, i) <- recv Ponger tag commWorld 
    putStrLn $ "Ping " ++ show (i::Integer)
    send (i+1) Ponger tag commWorld
    ping
 
 pong :: IO ()
 pong = do 
-   (_, _, i) <- recv Pinger tag commWorld 
+   (_status, i) <- recv Pinger tag commWorld 
    putStrLn $ "Pong " ++ show (i::Integer)
    send (i+1) Pinger tag commWorld
    pong

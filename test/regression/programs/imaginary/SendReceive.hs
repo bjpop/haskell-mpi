@@ -19,12 +19,10 @@ msg = (True, 12, "fred", [(), (), ()])
 main :: IO ()
 main = do
    init
-   (_, rank) <- commRank commWorld
+   rank <- commRank commWorld
    when (rank == Sender) $ do
       send msg Receiver Tag commWorld 
-      return ()
    when (rank == Receiver) $ do
-      (_, _status, result) <- recv Sender Tag commWorld
+      (_status, result) <- recv Sender Tag commWorld
       print (result :: Msg)
    finalize
-   return ()
