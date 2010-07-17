@@ -30,13 +30,16 @@ Library
       base,
       haskell98,
       bytestring,
-      cereal
+      cereal,
+      extensible-exceptions
    exposed-modules:
       Bindings.MPI,
       Bindings.MPI.Internal,
       Bindings.MPI.Datatype,
       Bindings.MPI.Comm,
-      Bindings.MPI.Status
+      Bindings.MPI.Status,
+      Bindings.MPI.ErrorClasses
    other-modules:
       C2HS,
-      Bindings.MPI.MarshalUtils
+      Bindings.MPI.MarshalUtils,
+      Bindings.MPI.Utils
