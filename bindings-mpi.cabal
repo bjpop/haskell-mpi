@@ -38,7 +38,8 @@ Library
       Bindings.MPI.Datatype,
       Bindings.MPI.Comm,
       Bindings.MPI.Status,
-      Bindings.MPI.ErrorClasses
+      Bindings.MPI.ErrorClasses,
+      Bindings.MPI.Request
    other-modules:
       C2HS,
       Bindings.MPI.MarshalUtils,
