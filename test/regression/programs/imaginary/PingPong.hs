@@ -1,36 +1,44 @@
 module Main where
 
-import Prelude hiding (init)
 import Control.Monad (when)
 import Bindings.MPI
 
 tag :: Int
 tag = 42
 
-data Rank = Pinger | Ponger
-   deriving (Enum, Eq)
+data Actor = Pinger | Ponger
+   deriving (Show, Enum, Eq)
 
-msg :: Integer
-msg = 0
+pinger, ponger :: Rank
+pinger = toRank Pinger
+ponger = toRank Ponger
+
+type Msg = Maybe Int
+
+msg :: Msg 
+msg = Just 0
 
 main :: IO ()
-main = do
-   init
-   rank <- commRank commWorld
-   when (rank == Pinger) $ (send msg Ponger tag commWorld) >> ping
-   when (rank == Ponger) pong
-   finalize
+main = mpi $ do
+   size <- commSize commWorld
+   when (size >= 2) $ do
+      rank <- commRank commWorld
+      when (rank == pinger) $ (send msg ponger tag commWorld >> act Pinger)
+      when (rank == ponger) $ act Ponger
 
-ping :: IO ()
-ping = do
-   (_status, i) <- recv Ponger tag commWorld 
-   putStrLn $ "Ping " ++ show (i::Integer)
-   send (i+1) Ponger tag commWorld
-   ping
+counterpart :: Actor -> Actor
+counterpart Pinger = Ponger
+counterpart Ponger = Pinger
 
-pong :: IO ()
-pong = do 
-   (_status, i) <- recv Pinger tag commWorld 
-   putStrLn $ "Pong " ++ show (i::Integer)
-   send (i+1) Pinger tag commWorld
-   pong
+act :: Actor -> IO ()
+act actor = do
+   let other = toRank $ counterpart actor
+   (_status, msg) <- recv other tag commWorld 
+   maybe 
+      (return ())
+      (\i -> if (i <= 1000) 
+                then do putStrLn $ show actor ++ " " ++ show (i::Int)
+                        send ((Just (i+1)) :: Msg) other tag commWorld
+                        act actor 
+                else send (Nothing :: Msg) other tag commWorld)
+      msg

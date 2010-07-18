@@ -8,21 +8,21 @@ import Bindings.MPI as MPI
 
 data Tag = Tag deriving Enum
 
-msg :: Int -> String 
+msg :: Rank -> String 
 msg r = "Greetings from process " ++ show r ++ "!"
 
 comm :: Comm
 comm = commWorld
 
+root :: Rank
+root = toRank 0
+
 main :: IO ()
-main = do
-   MPI.init
+main = mpi $ do
    rank <- commRank comm 
    size <- commSize comm 
-   when (rank /= 0) $ 
-      send (msg rank) 0 Tag comm 
-   when (rank == 0) $ do
-      forM_ [1..size-1] $ \sender -> do
-         (_status, result) <- recv sender Tag comm 
-         putStrLn result 
-   finalize
+   if (rank /= root) 
+      then send (msg rank) root Tag comm 
+      else do forM_ [1..size-1] $ \sender -> do
+              (_status, result) <- recv (toRank sender) Tag comm 
+              putStrLn result 
