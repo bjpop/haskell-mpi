@@ -1,7 +1,10 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Bindings.MPI 
    ( module Datatype 
    , module Comm
    , module Status
+   , mpi 
    , init
    , finalize
    , commSize
@@ -18,6 +21,10 @@ module Bindings.MPI
    , pollFuture
    , waitFuture
    , recvFuture
+   , Rank
+   , toRank
+   , fromRank 
+   , rankId
    ) where
 
 import Prelude hiding (init)
@@ -32,8 +39,23 @@ import Bindings.MPI.Datatype as Datatype
 import Bindings.MPI.Comm as Comm
 import Bindings.MPI.Request as Request
 import Bindings.MPI.Status as Status 
-import Bindings.MPI.MarshalUtils (enumToCInt, enumFromCInt)
+import Bindings.MPI.MarshalUtils (enumToCInt)
 import Bindings.MPI.Utils (checkError)
+
+mpi :: IO () -> IO ()
+mpi action = init >> action >> finalize
+
+newtype Rank = Rank { rankId :: Int }
+   deriving (Eq, Ord, Enum)
+
+instance Show Rank where
+   show = show . rankId
+
+toRank :: Enum a => a -> Rank
+toRank x = Rank { rankId = fromEnum x } 
+
+fromRank :: Enum a => Rank -> a
+fromRank = toEnum . rankId 
 
 init :: IO ()
 init = checkError Internal.init
@@ -48,44 +70,44 @@ commSize comm = do
       size <- peek ptr
       return $ cIntConv size  
 
-commRank :: Enum rank => Comm -> IO rank
+commRank :: Comm -> IO Rank
 commRank comm = 
    alloca $ \ptr -> do
       checkError $ Internal.commRank comm ptr
       rank <- peek ptr
-      return $ enumFromCInt rank
+      return $ toRank rank
 
-probe :: (Enum source, Enum tag) => source -> tag -> Comm -> IO Status
-probe source tag comm = do
-   let cSource = enumToCInt source
+probe :: (Enum tag) => Rank -> tag -> Comm -> IO Status
+probe rank tag comm = do
+   let cSource = fromRank rank 
        cTag    = enumToCInt tag
    alloca $ \statusPtr -> do
       checkError $ Internal.probe cSource cTag comm (castPtr statusPtr)
       peek statusPtr
 
-send :: (Serialize msg, Enum dest, Enum tag) => msg -> dest -> tag -> Comm -> IO () 
+send :: (Serialize msg, Enum tag) => msg -> Rank -> tag -> Comm -> IO () 
 send = sendBS . encode
 
-sendBS :: (Enum dest, Enum tag) => BS.ByteString -> dest -> tag -> Comm -> IO () 
-sendBS bs dest tag comm = do
-   let cDest = enumToCInt dest   
+sendBS :: (Enum tag) => BS.ByteString -> Rank -> tag -> Comm -> IO () 
+sendBS bs rank tag comm = do
+   let cRank = fromRank rank 
        cTag  = enumToCInt tag
        cCount = cIntConv $ BS.length bs
    unsafeUseAsCString bs $ \cString -> 
-       checkError $ Internal.send (castPtr cString) cCount byte cDest cTag comm
+       checkError $ Internal.send (castPtr cString) cCount byte cRank cTag comm
 
-recv :: (Serialize msg, Enum source, Enum tag) => source -> tag -> Comm -> IO (Status, msg)
-recv source tag comm = do
-   (status, bs) <- recvBS source tag comm
+recv :: (Serialize msg, Enum tag) => Rank -> tag -> Comm -> IO (Status, msg)
+recv rank tag comm = do
+   (status, bs) <- recvBS rank tag comm
    case decode bs of
       Left e -> fail e
       Right val -> return (status, val)
         
-recvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Status, BS.ByteString)
-recvBS source tag comm = do
-   probeStatus <- probe source tag comm
+recvBS :: (Enum tag) => Rank -> tag -> Comm -> IO (Status, BS.ByteString)
+recvBS rank tag comm = do
+   probeStatus <- probe rank tag comm
    let count = status_count probeStatus 
-       cSource = enumToCInt source
+       cSource = fromRank rank 
        cTag    = enumToCInt tag
        cCount  = cIntConv count
    allocaBytes count 
@@ -96,17 +118,17 @@ recvBS source tag comm = do
              message <- BS.packCStringLen (castPtr bufferPtr, count)  
              return (recvStatus, message))
 
-iSend :: (Serialize msg, Enum dest, Enum tag) => msg -> dest -> tag -> Comm -> IO Request 
+iSend :: (Serialize msg, Enum tag) => msg -> Rank -> tag -> Comm -> IO Request 
 iSend = iSendBS . encode
 
-iSendBS :: (Enum dest, Enum tag) => BS.ByteString -> dest -> tag -> Comm -> IO Request 
-iSendBS bs dest tag comm = do
-   let cDest = enumToCInt dest   
+iSendBS :: (Enum tag) => BS.ByteString -> Rank -> tag -> Comm -> IO Request 
+iSendBS bs rank tag comm = do
+   let cRank = fromRank rank 
        cTag  = enumToCInt tag
        cCount = cIntConv $ BS.length bs
    alloca $ \requestPtr -> 
       unsafeUseAsCString bs $ \cString -> do
-          checkError $ Internal.iSend (castPtr cString) cCount byte cDest cTag comm requestPtr
+          checkError $ Internal.iSend (castPtr cString) cCount byte cRank cTag comm requestPtr
           peek requestPtr 
 
 data Future a = 
@@ -126,15 +148,15 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 
-recvFuture :: (Serialize msg, Enum source, Enum tag) => source -> tag -> Comm -> IO (Future msg) 
-recvFuture source tag comm = do
+recvFuture :: (Serialize msg, Enum tag) => Rank -> tag -> Comm -> IO (Future msg) 
+recvFuture rank tag comm = do
    valRef <- newEmptyMVar  
    statusRef <- newEmptyMVar 
    -- is forkIO acceptable here? Depends on thread local stateness of MPI.
    -- threadId <- forkOS $ do
    threadId <- forkIO $ do
       -- do a synchronous recv in another thread
-      (status, msg) <- recv source tag comm
+      (status, msg) <- recv rank tag comm
       putMVar valRef msg
       putMVar statusRef status
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
