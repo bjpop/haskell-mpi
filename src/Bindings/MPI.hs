@@ -6,6 +6,7 @@ module Bindings.MPI
    ) where
 
 import C2HS
+import Control.Exception.Extensible (bracket)
 import Data.ByteString.Unsafe as BS
 import Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
@@ -63,21 +64,22 @@ recv source tag comm = do
       Left e -> fail e
       Right val -> return (status, val)
         
--- XXX should probably bracket here to free malloc'd memory on exceptions.
 recvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Status, ByteString)
 recvBS source tag comm = do
    probeStatus <- probe source tag comm
    let count = status_count probeStatus 
-   bufferPtr <- mallocBytes count 
    let cSource = enumToCInt source
        cTag    = enumToCInt tag
        cCount  = cIntConv count
-   alloca $ \ statusPtr -> do
-      checkError $ Internal.recv bufferPtr cCount byte cSource cTag comm (castPtr statusPtr)
-      recvStatus <- peek statusPtr
-      message <- packCStringLen (castPtr bufferPtr, count)  
-      free bufferPtr
-      return (recvStatus, message)
+   bracket 
+      (mallocBytes count)
+      free 
+      (\bufferPtr -> 
+          alloca $ \statusPtr -> do
+             checkError $ Internal.recv bufferPtr cCount byte cSource cTag comm $ castPtr statusPtr
+             recvStatus <- peek statusPtr
+             message <- packCStringLen (castPtr bufferPtr, count)  
+             return (recvStatus, message))
 
 iSend :: (Serialize msg, Enum dest, Enum tag) => msg -> dest -> tag -> Comm -> IO Request 
 iSend = iSendBS . encode
@@ -91,3 +93,36 @@ iSendBS bs dest tag comm = do
       unsafeUseAsCString bs $ \cString -> do
           checkError $ Internal.iSend (castPtr cString) cCount byte cDest cTag comm requestPtr
           peek requestPtr 
+
+iRecv :: (Serialize msg, Enum source, Enum tag) => source -> tag -> Comm -> IO (Request, msg)
+iRecv source tag comm = do
+   (request, bs) <- iRecvBS source tag comm
+   case decode bs of
+      Left e -> fail e
+      Right val -> return (request, val)
+        
+iRecvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Request, ByteString)
+iRecvBS source tag comm = do
+   probeStatus <- probe source tag comm
+   let count = status_count probeStatus
+   let cSource = enumToCInt source
+       cTag    = enumToCInt tag
+       cCount  = cIntConv count
+   bracket 
+      (mallocBytes count)
+      free
+      (\bufferPtr -> do 
+           alloca $ \requestPtr -> do
+              checkError $ Internal.iRecv bufferPtr cCount byte cSource cTag comm $ castPtr requestPtr
+              request <- peek requestPtr 
+              message <- packCStringLen (castPtr bufferPtr, count)  
+              return (request, message))
+{-
+   bufferPtr <- mallocBytes count
+   alloca $ \requestPtr  -> do
+      checkError $ Internal.iRecv bufferPtr cCount byte cSource cTag comm (castPtr requestPtr)
+      request <- peek requestPtr 
+      message <- packCStringLen (castPtr bufferPtr, count)  
+      free bufferPtr
+      return (request, message)
+-}
