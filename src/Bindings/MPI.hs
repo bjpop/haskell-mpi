@@ -1,14 +1,31 @@
 module Bindings.MPI 
-   ( module Bindings.MPI
-   , module Datatype 
+   ( module Datatype 
    , module Comm
    , module Status
+   , init
+   , finalize
+   , commSize
+   , commRank
+   , probe
+   , send
+   , sendBS
+   , recv
+   , recvBS
+   , iSend
+   , iSendBS
+   , Future
+   , cancelFuture
+   , pollFuture
+   , waitFuture
+   , recvFuture
    ) where
 
+import Prelude hiding (init)
 import C2HS
-import Control.Exception.Extensible (bracket)
+import Control.Concurrent (forkOS, forkIO, ThreadId, killThread)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, tryTakeMVar, readMVar, putMVar)
 import Data.ByteString.Unsafe as BS
-import Data.ByteString as BS
+import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
 import qualified Bindings.MPI.Internal as Internal 
 import Bindings.MPI.Datatype as Datatype
@@ -49,7 +66,7 @@ probe source tag comm = do
 send :: (Serialize msg, Enum dest, Enum tag) => msg -> dest -> tag -> Comm -> IO () 
 send = sendBS . encode
 
-sendBS :: (Enum dest, Enum tag) => ByteString -> dest -> tag -> Comm -> IO () 
+sendBS :: (Enum dest, Enum tag) => BS.ByteString -> dest -> tag -> Comm -> IO () 
 sendBS bs dest tag comm = do
    let cDest = enumToCInt dest   
        cTag  = enumToCInt tag
@@ -64,27 +81,25 @@ recv source tag comm = do
       Left e -> fail e
       Right val -> return (status, val)
         
-recvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Status, ByteString)
+recvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Status, BS.ByteString)
 recvBS source tag comm = do
    probeStatus <- probe source tag comm
    let count = status_count probeStatus 
-   let cSource = enumToCInt source
+       cSource = enumToCInt source
        cTag    = enumToCInt tag
        cCount  = cIntConv count
-   bracket 
-      (mallocBytes count)
-      free 
+   allocaBytes count 
       (\bufferPtr -> 
           alloca $ \statusPtr -> do
              checkError $ Internal.recv bufferPtr cCount byte cSource cTag comm $ castPtr statusPtr
              recvStatus <- peek statusPtr
-             message <- packCStringLen (castPtr bufferPtr, count)  
+             message <- BS.packCStringLen (castPtr bufferPtr, count)  
              return (recvStatus, message))
 
 iSend :: (Serialize msg, Enum dest, Enum tag) => msg -> dest -> tag -> Comm -> IO Request 
 iSend = iSendBS . encode
 
-iSendBS :: (Enum dest, Enum tag) => ByteString -> dest -> tag -> Comm -> IO Request 
+iSendBS :: (Enum dest, Enum tag) => BS.ByteString -> dest -> tag -> Comm -> IO Request 
 iSendBS bs dest tag comm = do
    let cDest = enumToCInt dest   
        cTag  = enumToCInt tag
@@ -94,35 +109,32 @@ iSendBS bs dest tag comm = do
           checkError $ Internal.iSend (castPtr cString) cCount byte cDest cTag comm requestPtr
           peek requestPtr 
 
-iRecv :: (Serialize msg, Enum source, Enum tag) => source -> tag -> Comm -> IO (Request, msg)
-iRecv source tag comm = do
-   (request, bs) <- iRecvBS source tag comm
-   case decode bs of
-      Left e -> fail e
-      Right val -> return (request, val)
-        
-iRecvBS :: (Enum source, Enum tag) => source -> tag -> Comm -> IO (Request, ByteString)
-iRecvBS source tag comm = do
-   probeStatus <- probe source tag comm
-   let count = status_count probeStatus
-   let cSource = enumToCInt source
-       cTag    = enumToCInt tag
-       cCount  = cIntConv count
-   bracket 
-      (mallocBytes count)
-      free
-      (\bufferPtr -> do 
-           alloca $ \requestPtr -> do
-              checkError $ Internal.iRecv bufferPtr cCount byte cSource cTag comm $ castPtr requestPtr
-              request <- peek requestPtr 
-              message <- packCStringLen (castPtr bufferPtr, count)  
-              return (request, message))
-{-
-   bufferPtr <- mallocBytes count
-   alloca $ \requestPtr  -> do
-      checkError $ Internal.iRecv bufferPtr cCount byte cSource cTag comm (castPtr requestPtr)
-      request <- peek requestPtr 
-      message <- packCStringLen (castPtr bufferPtr, count)  
-      free bufferPtr
-      return (request, message)
--}
+data Future a = 
+   Future 
+   { futureThread :: ThreadId
+   , futureStatus :: MVar Status
+   , futureVal :: MVar a
+   }
+
+waitFuture :: Future a -> IO a
+waitFuture = readMVar . futureVal
+
+pollFuture :: Future a -> IO (Maybe a)
+pollFuture = tryTakeMVar . futureVal 
+
+-- May want to stop people from waiting on Futures which are killed...
+cancelFuture :: Future a -> IO ()
+cancelFuture = killThread . futureThread
+
+recvFuture :: (Serialize msg, Enum source, Enum tag) => source -> tag -> Comm -> IO (Future msg) 
+recvFuture source tag comm = do
+   valRef <- newEmptyMVar  
+   statusRef <- newEmptyMVar 
+   -- is forkIO acceptable here? Depends on thread local stateness of MPI.
+   -- threadId <- forkOS $ do
+   threadId <- forkIO $ do
+      -- do a synchronous recv in another thread
+      (status, msg) <- recv source tag comm
+      putMVar valRef msg
+      putMVar statusRef status
+   return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
