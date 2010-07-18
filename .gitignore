@@ -5,3 +5,5 @@ dist/
 test/regression/programs/imaginary/PingPong
 test/regression/programs/imaginary/SendReceive
 test/regression/programs/imaginary/Greetings
+test/regression/programs/imaginary/SendReceiveBlock
+test/regression/programs/imaginary/SendReceiveFuture
