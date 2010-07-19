@@ -10,8 +10,8 @@ sender, receiver :: Rank
 sender = toRank Sender
 receiver = toRank Receiver
 
-data Tag = Tag
-   deriving Enum
+tag :: Tag
+tag = toTag ()
 
 type Msg = [Int] 
 
@@ -22,9 +22,9 @@ main :: IO ()
 main = mpi $ do 
    rank <- commRank commWorld
    when (rank == sender) $ do
-      send msg receiver Tag commWorld 
+      send msg receiver tag commWorld 
    when (rank == receiver) $ do
-      future <- recvFuture sender Tag commWorld
+      future <- recvFuture sender tag commWorld
       busyWork 1000
       result <- waitFuture future 
       print (length (result :: Msg))

@@ -3,8 +3,8 @@ module Main where
 import Control.Monad (when)
 import Bindings.MPI
 
-tag :: Int
-tag = 42
+tag :: Tag
+tag = toTag () 
 
 data Actor = Pinger | Ponger
    deriving (Show, Enum, Eq)

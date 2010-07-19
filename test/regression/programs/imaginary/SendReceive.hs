@@ -9,8 +9,8 @@ import Bindings.MPI
 data Actor = Sender | Receiver
    deriving (Enum, Eq)
 
-data Tag = Tag
-   deriving Enum
+tag :: Tag
+tag = toTag ()
 
 type Msg = (Bool, Int, String, [()])
 
@@ -27,7 +27,7 @@ main = mpi $ do
    when (size >= 2) $ do
       rank <- commRank commWorld
       when (rank == sender) $ do
-         send msg receiver Tag commWorld 
+         send msg receiver tag commWorld 
       when (rank == receiver) $ do
-         (_status, result) <- recv sender Tag commWorld
+         (_status, result) <- recv sender tag commWorld
          print (result :: Msg)
