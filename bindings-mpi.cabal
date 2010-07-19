@@ -39,7 +39,9 @@ Library
       Bindings.MPI.Comm,
       Bindings.MPI.Status,
       Bindings.MPI.ErrorClasses,
-      Bindings.MPI.Request
+      Bindings.MPI.Request,
+      Bindings.MPI.Tag,
+      Bindings.MPI.Rank
    other-modules:
       C2HS,
       Bindings.MPI.MarshalUtils,
