@@ -4,6 +4,8 @@ module Bindings.MPI
    ( module Datatype 
    , module Comm
    , module Status
+   , module Tag
+   , module Rank 
    , mpi 
    , init
    , finalize
@@ -21,10 +23,6 @@ module Bindings.MPI
    , pollFuture
    , waitFuture
    , recvFuture
-   , Rank
-   , toRank
-   , fromRank 
-   , rankId
    ) where
 
 import Prelude hiding (init)
@@ -39,23 +37,12 @@ import Bindings.MPI.Datatype as Datatype
 import Bindings.MPI.Comm as Comm
 import Bindings.MPI.Request as Request
 import Bindings.MPI.Status as Status 
-import Bindings.MPI.MarshalUtils (enumToCInt)
 import Bindings.MPI.Utils (checkError)
+import Bindings.MPI.Tag as Tag 
+import Bindings.MPI.Rank as Rank 
 
 mpi :: IO () -> IO ()
 mpi action = init >> action >> finalize
-
-newtype Rank = Rank { rankId :: Int }
-   deriving (Eq, Ord, Enum)
-
-instance Show Rank where
-   show = show . rankId
-
-toRank :: Enum a => a -> Rank
-toRank x = Rank { rankId = fromEnum x } 
-
-fromRank :: Enum a => Rank -> a
-fromRank = toEnum . rankId 
 
 init :: IO ()
 init = checkError Internal.init
@@ -77,38 +64,38 @@ commRank comm =
       rank <- peek ptr
       return $ toRank rank
 
-probe :: (Enum tag) => Rank -> tag -> Comm -> IO Status
+probe :: Rank -> Tag -> Comm -> IO Status
 probe rank tag comm = do
    let cSource = fromRank rank 
-       cTag    = enumToCInt tag
+       cTag    = fromTag tag
    alloca $ \statusPtr -> do
-      checkError $ Internal.probe cSource cTag comm (castPtr statusPtr)
+      checkError $ Internal.probe cSource cTag comm $ castPtr statusPtr
       peek statusPtr
 
-send :: (Serialize msg, Enum tag) => msg -> Rank -> tag -> Comm -> IO () 
+send :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO () 
 send = sendBS . encode
 
-sendBS :: (Enum tag) => BS.ByteString -> Rank -> tag -> Comm -> IO () 
+sendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO () 
 sendBS bs rank tag comm = do
    let cRank = fromRank rank 
-       cTag  = enumToCInt tag
+       cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
    unsafeUseAsCString bs $ \cString -> 
        checkError $ Internal.send (castPtr cString) cCount byte cRank cTag comm
 
-recv :: (Serialize msg, Enum tag) => Rank -> tag -> Comm -> IO (Status, msg)
+recv :: Serialize msg => Rank -> Tag -> Comm -> IO (Status, msg)
 recv rank tag comm = do
    (status, bs) <- recvBS rank tag comm
    case decode bs of
       Left e -> fail e
       Right val -> return (status, val)
         
-recvBS :: (Enum tag) => Rank -> tag -> Comm -> IO (Status, BS.ByteString)
+recvBS :: Rank -> Tag -> Comm -> IO (Status, BS.ByteString)
 recvBS rank tag comm = do
    probeStatus <- probe rank tag comm
    let count = status_count probeStatus 
        cSource = fromRank rank 
-       cTag    = enumToCInt tag
+       cTag    = fromTag tag
        cCount  = cIntConv count
    allocaBytes count 
       (\bufferPtr -> 
@@ -118,13 +105,13 @@ recvBS rank tag comm = do
              message <- BS.packCStringLen (castPtr bufferPtr, count)  
              return (recvStatus, message))
 
-iSend :: (Serialize msg, Enum tag) => msg -> Rank -> tag -> Comm -> IO Request 
+iSend :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO Request 
 iSend = iSendBS . encode
 
-iSendBS :: (Enum tag) => BS.ByteString -> Rank -> tag -> Comm -> IO Request 
+iSendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO Request 
 iSendBS bs rank tag comm = do
    let cRank = fromRank rank 
-       cTag  = enumToCInt tag
+       cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
    alloca $ \requestPtr -> 
       unsafeUseAsCString bs $ \cString -> do
@@ -148,7 +135,7 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 
-recvFuture :: (Serialize msg, Enum tag) => Rank -> tag -> Comm -> IO (Future msg) 
+recvFuture :: Serialize msg => Rank -> Tag -> Comm -> IO (Future msg) 
 recvFuture rank tag comm = do
    valRef <- newEmptyMVar  
    statusRef <- newEmptyMVar 
@@ -160,3 +147,12 @@ recvFuture rank tag comm = do
       putMVar valRef msg
       putMVar statusRef status
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
+
+{-
+bcast :: Serialize msg => msg -> Rank -> Comm -> IO msg
+bcast msg rootRank comm = do
+   myRank <- commRank comm
+   if myRank == rootRank
+      then
+      else 
+-}
