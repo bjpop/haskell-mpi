@@ -23,6 +23,7 @@ module Bindings.MPI
    , pollFuture
    , waitFuture
    , recvFuture
+   , bcast
    ) where
 
 import Prelude hiding (init)
@@ -148,11 +149,51 @@ recvFuture rank tag comm = do
       putMVar statusRef status
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
 
-{-
+{- Broadcast is tricky because the receiver doesn't know how much memory to allocate.
+   The C interface assumes the sender and receiver agree on the size in advance, but
+   this is not useful for the Haskell interface (where we want to send arbitrary sized
+   values) because the sender is the only process which has the actual data available
+   
+   The work around is for the sender to send two messages. The first says how much data
+   is coming. The second message sends the actual data. We rely on the two messages being
+   sent and received in this order. Conversely the receiver gets two messages. The first is
+   the size of memory to allocate and the second in the actual message.
+
+   The obvious downside of this approach is that it requires two broadcasts for one
+   payload. Communication costs can be expensive.
+
+   The idea for this scheme was inspired by the Ocaml bindings. Therefore there is
+   some precedent for doing it this way. 
+-}
+
 bcast :: Serialize msg => msg -> Rank -> Comm -> IO msg
 bcast msg rootRank comm = do
    myRank <- commRank comm
+   let cRank  = fromRank rootRank 
    if myRank == rootRank
-      then
-      else 
--}
+      then do 
+         let bs = encode msg
+             cCount = cIntConv $ BS.length bs 
+         -- broadcast the size of the message first
+         alloca $ \ptr -> do
+            poke ptr cCount 
+            let numberOfInts = 1::CInt
+            checkError $ Internal.bcast (castPtr ptr) numberOfInts int cRank comm
+         -- then broadcast the actual message
+         unsafeUseAsCString bs $ \cString -> do
+            checkError $ Internal.bcast (castPtr cString) cCount byte cRank comm
+         return msg
+      else do
+         -- receive the broadcast of the size
+         count <- alloca $ \ptr -> do
+            checkError $ Internal.bcast (castPtr ptr) 1 int cRank comm
+            peek ptr
+         -- receive the broadcast of the message
+         allocaBytes count $
+            \bufferPtr -> do
+               let cCount = cIntConv count
+               checkError $ Internal.bcast bufferPtr cCount byte cRank comm 
+               bs <- BS.packCStringLen (castPtr bufferPtr, count)  
+               case decode bs of
+                  Left e -> fail e
+                  Right val -> return val
