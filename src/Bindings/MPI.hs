@@ -24,6 +24,8 @@ module Bindings.MPI
    , waitFuture
    , recvFuture
    , bcast
+   , barrier
+   , wait
    ) where
 
 import Prelude hiding (init)
@@ -197,3 +199,12 @@ bcast msg rootRank comm = do
                case decode bs of
                   Left e -> fail e
                   Right val -> return val
+
+barrier :: Comm -> IO ()
+barrier comm = checkError $ Internal.barrier comm
+
+wait :: Request -> IO Status
+wait request = 
+   alloca $ \statusPtr -> do
+      checkError $ Internal.wait (castPtr request) (castPtr statusPtr)
+      peek statusPtr 

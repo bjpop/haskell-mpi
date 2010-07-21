@@ -5,7 +5,7 @@
 
 module Bindings.MPI.Internal 
    ( init, finalize, send, recv, commRank, probe, commSize,
-     iSend, iRecv, bcast
+     iSend, iRecv, bcast, barrier, wait
    ) where
 
 import Prelude hiding (init, error)
@@ -30,4 +30,6 @@ send = {# call unsafe Send as send_ #}
 recv = {# call unsafe Recv as recv_ #}
 iSend = {# call unsafe Isend as iSend_ #}
 iRecv = {# call Irecv as iRecv_ #}
-bcast = {# call Bcast as bcast_ #}
+bcast = {# call unsafe Bcast as bcast_ #}
+barrier = {# call unsafe Barrier as barrier_ #}
+wait = {# call unsafe Wait as wait_ #}
