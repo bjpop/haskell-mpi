@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-module Bindings.MPI.Request (Request) where
+module Control.Parallel.MPI.Request (Request) where
 
 import C2HS
 

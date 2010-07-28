@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-module Bindings.MPI.Datatype
+module Control.Parallel.MPI.Datatype
    (Datatype, int, byte) where
 
 import C2HS

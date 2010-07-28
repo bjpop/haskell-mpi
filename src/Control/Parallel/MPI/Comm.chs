@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-module Bindings.MPI.Comm (Comm, commWorld) where
+module Control.Parallel.MPI.Comm (Comm, commWorld) where
 
 import C2HS
 

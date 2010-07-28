@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Bindings.MPI 
+module Control.Parallel.MPI 
    ( module Datatype 
    , module Comm
    , module Status
@@ -35,14 +35,14 @@ import Control.Concurrent.MVar (MVar, newEmptyMVar, tryTakeMVar, readMVar, putMV
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
-import qualified Bindings.MPI.Internal as Internal 
-import Bindings.MPI.Datatype as Datatype
-import Bindings.MPI.Comm as Comm
-import Bindings.MPI.Request as Request
-import Bindings.MPI.Status as Status 
-import Bindings.MPI.Utils (checkError)
-import Bindings.MPI.Tag as Tag 
-import Bindings.MPI.Rank as Rank 
+import qualified Control.Parallel.MPI.Internal as Internal 
+import Control.Parallel.MPI.Datatype as Datatype
+import Control.Parallel.MPI.Comm as Comm
+import Control.Parallel.MPI.Request as Request
+import Control.Parallel.MPI.Status as Status 
+import Control.Parallel.MPI.Utils (checkError)
+import Control.Parallel.MPI.Tag as Tag 
+import Control.Parallel.MPI.Rank as Rank 
 
 mpi :: IO () -> IO ()
 mpi action = init >> action >> finalize

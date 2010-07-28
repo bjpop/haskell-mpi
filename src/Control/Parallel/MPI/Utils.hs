@@ -1,11 +1,11 @@
-module Bindings.MPI.Utils (checkError) where
+module Control.Parallel.MPI.Utils (checkError) where
 
 import Foreign.C.Types (CInt)
 import Control.Monad (unless)
 import Control.Applicative ((<$>))
 import Control.Exception.Extensible (throwIO)
-import Bindings.MPI.ErrorClasses (ErrorClass (Success))
-import Bindings.MPI.MarshalUtils (enumFromCInt)
+import Control.Parallel.MPI.ErrorClasses (ErrorClass (Success))
+import Control.Parallel.MPI.MarshalUtils (enumFromCInt)
 
 checkError :: IO CInt -> IO ()
 checkError comp = do

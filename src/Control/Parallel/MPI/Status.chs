@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-module Bindings.MPI.Status (Status (..), StatusPtr) where
+module Control.Parallel.MPI.Status (Status (..), StatusPtr) where
 
 import C2HS
 import Control.Monad (liftM)

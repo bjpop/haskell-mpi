@@ -2,7 +2,7 @@
 
 #include "error_classes.h"
 
-module Bindings.MPI.ErrorClasses (ErrorClass (..)) where
+module Control.Parallel.MPI.ErrorClasses (ErrorClass (..)) where
 
 -- import Control.Exception (Exception (..))
 import Control.Exception.Extensible

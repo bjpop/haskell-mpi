@@ -1,6 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
 
-module Bindings.MPI.Rank (Rank, rankId, toRank, fromRank, anySource) where
+module Control.Parallel.MPI.Rank (Rank, rankId, toRank, fromRank, anySource) where
 
 newtype Rank = Rank { rankId :: Int }
    deriving (Eq, Ord, Enum, Num)

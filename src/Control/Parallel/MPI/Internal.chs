@@ -3,7 +3,7 @@
 #include <mpi.h>
 #include "init_wrapper.h"
 
-module Bindings.MPI.Internal 
+module Control.Parallel.MPI.Internal 
    ( init, finalize, send, recv, commRank, probe, commSize,
      iSend, iRecv, bcast, barrier, wait
    ) where
@@ -11,13 +11,13 @@ module Bindings.MPI.Internal
 import Prelude hiding (init, error)
 import C2HS
 import Control.Applicative ((<$>))
-import Bindings.MPI.Comm (Comm)
-import Bindings.MPI.Request (Request)
-import Bindings.MPI.Status (Status, StatusPtr)
-import Bindings.MPI.MarshalUtils (enumToCInt)
-import Bindings.MPI.ErrorClasses (ErrorClass)
-import Bindings.MPI.MarshalUtils (enumFromCInt)
-import Bindings.MPI.Utils (checkError)
+import Control.Parallel.MPI.Comm (Comm)
+import Control.Parallel.MPI.Request (Request)
+import Control.Parallel.MPI.Status (Status, StatusPtr)
+import Control.Parallel.MPI.MarshalUtils (enumToCInt)
+import Control.Parallel.MPI.ErrorClasses (ErrorClass)
+import Control.Parallel.MPI.MarshalUtils (enumFromCInt)
+import Control.Parallel.MPI.Utils (checkError)
 
 {# context prefix = "MPI" #}
 

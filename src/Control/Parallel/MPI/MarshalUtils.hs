@@ -1,4 +1,4 @@
-module Bindings.MPI.MarshalUtils 
+module Control.Parallel.MPI.MarshalUtils 
    ( enumToCInt
    , enumFromCInt
    ) where

@@ -4,7 +4,7 @@
 module Main where
 
 import Control.Monad (when, forM_)
-import Bindings.MPI as MPI
+import Control.Parallel.MPI
 
 msg :: Rank -> String 
 msg r = "Greetings from process " ++ show r ++ "!"

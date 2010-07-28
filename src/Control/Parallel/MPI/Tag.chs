@@ -1,6 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
 
-module Bindings.MPI.Tag (Tag, toTag, fromTag, tagVal, anyTag) where
+module Control.Parallel.MPI.Tag (Tag, toTag, fromTag, tagVal, anyTag) where
 
 newtype Tag = Tag { tagVal :: Int }
    deriving (Eq, Ord, Enum, Num)

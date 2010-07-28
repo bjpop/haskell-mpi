@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Monad (when)
-import Bindings.MPI 
+import Control.Parallel.MPI 
 
 type Msg = (Bool, Int, String, [()])
 

@@ -3,7 +3,7 @@ module Main where
 import Prelude hiding (init)
 
 import Control.Monad (when)
-import Bindings.MPI 
+import Control.Parallel.MPI 
 
 data Actor = Sender | Receiver
    deriving (Enum, Eq)

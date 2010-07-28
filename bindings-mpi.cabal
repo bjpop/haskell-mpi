@@ -33,16 +33,16 @@ Library
       cereal,
       extensible-exceptions
    exposed-modules:
-      Bindings.MPI,
-      Bindings.MPI.Internal,
-      Bindings.MPI.Datatype,
-      Bindings.MPI.Comm,
-      Bindings.MPI.Status,
-      Bindings.MPI.ErrorClasses,
-      Bindings.MPI.Request,
-      Bindings.MPI.Tag,
-      Bindings.MPI.Rank
+      Control.Parallel.MPI,
+      Control.Parallel.MPI.Internal,
+      Control.Parallel.MPI.Datatype,
+      Control.Parallel.MPI.Comm,
+      Control.Parallel.MPI.Status,
+      Control.Parallel.MPI.ErrorClasses,
+      Control.Parallel.MPI.Request,
+      Control.Parallel.MPI.Tag,
+      Control.Parallel.MPI.Rank
    other-modules:
       C2HS,
-      Bindings.MPI.MarshalUtils,
-      Bindings.MPI.Utils
+      Control.Parallel.MPI.MarshalUtils,
+      Control.Parallel.MPI.Utils
