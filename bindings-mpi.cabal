@@ -31,7 +31,8 @@ Library
       haskell98,
       bytestring,
       cereal,
-      extensible-exceptions
+      extensible-exceptions,
+      array
    exposed-modules:
       Control.Parallel.MPI,
       Control.Parallel.MPI.Internal,
@@ -41,7 +42,8 @@ Library
       Control.Parallel.MPI.ErrorClasses,
       Control.Parallel.MPI.Request,
       Control.Parallel.MPI.Tag,
-      Control.Parallel.MPI.Rank
+      Control.Parallel.MPI.Rank,
+      Control.Parallel.MPI.Storable
    other-modules:
       C2HS,
       Control.Parallel.MPI.MarshalUtils,
