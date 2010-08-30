@@ -9,7 +9,7 @@ license-file:        LICENSE
 copyright:           (c) 2010 Bernard James Pope
 author:              Bernard James Pope (Bernie Pope)
 maintainer:          florbitous@gmail.com 
-homepage:            http://wiki.github.com/bjpop/berp/  
+homepage:            http://github.com/bjpop/bindings-mpi
 build-type:          Simple
 stability:           experimental
 tested-with:         GHC==6.10.4 
