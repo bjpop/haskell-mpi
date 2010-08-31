@@ -44,6 +44,8 @@ import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag 
 import Control.Parallel.MPI.Rank as Rank 
 
+#include <mpi.h>
+
 mpi :: IO () -> IO ()
 mpi action = init >> action >> finalize
 
@@ -204,7 +206,16 @@ barrier :: Comm -> IO ()
 barrier comm = checkError $ Internal.barrier comm
 
 wait :: Request -> IO Status
+#ifdef MPICH2
+wait request = 
+   alloca $ \statusPtr -> 
+     alloca $ \reqPtr -> do
+       poke reqPtr request
+       checkError $ Internal.wait reqPtr (castPtr statusPtr)
+       peek statusPtr
+#else
 wait request = 
    alloca $ \statusPtr -> do
       checkError $ Internal.wait (castPtr request) (castPtr statusPtr)
       peek statusPtr 
+#endif
