@@ -33,7 +33,7 @@ instance Storable Status where
     <*> liftM cIntConv ({#get MPI_Status->_cancelled #} p)
   poke p x = do
     {#set MPI_Status.MPI_SOURCE #} p (cIntConv $ status_source x)
-    {#set MPI_Status.MPI_SOURCE #} p (cIntConv $ status_tag x)
+    {#set MPI_Status.MPI_TAG #} p (cIntConv $ status_tag x)
     {#set MPI_Status.MPI_ERROR #} p (cIntConv $ status_error x)
     {#set MPI_Status._count #} p (cIntConv $ status_count x)
     {#set MPI_Status._cancelled #} p (cIntConv $ status_cancelled x)
