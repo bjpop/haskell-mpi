@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Monad (when)
-import Control.Parallel.MPI 
+import Control.Parallel.MPI.Serializable
 
 type Msg = (Bool, Int, String, [()])
 

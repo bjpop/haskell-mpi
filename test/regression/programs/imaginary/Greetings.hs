@@ -4,7 +4,7 @@
 module Main where
 
 import Control.Monad (when, forM_)
-import Control.Parallel.MPI
+import Control.Parallel.MPI.Serializable
 
 msg :: Rank -> String 
 msg r = "Greetings from process " ++ show r ++ "!"

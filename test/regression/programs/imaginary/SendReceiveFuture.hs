@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Monad (when)
-import Control.Parallel.MPI 
+import Control.Parallel.MPI.Serializable
 
 data Actor = Sender | Receiver
    deriving (Enum, Eq)

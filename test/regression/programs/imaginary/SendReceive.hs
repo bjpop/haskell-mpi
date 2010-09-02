@@ -4,7 +4,8 @@
 module Main where
 
 import Control.Monad (when)
-import Control.Parallel.MPI 
+import Control.Parallel.MPI.Serializable
+import Control.Concurrent
 
 data Actor = Sender | Receiver
    deriving (Enum, Eq)
@@ -30,4 +31,5 @@ main = mpi $ do
          send msg receiver tag commWorld 
       when (rank == receiver) $ do
          (_status, result) <- recv sender tag commWorld
+         threadDelay (10*10^6)
          print (result :: Msg)
