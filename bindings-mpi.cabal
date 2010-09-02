@@ -12,7 +12,7 @@ maintainer:          florbitous@gmail.com
 homepage:            http://github.com/bjpop/bindings-mpi
 build-type:          Simple
 stability:           experimental
-tested-with:         GHC==6.10.4
+tested-with:         GHC==6.10.4, GHC==6.12.1
 extra-source-files:  src/cbits, src/include
 
 Library
