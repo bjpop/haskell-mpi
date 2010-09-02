@@ -15,6 +15,10 @@ stability:           experimental
 tested-with:         GHC==6.10.4, GHC==6.12.1
 extra-source-files:  src/cbits, src/include
 
+flag test
+  description: Build testsuite and code coverage tests
+  default: False
+
 Library
    extra-libraries:  mpi
    build-tools:      c2hs
@@ -48,3 +52,36 @@ Library
       C2HS,
       Control.Parallel.MPI.MarshalUtils,
       Control.Parallel.MPI.Utils
+
+executable  bindings-mpi-testsuite
+  hs-source-dirs:
+    ./test
+    ./src
+  build-tools:      c2hs
+  extra-libraries:  mpi
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
+  c-sources:
+    src/cbits/init_wrapper.c,
+    src/cbits/constants.c
+  include-dirs:
+    src/include
+  other-modules:
+    Control.Parallel.MPI.Internal,
+    Control.Parallel.MPI.Datatype,
+    Control.Parallel.MPI.Comm,
+    Control.Parallel.MPI.Status,
+    Control.Parallel.MPI.ErrorClasses,
+    Control.Parallel.MPI.Request,
+    Control.Parallel.MPI.Tag,
+    Control.Parallel.MPI.Rank,
+    Control.Parallel.MPI.StorableArray,
+    Control.Parallel.MPI.Serializable
+    C2HS,
+    Control.Parallel.MPI.MarshalUtils,
+    Control.Parallel.MPI.Utils
+  main-is:       Testsuite.hs
+  if flag(test)
+    ghc-options: -fhpc
+    build-depends: base >=3 && <=5, HUnit, test-framework, test-framework-hunit
+  else
+    buildable: False
