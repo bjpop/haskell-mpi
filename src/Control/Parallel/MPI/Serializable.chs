@@ -210,16 +210,10 @@ barrier :: Comm -> IO ()
 barrier comm = checkError $ Internal.barrier comm
 
 wait :: Request -> IO Status
-#ifdef MPICH2
 wait request =
    alloca $ \statusPtr ->
      alloca $ \reqPtr -> do
+       s <- peek statusPtr
        poke reqPtr request
        checkError $ Internal.wait reqPtr (castPtr statusPtr)
        peek statusPtr
-#else
-wait request =
-   alloca $ \statusPtr -> do
-      checkError $ Internal.wait (castPtr request) (castPtr statusPtr)
-      peek statusPtr
-#endif
