@@ -45,8 +45,6 @@ import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 
-#include <mpi.h>
-
 mpi :: IO () -> IO ()
 mpi action = init >> action >> finalize
 
