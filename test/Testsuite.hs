@@ -25,8 +25,8 @@ tests rank =
   , mpiTestCase rank "Sending (sync)"  "Receiving (sync)"    "simple message (with one process blocking)" syncSendRecvBlock
   , mpiTestCase rank "Sending (sync)"  "Receiving (futures)" "simple message" syncSendRecvFuture
   , mpiTestCase rank "Sending (async)" "Receiving (sync)"    "simple message" asyncSendRecv
-  -- blocks in wait , mpiTestCase rank "Sending (async)" "Receiving (sync)"    "two messages"   asyncSendRecv2
-  -- blocks in wait , mpiTestCase rank "Sending (async)" "Receiving (futures)" "two messages, out of order" asyncSendRecv2OOO
+  , mpiTestCase rank "Sending (async)" "Receiving (sync)"    "two messages"   asyncSendRecv2
+  , mpiTestCase rank "Sending (async)" "Receiving (futures)" "two messages, out of order" asyncSendRecv2OOO
   ]
 
 syncSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv, asyncSendRecv2, asyncSendRecv2OOO :: Rank -> IO ()
