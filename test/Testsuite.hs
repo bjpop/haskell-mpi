@@ -2,10 +2,12 @@ module Main where
 import Test.Framework (defaultMain, testGroup, Test)
 import Test.Framework.Providers.HUnit (testCase)
 
-import Test.HUnit ((@?))
+import Test.HUnit ((@?),(@?=))
 
 import Control.Parallel.MPI.Serializable
 import Control.Concurrent (threadDelay)
+import Foreign.Storable (peek, poke)
+import Foreign.Marshal (alloca)
 
 main :: IO ()
 main = mpi $ do
@@ -18,16 +20,23 @@ main = mpi $ do
 
 tests :: Rank -> [Test]
 tests rank = 
-  [ mpiTestCase rank "Sending (sync)"  "Receiving (sync)"    "simple message" syncSendRecv
+  [ testCase "Peek/poke of status works" $ statusPeekPoke
+  , mpiTestCase rank "Sending (sync)"  "Receiving (sync)"    "simple message + peeking Status" syncSendRecv
   , mpiTestCase rank "Sending (sync)"  "Receiving (sync)"    "simple message (with one process blocking)" syncSendRecvBlock
   , mpiTestCase rank "Sending (sync)"  "Receiving (futures)" "simple message" syncSendRecvFuture
-  -- blocks in wait , mpiTestCase rank "Sending (async)" "Receiving (sync)"    "simple message" asyncSendRecv
+  , mpiTestCase rank "Sending (async)" "Receiving (sync)"    "simple message" asyncSendRecv
   -- blocks in wait , mpiTestCase rank "Sending (async)" "Receiving (sync)"    "two messages"   asyncSendRecv2
   -- blocks in wait , mpiTestCase rank "Sending (async)" "Receiving (futures)" "two messages, out of order" asyncSendRecv2OOO
   ]
 
 syncSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv, asyncSendRecv2, asyncSendRecv2OOO :: Rank -> IO ()
 
+statusPeekPoke = do
+  alloca $ \statusPtr -> do
+    let s0 = Status 1 2 3 maxBound 5
+    poke statusPtr s0
+    s1 <- peek statusPtr
+    s0 == s1 @? ("Poked " ++ show s0 ++ ", but peeked " ++ show s1)
 
 type SmallMsg = (Bool, Int, String, [()])
 smallMsg :: SmallMsg 
@@ -36,15 +45,17 @@ smallMsg = (True, 12, "fred", [(), (), ()])
 syncSendRecv rank 
   | rank == sender   = do send smallMsg receiver tag0 commWorld
   | rank == receiver = do (_status, result) <- recv sender tag0 commWorld
-                          result == smallMsg @? "Got garbled result"
+                          checkStatus _status 0 0
+                          result == smallMsg @? "Got garbled result " ++ show result
   | otherwise        = return () -- idling
 
 type BigMsg = [Int]
 bigMsg :: BigMsg
-bigMsg = [1..50000]
+bigMsg = [0..50000]
 syncSendRecvBlock rank 
   | rank == sender   = do send bigMsg receiver tag1 commWorld
   | rank == receiver = do (_status, result) <- recv sender tag1 commWorld
+                          checkStatus _status 0 1
                           threadDelay (2*10^6)
                           length (result::BigMsg) == length bigMsg @? "Got garbled result"
   | otherwise        = return () -- idling
@@ -54,28 +65,33 @@ syncSendRecvFuture rank
   | rank == receiver = do future <- recvFuture sender tag2 commWorld
                           threadDelay (2*10^6)
                           result <- waitFuture future
+                          _status <- getFutureStatus future
+                          checkStatus _status 0 2
                           length (result::BigMsg) == length bigMsg @? "Got garbled result"
   | otherwise        = return () -- idling
 
 asyncSendRecv rank 
   | rank == sender   = do req <- iSend bigMsg receiver tag3 commWorld
-                          putStrLn "After iSend"
-                          stat <- wait req
-                          putStrLn "Got status"
-                          status_error stat == 0 @? "Errors while sending"
+                          _status <- wait req
+                          checkStatus _status 0 3
   | rank == receiver = do (_status, result) <- recv sender tag3 commWorld
-                          length (result::BigMsg) == length bigMsg @? "Got garbled result"
+                          checkStatus _status 0 3
+                          length (result::BigMsg) == length bigMsg @? "Got garbled result " ++ show (length result)
   | otherwise        = return () -- idling
 
 asyncSendRecv2 rank 
   | rank == sender   = do req1 <- iSend smallMsg receiver tag0 commWorld
                           req2 <- iSend bigMsg receiver tag1 commWorld
                           stat1 <- wait req1
+                          checkStatus stat1 0 0
                           status_error stat1 == 0 @? "Errors while sending (stat1)"
                           stat2 <- wait req2
+                          checkStatus stat2 0 1
                           status_error stat2 == 0 @? "Errors while sending (stat2)"
-  | rank == receiver = do (_status1, result1) <- recv sender tag0 commWorld
-                          (_status2, result2) <- recv sender tag3 commWorld
+  | rank == receiver = do (stat1, result1) <- recv sender tag0 commWorld
+                          checkStatus stat1 0 0
+                          (stat2, result2) <- recv sender tag3 commWorld
+                          checkStatus stat2 0 1
                           (length (result2::BigMsg) == length bigMsg) && (result1 == smallMsg) @? "Got garbled result"
   | otherwise        = return () -- idling
 
@@ -83,13 +99,19 @@ asyncSendRecv2OOO rank
   | rank == sender   = do req1 <- iSend smallMsg receiver tag0 commWorld
                           req2 <- iSend bigMsg receiver tag1 commWorld
                           stat1 <- wait req1
+                          checkStatus stat1 0 0
                           status_error stat1 == 0 @? "Errors while sending (stat1)"
                           stat2 <- wait req2
+                          checkStatus stat2 0 1
                           status_error stat2 == 0 @? "Errors while sending (stat2)"
   | rank == receiver = do future2 <- recvFuture sender tag1 commWorld
                           future1 <- recvFuture sender tag0 commWorld
                           result2 <- waitFuture future2
                           result1 <- waitFuture future1
+                          stat1 <- getFutureStatus future1
+                          stat2 <- getFutureStatus future2
+                          checkStatus stat1 0 0
+                          checkStatus stat2 0 1
                           (length (result2::BigMsg) == length bigMsg) && (result1 == smallMsg) @? "Got garbled result"
   | otherwise        = return () -- idling
 
@@ -120,3 +142,11 @@ tag0 = toTag (0 :: Int)
 tag1 = toTag (1 :: Int)
 tag2 = toTag (2 :: Int)
 tag3 = toTag (3 :: Int)
+
+checkStatus :: Status -> Int -> Int -> IO ()
+checkStatus _status s t = do
+  status_source _status    == s @? "Wrong source in status: expected " ++ show s ++ ", but got " ++ show (status_source _status)
+  status_tag _status       == t @? "Wrong tag in status: expected " ++ show t ++ ", but got " ++ show (status_tag  _status)
+  status_cancelled _status == 0 @? "Status says cancelled: " ++ show (status_cancelled _status)
+  status_error _status     == 0 @? "Non-zero error code: " ++ show (status_error _status)
+  
