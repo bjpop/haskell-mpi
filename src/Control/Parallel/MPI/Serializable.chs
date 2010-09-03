@@ -22,6 +22,7 @@ module Control.Parallel.MPI.Serializable
    , cancelFuture
    , pollFuture
    , waitFuture
+   , getFutureStatus
    , recvFuture
    , bcast
    , barrier
@@ -132,6 +133,9 @@ data Future a =
 
 waitFuture :: Future a -> IO a
 waitFuture = readMVar . futureVal
+
+getFutureStatus :: Future a -> IO Status
+getFutureStatus = readMVar . futureStatus
 
 pollFuture :: Future a -> IO (Maybe a)
 pollFuture = tryTakeMVar . futureVal
