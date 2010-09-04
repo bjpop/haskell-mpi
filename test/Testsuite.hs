@@ -5,6 +5,7 @@ import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@?),(@?=))
 
 import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Common
 import Control.Concurrent (threadDelay)
 import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
