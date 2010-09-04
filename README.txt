@@ -10,10 +10,15 @@ Make sure that you have libmpi.a and libmpi.so available.
 How to Build Testsuite
 ----------------------
 
-Add "-ftest" to configure flags. Binary "bindings-mpi-testsuite" will be built.
+Add "-ftest" to configure flags, like so:
+
+   cabal -ftest configure
+
+and executable "bindings-mpi-testsuite" will be built.
+
 Run it with "mpirun" like this:
 
-  run --output-filename out -np 2 bindings-mpi-testsuite --plain
+  mpirun --output-filename out -np 2 bindings-mpi-testsuite --plain
 
 Output from each process rank will be found in "out.<rank>"
 
