@@ -1,4 +1,4 @@
-Bindings-MPI, Haskell bindings to the MPI library 
+Bindings-MPI, Haskell bindings to the MPI library
 ------------------------------------------------
 
 How to Build
@@ -13,7 +13,7 @@ How to Build Testsuite
 Add "-ftest" to configure flags. Binary "bindings-mpi-testsuite" will be built.
 Run it with "mpirun" like this:
 
-  run --output-filename out -np 2 bindings-mpi-testsuite --plain 
+  run --output-filename out -np 2 bindings-mpi-testsuite --plain
 
 Output from each process rank will be found in "out.<rank>"
 
@@ -32,3 +32,35 @@ Email Bernie Pope:
 
    florbitous <at> gmail <dot> com
 
+History
+-------
+
+Around the year 2000 Michael Weber released hMPI, a Haskell binding to MPI:
+
+   http://www.foldr.org/~michaelw/hmpi/
+
+Development on that code appears to have stopped in about the year 2001.
+Hal Daumé III picked up the code and got it working with (at the time)
+a more recent version of GHC:
+
+   http://www.umiacs.umd.edu/~hal/software.html
+
+In February 2010 both Michael and Hal reported that they had not worked on
+the code for a long time, so it was open for new maintainership.
+
+In early 2010 Bernie Pope downloaded the abovementioned versions of
+hMPI and tried to get them working with a modern GHC.
+
+A few things had changed in Haskell since hMPI was written, which suggested
+that it might be worth starting the binding from scratch. In particular
+the FFI had changed in a few ways, the C2HS tool had matured substantially,
+and good quality serialization libraries had emerged. So while bindings-mpi
+is highly inspired by hMPI (which was very good code),
+it is almost entirely a rewrite.
+
+bindings-mpi got its main injection of effort during the inaugural AusHac
+Australian Haskell Hackathon, hosted at UNSW from the 16th to the 18th of
+July 2010. The end result was a proof of concept.
+
+The next major injection of effort happened when Dmitry Astapov started
+contributing to the project in August 2010.
