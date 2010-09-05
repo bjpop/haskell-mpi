@@ -4,7 +4,7 @@
 #include "init_wrapper.h"
 
 module Control.Parallel.MPI.Internal 
-   ( init, finalize, send, recv, commRank, probe, commSize,
+   ( init, initThread, finalize, send, recv, commRank, probe, commSize,
      iSend, iRecv, bcast, barrier, wait
    ) where
 
@@ -22,6 +22,7 @@ import Control.Parallel.MPI.Utils (checkError)
 {# context prefix = "MPI" #}
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
+initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
 finalize = {# call unsafe Finalize as finalize_ #}
 commSize = {# call unsafe Comm_size as commSize_ #}
 commRank = {# call unsafe Comm_rank as commRank_ #}

@@ -6,8 +6,10 @@ module Control.Parallel.MPI.Serializable
    , module Status
    , module Tag
    , module Rank
+   , module ThreadSupport
    , mpi
    , init
+   , initThread
    , finalize
    , commSize
    , commRank
@@ -44,12 +46,21 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
+import Control.Parallel.MPI.ThreadSupport as ThreadSupport
+import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
 
 mpi :: IO () -> IO ()
 mpi action = init >> action >> finalize
 
 init :: IO ()
 init = checkError Internal.init
+
+initThread :: ThreadSupport -> IO ThreadSupport
+initThread required = 
+  alloca $ \providedPtr -> do
+    checkError (Internal.initThread (enumToCInt required) (castPtr providedPtr))
+    provided <- peek providedPtr
+    return (enumFromCInt provided)
 
 finalize :: IO ()
 finalize = checkError Internal.finalize
