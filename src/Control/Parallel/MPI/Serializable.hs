@@ -1,20 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Control.Parallel.MPI.Serializable
-   ( module Datatype
-   , module Comm
-   , module Status
-   , module Tag
-   , module Rank
-   , module ThreadSupport
-   , mpi
-   , init
-   , initThread
-   , finalize
-   , commSize
-   , commRank
-   , probe
-   , send
+   ( send
    , sendBS
    , recv
    , recvBS
@@ -27,18 +12,15 @@ module Control.Parallel.MPI.Serializable
    , getFutureStatus
    , recvFuture
    , bcast
-   , barrier
-   , wait
    ) where
 
-import Prelude hiding (init)
 import C2HS
 import Control.Concurrent (forkOS, forkIO, ThreadId, killThread)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, tryTakeMVar, readMVar, putMVar)
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
-import qualified Control.Parallel.MPI.Internal as Internal 
+import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
 import Control.Parallel.MPI.Request as Request
@@ -46,46 +28,7 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
-import Control.Parallel.MPI.ThreadSupport as ThreadSupport
-import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
-
-mpi :: IO () -> IO ()
-mpi action = init >> action >> finalize
-
-init :: IO ()
-init = checkError Internal.init
-
-initThread :: ThreadSupport -> IO ThreadSupport
-initThread required = 
-  alloca $ \providedPtr -> do
-    checkError (Internal.initThread (enumToCInt required) (castPtr providedPtr))
-    provided <- peek providedPtr
-    return (enumFromCInt provided)
-
-finalize :: IO ()
-finalize = checkError Internal.finalize
-
-commSize :: Comm -> IO Int
-commSize comm = do
-   alloca $ \ptr -> do
-      checkError $ Internal.commSize comm ptr
-      size <- peek ptr
-      return $ cIntConv size
-
-commRank :: Comm -> IO Rank
-commRank comm =
-   alloca $ \ptr -> do
-      checkError $ Internal.commRank comm ptr
-      rank <- peek ptr
-      return $ toRank rank
-
-probe :: Rank -> Tag -> Comm -> IO Status
-probe rank tag comm = do
-   let cSource = fromRank rank
-       cTag    = fromTag tag
-   alloca $ \statusPtr -> do
-      checkError $ Internal.probe cSource cTag comm $ castPtr statusPtr
-      peek statusPtr
+import Control.Parallel.MPI.Common (probe, commRank)
 
 send :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO ()
 send = sendBS . encode
@@ -209,20 +152,8 @@ bcast msg rootRank comm = do
          allocaBytes count $
             \bufferPtr -> do
                let cCount = cIntConv count
-               checkError $ Internal.bcast bufferPtr cCount byte cRank comm 
-               bs <- BS.packCStringLen (castPtr bufferPtr, count)  
+               checkError $ Internal.bcast bufferPtr cCount byte cRank comm
+               bs <- BS.packCStringLen (castPtr bufferPtr, count)
                case decode bs of
                   Left e -> fail e
                   Right val -> return val
-
-barrier :: Comm -> IO ()
-barrier comm = checkError $ Internal.barrier comm
-
-wait :: Request -> IO Status
-wait request =
-   alloca $ \statusPtr ->
-     alloca $ \reqPtr -> do
-       s <- peek statusPtr
-       poke reqPtr request
-       checkError $ Internal.wait reqPtr (castPtr statusPtr)
-       peek statusPtr

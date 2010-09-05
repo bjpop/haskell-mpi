@@ -2,9 +2,10 @@ module Main where
 
 import Control.Monad (when)
 import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Common
 
 tag :: Tag
-tag = toTag () 
+tag = toTag ()
 
 data Actor = Pinger | Ponger
    deriving (Show, Enum, Eq)
@@ -15,7 +16,7 @@ ponger = toRank Ponger
 
 type Msg = Maybe Int
 
-msg :: Msg 
+msg :: Msg
 msg = Just 0
 
 main :: IO ()
@@ -33,12 +34,12 @@ counterpart Ponger = Pinger
 act :: Actor -> IO ()
 act actor = do
    let other = toRank $ counterpart actor
-   (_status, msg) <- recv other tag commWorld 
-   maybe 
+   (_status, msg) <- recv other tag commWorld
+   maybe
       (return ())
-      (\i -> if (i <= 1000) 
+      (\i -> if (i <= 1000)
                 then do putStrLn $ show actor ++ " " ++ show (i::Int)
                         send ((Just (i+1)) :: Msg) other tag commWorld
-                        act actor 
+                        act actor
                 else send (Nothing :: Msg) other tag commWorld)
       msg

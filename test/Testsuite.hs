@@ -5,6 +5,7 @@ import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@?),(@?=))
 
 import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Common
 import Control.Concurrent (threadDelay)
 import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
@@ -149,4 +150,3 @@ checkStatus _status s t = do
   status_tag _status       == t @? "Wrong tag in status: expected " ++ show t ++ ", but got " ++ show (status_tag  _status)
   status_cancelled _status == 0 @? "Status says cancelled: " ++ show (status_cancelled _status)
   status_error _status     == 0 @? "Non-zero error code: " ++ show (status_error _status)
-  

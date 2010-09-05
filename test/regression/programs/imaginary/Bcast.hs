@@ -2,10 +2,11 @@ module Main where
 
 import Control.Monad (when)
 import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Common
 
 type Msg = (Bool, Int, String, [()])
 
-msg :: Msg 
+msg :: Msg
 msg = (True, 12, "fred", [(), (), ()])
 
 root :: Rank
@@ -15,4 +16,4 @@ main :: IO ()
 main = mpi $ do
    newMsg <- bcast msg root commWorld
    rank <- commRank commWorld
-   putStrLn $ "rank = " ++ show rank ++ " msg = " ++ show newMsg 
+   putStrLn $ "rank = " ++ show rank ++ " msg = " ++ show newMsg

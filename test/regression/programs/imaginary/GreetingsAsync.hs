@@ -5,8 +5,9 @@ module Main where
 
 import Control.Monad (when, forM)
 import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Common
 
-msg :: Rank -> String 
+msg :: Rank -> String
 msg r = "Greetings from process " ++ show r ++ "!"
 
 comm :: Comm
@@ -20,15 +21,14 @@ tag = toTag ()
 
 main :: IO ()
 main = mpi $ do
-   rank <- commRank comm 
-   size <- commSize comm 
-   if (rank /= root) 
-      then send (msg rank) root tag comm 
-      else do 
-         futures <- forM [1..size-1] $ \sender -> 
-            recvFuture (toRank sender) tag comm 
-         mapM_ printFuture futures 
+   rank <- commRank comm
+   size <- commSize comm
+   if (rank /= root)
+      then send (msg rank) root tag comm
+      else do
+         futures <- forM [1..size-1] $ \sender ->
+            recvFuture (toRank sender) tag comm
+         mapM_ printFuture futures
     where
     printFuture :: Future String -> IO ()
     printFuture future = putStrLn =<< waitFuture future
-            
