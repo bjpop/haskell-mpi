@@ -28,7 +28,7 @@ License and Copyright
 Bindings-MPI is distributed as open source software under the terms of the BSD 
 License (see the file LICENSE in the top directory).
 
-Author: Bernie Pope, copyright 2010.
+Author(s): Bernie Pope, Dmitry Astapov. Copyright 2010.
 
 Contact information
 -------------------
@@ -51,9 +51,9 @@ a more recent version of GHC:
    http://www.umiacs.umd.edu/~hal/software.html
 
 In February 2010 both Michael and Hal reported that they had not worked on
-the code for a long time, so it was open for new maintainership.
+the code for a long time, so it was open for new maintainers.
 
-In early 2010 Bernie Pope downloaded the abovementioned versions of
+In early 2010 Bernie Pope downloaded the above mentioned versions of
 hMPI and tried to get them working with a modern GHC.
 
 A few things had changed in Haskell since hMPI was written, which suggested
@@ -63,9 +63,9 @@ and good quality serialization libraries had emerged. So while bindings-mpi
 is highly inspired by hMPI (which was very good code),
 it is almost entirely a rewrite.
 
-bindings-mpi got its main injection of effort during the inaugural AusHac
-Australian Haskell Hackathon, hosted at UNSW from the 16th to the 18th of
-July 2010. The end result was a proof of concept.
+bindings-mpi got its first main injection of effort during the inaugural
+AusHac Australian Haskell Hackathon, hosted at UNSW from the 16th to the
+18th of July 2010. The end result was a proof of concept.
 
 The next major injection of effort happened when Dmitry Astapov started
 contributing to the project in August 2010.
