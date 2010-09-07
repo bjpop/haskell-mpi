@@ -38,3 +38,21 @@ other file handle via dup2(2). However, there are several downsides:
 Nevertheless, I decided to stick to hDuplicateTo and ditch
 TestFramework in favor of TestRunner, since it allows for consistent
 experience across MPI implementations.
+
+Code coverage analysis
+----------------------
+It's very nice to have code coverage report for testsuite to make sure
+that no major piece of code is left untested. However, current
+profiling mechanism does not play well with MPI: when mpirun starts
+two processes (on the single node), they both try to run to the same
+.tix file at once. Mayhem ensues.
+
+In order to fix this, Testsuite.hs has been made to depend on hpc
+package, and after all tests has been run, HPC API is instructed to
+write tix data to files rank<n>.tix.
+
+Command line tool "hpc" could then be used to combine those into
+single .tix file, which could be used to produce code coverage report.
+Simple script "bin/coverage.sh" does all this automatically. Note:
+script should be run from the toplevel project dir (where
+bindings-mpi.cabal is residing).
