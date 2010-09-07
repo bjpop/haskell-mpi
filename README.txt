@@ -18,9 +18,10 @@ and executable "bindings-mpi-testsuite" will be built.
 
 Run it with "mpirun" like this:
 
-  mpirun --output-filename out -np 2 bindings-mpi-testsuite --plain
+  mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log
 
-Output from each process rank will be found in "out.<rank>"
+Process with rank 0 emits the output to stdout, and every other rank reports
+to the stderr.
 
 License and Copyright
 ---------------------
