@@ -3,6 +3,7 @@
 module Control.Parallel.MPI.StorableArray
    ( send
    , recv
+   , bcast
    ) where
 
 import C2HS
@@ -14,6 +15,7 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
+import Control.Parallel.MPI.Common (commRank)
 
 send :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO ()
 send array rank tag comm = do
@@ -28,15 +30,30 @@ send array rank tag comm = do
 
 recv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (Status, StorableArray Int e)
 recv numElements rank tag comm = do
-   let cSource = fromRank rank
+   let cRank = fromRank rank
        cTag = fromTag tag
        elementSize = sizeOf (undefined :: e)
-       numBytes = cIntConv (numElements * elementSize)
-       cBytes = cIntConv numBytes
+       cBytes = cIntConv (numElements * elementSize)
    foreignPtr <- mallocForeignPtrArray numElements
    withForeignPtr foreignPtr $ \arrayPtr ->
       alloca $ \statusPtr -> do
-         checkError $ Internal.recv (castPtr arrayPtr) cBytes byte cSource cTag comm (castPtr statusPtr)
+         checkError $ Internal.recv (castPtr arrayPtr) cBytes byte cRank cTag comm (castPtr statusPtr)
          recvStatus <- peek statusPtr
          storableArray <- unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
          return (recvStatus, storableArray)
+
+bcast :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Comm -> IO (StorableArray Int e)
+bcast array numElements sendRank comm = do
+   myRank <- commRank comm
+   let cRank = fromRank sendRank
+       elementSize = sizeOf (undefined :: e)
+       cBytes = cIntConv (numElements * elementSize)
+   if myRank == sendRank
+      then withStorableArray array $ \arrayPtr -> do
+              checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
+              return array
+      else do
+         foreignPtr <- mallocForeignPtrArray numElements
+         withForeignPtr foreignPtr $ \arrayPtr -> do
+            checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
+            unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
