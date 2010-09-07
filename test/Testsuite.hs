@@ -17,6 +17,9 @@ import System.IO (stdout, stderr)
 import Data.Array (rangeSize)
 import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds)
 
+import Trace.Hpc.Tix
+import Trace.Hpc.Reflect
+
 main :: IO ()
 main = do
   provided <- initThread Multiple
@@ -30,6 +33,9 @@ main = do
             putStrLn $ "MPI implementation provides thread support level: " ++ show provided
             testRunnerMain $ tests rank
             barrier commWorld -- synchronize processes after all tests
+            -- Dump profiling data
+            tix <- examineTix
+            writeTix ("rank" ++ (show rank) ++ ".tix") tix
   finalize
 
 tests :: Rank -> [(String, TestRunnerTest)]
