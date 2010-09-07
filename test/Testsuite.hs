@@ -14,6 +14,8 @@ import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
 import GHC.IO.Handle  (hDuplicateTo) -- for redirecting stdout to stderr
 import System.IO (stdout, stderr)
+import Data.Array (rangeSize)
+import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds)
 
 main :: IO ()
 main = do
@@ -34,6 +36,7 @@ tests :: Rank -> [(String, TestRunnerTest)]
 tests rank =
   [ testCase "Peeking/poking Status" statusPeekPoke
   ] ++ serializableTests rank
+  ++ storableTests rank
   
 serializableTests :: Rank -> [(String,TestRunnerTest)]
 serializableTests rank =
@@ -46,10 +49,17 @@ serializableTests rank =
   , mpiTestCase rank "Criss-cross sending/receiving (async+futures) two messages" crissCrossSendRecv
   , mpiTestCase rank "Broadcast message" broadcast
   ]
-
 syncSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
 crissCrossSendRecv, broadcast :: Rank -> IO ()
 
+storableTests :: Rank -> [(String,TestRunnerTest)]
+storableTests rank =
+  [ mpiTestCase rank "Sending (sync)/receiving (sync) simple array" arraySyncRecv
+  , mpiTestCase rank "Broadcast array" arrayBroadcast
+  ]
+arraySyncRecv, arrayBroadcast :: Rank -> IO ()
+
+-- Serializable tests
 statusPeekPoke :: IO ()
 statusPeekPoke = do
   alloca $ \statusPtr -> do
@@ -152,12 +162,40 @@ crissCrossSendRecv rank
 broadcast _ = do
   result <- Serializable.bcast bigMsg sender commWorld
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
+-- End of serializable tests  
+
+-- StorableArray tests
+type ArrMsg = StorableArray Int Int
+
+arrMsg :: IO ArrMsg
+arrMsg = newListArray (0,size-1) [0..size-1]
+   where
+   size = 10
   
+arraySyncRecv rank
+  | rank == sender   = do msg <- arrMsg
+                          Storable.send msg receiver tag2 commWorld
+  | rank == receiver = do (status, newMsg) <- Storable.recv 10 {-TODO: nasty hardcode-} sender tag2 commWorld
+                          checkStatus status sender tag2
+                          elems <- getElems newMsg
+                          elems == [0..9::Int] {-TODO: hardcode!-} @? "Got wrong array: " ++ show elems
+  | otherwise        = return ()
+  
+arrayBroadcast _ = do
+  msg <- arrMsg
+  bs <- getBounds msg
+  newMsg <- Storable.bcast (msg :: ArrMsg) (rangeSize bs) sender commWorld
+  elems <- getElems msg
+  newElems <- getElems newMsg
+  elems == newElems @? "StorableArray bcast yielded garbled result: " ++ show newElems
+
+-- End of StorableArray tests
+
 -- Test case helpers
 mpiTestCase :: Rank -> String -> (Rank -> IO ()) -> (String,TestRunnerTest)
 mpiTestCase rank title worker = 
   -- Processes are synchronized before each test with "barrier"
-  testCase (unwords ["[rank",show rank,"]",title]) $ (barrier commWorld >> worker rank)
+  testCase (unwords ["[ rank",show rank,"]",title]) $ (barrier commWorld >> worker rank)
 
 testCase :: String -> Assertion -> (String, TestRunnerTest)
 testCase title body = (title, TestRunnerTest $ TestCase body)
