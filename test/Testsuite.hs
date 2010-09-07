@@ -38,9 +38,12 @@ tests rank =
   , mpiTestCase rank "Sending (async)/receiving (sync) simple message" asyncSendRecv
   , mpiTestCase rank "Sending (async)/receiving (sync) two messages"   asyncSendRecv2
   , mpiTestCase rank "Sending (async)/receiving (futures) two messages, out of order" asyncSendRecv2ooo
+  , mpiTestCase rank "Criss-cross sending/receiving (async+futures) two messages" crissCrossSendRecv
+  , mpiTestCase rank "Broadcast message" broadcast
   ]
 
 syncSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
+crissCrossSendRecv, broadcast :: Rank -> IO ()
 
 statusPeekPoke :: IO ()
 statusPeekPoke = do
@@ -68,7 +71,7 @@ syncSendRecvBlock rank
   | rank == receiver = do (status, result) <- recv sender tag1 commWorld
                           checkStatus status sender tag1
                           threadDelay (2* 10^(6 :: Integer))
-                          length (result::BigMsg) == length bigMsg @? "Got garbled result: " ++ show (length result)
+                          (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 syncSendRecvFuture rank 
@@ -77,7 +80,7 @@ syncSendRecvFuture rank
                           result <- waitFuture future
                           status <- getFutureStatus future
                           checkStatus status sender tag2
-                          length (result::BigMsg) == length bigMsg @? "Got garbled result: " ++ show (length result)
+                          (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 asyncSendRecv rank 
@@ -86,7 +89,7 @@ asyncSendRecv rank
                           checkStatus status sender tag3
   | rank == receiver = do (status, result) <- recv sender tag3 commWorld
                           checkStatus status sender tag3
-                          length (result::BigMsg) == length bigMsg @? "Got garbled result: " ++ show (length result)
+                          (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 asyncSendRecv2 rank 
@@ -100,7 +103,7 @@ asyncSendRecv2 rank
                           checkStatus stat1 sender tag0
                           (stat2, result2) <- recv sender tag1 commWorld
                           checkStatus stat2 sender tag1
-                          (length (result2::BigMsg) == length bigMsg) && (result1 == smallMsg) @? "Got garbled result"
+                          (result2::BigMsg) == bigMsg && result1 == smallMsg @? "Got garbled result"
   | otherwise        = return () -- idling
 
 asyncSendRecv2ooo rank 
@@ -121,7 +124,30 @@ asyncSendRecv2ooo rank
                           (length (result2::BigMsg) == length bigMsg) && (result1 == smallMsg) @? "Got garbled result"
   | otherwise        = return () -- idling
 
+crissCrossSendRecv rank 
+  | rank == sender   = do req <- iSend smallMsg receiver tag0 commWorld
+                          future <- recvFuture receiver tag1 commWorld
+                          result <- waitFuture future
+                          (length (result::BigMsg) == length bigMsg) @? "Got garbled BigMsg"
+                          status <- getFutureStatus future
+                          checkStatus status receiver tag1
+                          status2 <- wait req
+                          checkStatus status2 sender tag0
+  | rank == receiver = do req <- iSend bigMsg sender tag1 commWorld
+                          future <- recvFuture sender tag0 commWorld
+                          result <- waitFuture future
+                          (result == smallMsg) @? "Got garbled SmallMsg"
+                          status <- getFutureStatus future
+                          checkStatus status sender tag0
+                          status2 <- wait req
+                          checkStatus status2 receiver tag1
+  | otherwise        = return () -- idling
 
+
+broadcast _ = do
+  result <- bcast bigMsg sender commWorld
+  (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
+  
 -- Test case helpers
 mpiTestCase :: Rank -> String -> (Rank -> IO ()) -> Test
 mpiTestCase rank title worker = 
