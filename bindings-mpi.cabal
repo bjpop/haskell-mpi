@@ -86,6 +86,6 @@ executable  bindings-mpi-testsuite
   main-is:       Testsuite.hs
   if flag(test)
     -- ghc-options: -fhpc - profiling does not work well with MPI
-    build-depends: base >=3 && <=5, HUnit, test-framework, test-framework-hunit
+    build-depends: base >=3 && <=5, HUnit, testrunner
   else
     buildable: False
