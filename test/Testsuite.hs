@@ -1,10 +1,11 @@
 module Main where
 
-import Test.Framework (defaultMain, Test)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit ((@?))
+import Test.Runner
+import Test.HUnit ((@?), Test(..))
+import Test.HUnit.Lang (Assertion)
 
-import Control.Parallel.MPI.Serializable
+import qualified Control.Parallel.MPI.Serializable as Serializable
+import qualified Control.Parallel.MPI.StorableArray as Storable
 import Control.Parallel.MPI.Common
 
 import Control.Concurrent (threadDelay)
@@ -23,16 +24,20 @@ main = do
     then putStrLn $ unlines [ "Need exactly two processes to run the tests."
                             , "Typical command line to achieve this is:"
                             , "'mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log'" ]
-    else do when (rank == 1) $ hDuplicateTo stderr stdout  -- redirect stdout to stderr for receiver process
+    else do when (rank == 1) $ do hDuplicateTo stderr stdout  -- redirect stdout to stderr for receiver process
             putStrLn $ "MPI implementation provides thread support level: " ++ show provided
-            defaultMain $ tests rank
+            testRunnerMain $ tests rank
             barrier commWorld -- synchronize processes after all tests
   finalize
 
-tests :: Rank -> [Test]
+tests :: Rank -> [(String, TestRunnerTest)]
 tests rank =
-  [ testCase "Peeking/poking Status" $ statusPeekPoke
-  , mpiTestCase rank "Sending (sync)/receiving (sync) simple message" syncSendRecv
+  [ testCase "Peeking/poking Status" statusPeekPoke
+  ] ++ serializableTests rank
+  
+serializableTests :: Rank -> [(String,TestRunnerTest)]
+serializableTests rank =
+  [ mpiTestCase rank "Sending (sync)/receiving (sync) simple message" syncSendRecv
   , mpiTestCase rank "Sending (sync)/receiving (sync) simple message (with one process blocking)" syncSendRecvBlock
   , mpiTestCase rank "Sending (sync)/receiving (futures) simple message" syncSendRecvFuture
   , mpiTestCase rank "Sending (async)/receiving (sync) simple message" asyncSendRecv
@@ -57,8 +62,8 @@ type SmallMsg = (Bool, Int, String, [()])
 smallMsg :: SmallMsg 
 smallMsg = (True, 12, "fred", [(), (), ()])
 syncSendRecv rank 
-  | rank == sender   = send smallMsg receiver tag0 commWorld
-  | rank == receiver = do (status, result) <- recv sender tag0 commWorld
+  | rank == sender   = Serializable.send smallMsg receiver tag0 commWorld
+  | rank == receiver = do (status, result) <- Serializable.recv sender tag0 commWorld
                           checkStatus status sender tag0
                           result == smallMsg @? "Got garbled result " ++ show result
   | otherwise        = return () -- idling
@@ -67,77 +72,77 @@ type BigMsg = [Int]
 bigMsg :: BigMsg
 bigMsg = [0..50000]
 syncSendRecvBlock rank 
-  | rank == sender   = send bigMsg receiver tag1 commWorld
-  | rank == receiver = do (status, result) <- recv sender tag1 commWorld
+  | rank == sender   = Serializable.send bigMsg receiver tag1 commWorld
+  | rank == receiver = do (status, result) <- Serializable.recv sender tag1 commWorld
                           checkStatus status sender tag1
                           threadDelay (2* 10^(6 :: Integer))
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 syncSendRecvFuture rank 
-  | rank == sender   = do send bigMsg receiver tag2 commWorld
-  | rank == receiver = do future <- recvFuture sender tag2 commWorld
-                          result <- waitFuture future
-                          status <- getFutureStatus future
+  | rank == sender   = do Serializable.send bigMsg receiver tag2 commWorld
+  | rank == receiver = do future <- Serializable.recvFuture sender tag2 commWorld
+                          result <- Serializable.waitFuture future
+                          status <- Serializable.getFutureStatus future
                           checkStatus status sender tag2
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 asyncSendRecv rank 
-  | rank == sender   = do req <- iSend bigMsg receiver tag3 commWorld
+  | rank == sender   = do req <- Serializable.iSend bigMsg receiver tag3 commWorld
                           status <- wait req
                           checkStatus status sender tag3
-  | rank == receiver = do (status, result) <- recv sender tag3 commWorld
+  | rank == receiver = do (status, result) <- Serializable.recv sender tag3 commWorld
                           checkStatus status sender tag3
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 asyncSendRecv2 rank 
-  | rank == sender   = do req1 <- iSend smallMsg receiver tag0 commWorld
-                          req2 <- iSend bigMsg receiver tag1 commWorld
+  | rank == sender   = do req1 <- Serializable.iSend smallMsg receiver tag0 commWorld
+                          req2 <- Serializable.iSend bigMsg receiver tag1 commWorld
                           stat1 <- wait req1
                           checkStatus stat1 sender tag0
                           stat2 <- wait req2
                           checkStatus stat2 sender tag1
-  | rank == receiver = do (stat1, result1) <- recv sender tag0 commWorld
+  | rank == receiver = do (stat1, result1) <- Serializable.recv sender tag0 commWorld
                           checkStatus stat1 sender tag0
-                          (stat2, result2) <- recv sender tag1 commWorld
+                          (stat2, result2) <- Serializable.recv sender tag1 commWorld
                           checkStatus stat2 sender tag1
                           (result2::BigMsg) == bigMsg && result1 == smallMsg @? "Got garbled result"
   | otherwise        = return () -- idling
 
 asyncSendRecv2ooo rank 
-  | rank == sender   = do req1 <- iSend smallMsg receiver tag0 commWorld
-                          req2 <- iSend bigMsg receiver tag1 commWorld
+  | rank == sender   = do req1 <- Serializable.iSend smallMsg receiver tag0 commWorld
+                          req2 <- Serializable.iSend bigMsg receiver tag1 commWorld
                           stat1 <- wait req1
                           checkStatus stat1 sender tag0
                           stat2 <- wait req2
                           checkStatus stat2 sender tag1
-  | rank == receiver = do future2 <- recvFuture sender tag1 commWorld
-                          future1 <- recvFuture sender tag0 commWorld
-                          result2 <- waitFuture future2
-                          result1 <- waitFuture future1
-                          stat1 <- getFutureStatus future1
-                          stat2 <- getFutureStatus future2
+  | rank == receiver = do future2 <- Serializable.recvFuture sender tag1 commWorld
+                          future1 <- Serializable.recvFuture sender tag0 commWorld
+                          result2 <- Serializable.waitFuture future2
+                          result1 <- Serializable.waitFuture future1
+                          stat1 <- Serializable.getFutureStatus future1
+                          stat2 <- Serializable.getFutureStatus future2
                           checkStatus stat1 sender tag0
                           checkStatus stat2 sender tag1
                           (length (result2::BigMsg) == length bigMsg) && (result1 == smallMsg) @? "Got garbled result"
   | otherwise        = return () -- idling
 
 crissCrossSendRecv rank 
-  | rank == sender   = do req <- iSend smallMsg receiver tag0 commWorld
-                          future <- recvFuture receiver tag1 commWorld
-                          result <- waitFuture future
+  | rank == sender   = do req <- Serializable.iSend smallMsg receiver tag0 commWorld
+                          future <- Serializable.recvFuture receiver tag1 commWorld
+                          result <- Serializable.waitFuture future
                           (length (result::BigMsg) == length bigMsg) @? "Got garbled BigMsg"
-                          status <- getFutureStatus future
+                          status <- Serializable.getFutureStatus future
                           checkStatus status receiver tag1
                           status2 <- wait req
                           checkStatus status2 sender tag0
-  | rank == receiver = do req <- iSend bigMsg sender tag1 commWorld
-                          future <- recvFuture sender tag0 commWorld
-                          result <- waitFuture future
+  | rank == receiver = do req <- Serializable.iSend bigMsg sender tag1 commWorld
+                          future <- Serializable.recvFuture sender tag0 commWorld
+                          result <- Serializable.waitFuture future
                           (result == smallMsg) @? "Got garbled SmallMsg"
-                          status <- getFutureStatus future
+                          status <- Serializable.getFutureStatus future
                           checkStatus status sender tag0
                           status2 <- wait req
                           checkStatus status2 receiver tag1
@@ -145,14 +150,17 @@ crissCrossSendRecv rank
 
 
 broadcast _ = do
-  result <- bcast bigMsg sender commWorld
+  result <- Serializable.bcast bigMsg sender commWorld
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
   
 -- Test case helpers
-mpiTestCase :: Rank -> String -> (Rank -> IO ()) -> Test
+mpiTestCase :: Rank -> String -> (Rank -> IO ()) -> (String,TestRunnerTest)
 mpiTestCase rank title worker = 
   -- Processes are synchronized before each test with "barrier"
   testCase (unwords ["[rank",show rank,"]",title]) $ (barrier commWorld >> worker rank)
+
+testCase :: String -> Assertion -> (String, TestRunnerTest)
+testCase title body = (title, TestRunnerTest $ TestCase body)
 
 data Actor = Sender | Receiver
    deriving (Enum, Eq)
