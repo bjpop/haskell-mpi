@@ -10,3 +10,5 @@ test/regression/programs/imaginary/SendReceiveBlock
 test/regression/programs/imaginary/SendReceiveFuture
 test/regression/programs/imaginary/Bcast
 test/regression/programs/imaginary/GreetingsAsync
+/.hpc/*
+*~
