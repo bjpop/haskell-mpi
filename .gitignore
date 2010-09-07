@@ -12,3 +12,5 @@ test/regression/programs/imaginary/Bcast
 test/regression/programs/imaginary/GreetingsAsync
 /.hpc/*
 *~
+/html/*
+/*.tix
