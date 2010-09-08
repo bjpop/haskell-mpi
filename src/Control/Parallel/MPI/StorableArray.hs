@@ -4,6 +4,8 @@ module Control.Parallel.MPI.StorableArray
    ( send
    , recv
    , bcast
+   , iSend
+   , iRecv
    ) where
 
 import C2HS
@@ -15,6 +17,7 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
+import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Common (commRank)
 
 send :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO ()
@@ -57,3 +60,28 @@ bcast array numElements sendRank comm = do
          withForeignPtr foreignPtr $ \arrayPtr -> do
             checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
             unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
+
+iSend :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
+iSend array numElements recvRank tag comm = do
+   let cRank = fromRank recvRank
+       cTag  = fromTag tag
+       elementSize = sizeOf (undefined :: e)
+       cBytes = cIntConv (numElements * elementSize)
+   alloca $ \requestPtr ->
+      withStorableArray array $ \arrayPtr -> do
+         checkError $ Internal.iSend (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
+         peek requestPtr
+
+iRecv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (StorableArray Int e, Request)
+iRecv numElements sendRank tag comm = do
+   let cRank = fromRank sendRank
+       cTag  = fromTag tag
+       elementSize = sizeOf (undefined :: e)
+       cBytes = cIntConv (numElements * elementSize)
+   alloca $ \requestPtr -> do
+      foreignPtr <- mallocForeignPtrArray numElements
+      withForeignPtr foreignPtr $ \arrayPtr -> do
+         checkError $ Internal.iRecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
+         array <- unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
+         request <- peek requestPtr
+         return (array, request)

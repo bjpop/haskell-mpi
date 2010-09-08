@@ -5,6 +5,7 @@ module Control.Parallel.MPI.Common
    , module Tag
    , module Rank
    , module ThreadSupport
+   , module Request
    , mpi
    , init
    , initThread
@@ -14,6 +15,7 @@ module Control.Parallel.MPI.Common
    , probe
    , barrier
    , wait
+   , test
    ) where
 
 import Prelude hiding (init)
@@ -28,6 +30,7 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
+import Control.Applicative ((<$>))
 
 mpi :: IO () -> IO ()
 mpi action = init >> action >> finalize
@@ -78,3 +81,17 @@ wait request =
        poke reqPtr request
        checkError $ Internal.wait reqPtr $ castPtr statusPtr
        peek statusPtr
+
+-- Returns Nothing if the request is not complete, otherwise
+-- it returns (Just status).
+test :: Request -> IO (Maybe Status)
+test request =
+    alloca $ \statusPtr ->
+       alloca $ \reqPtr ->
+          alloca $ \flagPtr -> do
+              poke reqPtr request
+              checkError $ Internal.test reqPtr (castPtr flagPtr) (castPtr statusPtr)
+              flag <- peek flagPtr
+              if flag
+                 then Just <$> peek statusPtr
+                 else return Nothing
