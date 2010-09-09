@@ -2,9 +2,14 @@
 
 module Control.Parallel.MPI.StorableArray
    ( send
+   , ssend
+   , bsend
+   , rsend
    , recv
    , bcast
    , isend
+   , ibsend
+   , issend
    , irecv
    ) where
 
@@ -20,8 +25,16 @@ import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Common (commRank)
 
-send :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO ()
-send array rank tag comm = do
+send, bsend, ssend, rsend :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO ()
+send  = sendWith Internal.send
+bsend = sendWith Internal.bsend
+ssend = sendWith Internal.ssend
+rsend = sendWith Internal.rsend
+
+sendWith :: forall e i. (Storable e, Ix i) =>
+  (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
+  StorableArray i e -> Rank -> Tag -> Comm -> IO ()
+sendWith send_function array rank tag comm = do
    bounds <- getBounds array
    let arraySize = rangeSize bounds
        cRank = fromRank rank
@@ -29,7 +42,7 @@ send array rank tag comm = do
        elementSize = sizeOf (undefined :: e)
        numBytes = cIntConv (arraySize * elementSize)
    withStorableArray array $ \arrayPtr -> do
-      checkError $ Internal.send (castPtr arrayPtr) numBytes byte cRank cTag comm
+      checkError $ send_function (castPtr arrayPtr) numBytes byte cRank cTag comm
 
 recv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (Status, StorableArray Int e)
 recv numElements rank tag comm = do
@@ -61,15 +74,22 @@ bcast array numElements sendRank comm = do
             checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
             unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
 
-isend :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
-isend array numElements recvRank tag comm = do
+isend, ibsend, issend :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
+isend  = isendWith Internal.isend
+ibsend = isendWith Internal.ibsend
+issend = isendWith Internal.issend
+
+isendWith :: forall e . Storable e =>
+  (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
+  StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
+isendWith send_function array numElements recvRank tag comm = do
    let cRank = fromRank recvRank
        cTag  = fromTag tag
        elementSize = sizeOf (undefined :: e)
        cBytes = cIntConv (numElements * elementSize)
    alloca $ \requestPtr ->
       withStorableArray array $ \arrayPtr -> do
-         checkError $ Internal.isend (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
+         checkError $ send_function (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
          peek requestPtr
 
 irecv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (StorableArray Int e, Request)
