@@ -20,7 +20,7 @@ module Control.Parallel.MPI.Serializable
    ) where
 
 import C2HS
-import Control.Concurrent (forkOS, forkIO, ThreadId, killThread)
+import Control.Concurrent (forkIO, ThreadId, killThread)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, tryTakeMVar, readMVar, putMVar)
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
@@ -44,6 +44,9 @@ rsend = sendBSwith Internal.rsend . encode
 sendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO ()
 sendBS = sendBSwith Internal.send
 
+sendBSwith ::
+  (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
+  BS.ByteString -> Rank -> Tag -> Comm -> IO ()
 sendBSwith send_function bs rank tag comm = do
    let cRank = fromRank rank
        cTag  = fromTag tag
@@ -81,6 +84,9 @@ issend = isendBSwith Internal.issend . encode
 isendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO Request
 isendBS = isendBSwith Internal.isend
 
+isendBSwith ::
+  (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
+  BS.ByteString -> Rank -> Tag -> Comm -> IO Request
 isendBSwith send_function bs rank tag comm = do
    let cRank = fromRank rank
        cTag  = fromTag tag
