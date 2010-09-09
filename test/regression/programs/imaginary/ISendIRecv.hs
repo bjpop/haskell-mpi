@@ -28,10 +28,10 @@ main = mpi $ do
    rank <- commRank commWorld
    when (rank == sender) $ do
       array <- msg
-      iSend array maxSize receiver tag commWorld
+      isend array maxSize receiver tag commWorld
       return ()
    when (rank == receiver) $ do
-      (array, request) <- iRecv maxSize sender tag commWorld
+      (array, request) <- irecv maxSize sender tag commWorld
       busyWork request 1000
       msg <- getElems (array :: Msg)
       print $ length msg

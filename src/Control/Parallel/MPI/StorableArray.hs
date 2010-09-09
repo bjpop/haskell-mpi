@@ -4,8 +4,8 @@ module Control.Parallel.MPI.StorableArray
    ( send
    , recv
    , bcast
-   , iSend
-   , iRecv
+   , isend
+   , irecv
    ) where
 
 import C2HS
@@ -61,19 +61,19 @@ bcast array numElements sendRank comm = do
             checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
             unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
 
-iSend :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
-iSend array numElements recvRank tag comm = do
+isend :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
+isend array numElements recvRank tag comm = do
    let cRank = fromRank recvRank
        cTag  = fromTag tag
        elementSize = sizeOf (undefined :: e)
        cBytes = cIntConv (numElements * elementSize)
    alloca $ \requestPtr ->
       withStorableArray array $ \arrayPtr -> do
-         checkError $ Internal.iSend (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
+         checkError $ Internal.isend (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
          peek requestPtr
 
-iRecv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (StorableArray Int e, Request)
-iRecv numElements sendRank tag comm = do
+irecv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (StorableArray Int e, Request)
+irecv numElements sendRank tag comm = do
    let cRank = fromRank sendRank
        cTag  = fromTag tag
        elementSize = sizeOf (undefined :: e)
@@ -81,7 +81,7 @@ iRecv numElements sendRank tag comm = do
    alloca $ \requestPtr -> do
       foreignPtr <- mallocForeignPtrArray numElements
       withForeignPtr foreignPtr $ \arrayPtr -> do
-         checkError $ Internal.iRecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
+         checkError $ Internal.irecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
          array <- unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
          request <- peek requestPtr
          return (array, request)

@@ -105,7 +105,7 @@ syncSendRecvFuture rank
   | otherwise        = return () -- idling
 
 asyncSendRecv rank 
-  | rank == sender   = do req <- Serializable.iSend bigMsg receiver tag3 commWorld
+  | rank == sender   = do req <- Serializable.isend bigMsg receiver tag3 commWorld
                           status <- wait req
                           checkStatus status sender tag3
   | rank == receiver = do (status, result) <- Serializable.recv sender tag3 commWorld
@@ -114,8 +114,8 @@ asyncSendRecv rank
   | otherwise        = return () -- idling
 
 asyncSendRecv2 rank 
-  | rank == sender   = do req1 <- Serializable.iSend smallMsg receiver tag0 commWorld
-                          req2 <- Serializable.iSend bigMsg receiver tag1 commWorld
+  | rank == sender   = do req1 <- Serializable.isend smallMsg receiver tag0 commWorld
+                          req2 <- Serializable.isend bigMsg receiver tag1 commWorld
                           stat1 <- wait req1
                           checkStatus stat1 sender tag0
                           stat2 <- wait req2
@@ -128,8 +128,8 @@ asyncSendRecv2 rank
   | otherwise        = return () -- idling
 
 asyncSendRecv2ooo rank 
-  | rank == sender   = do req1 <- Serializable.iSend smallMsg receiver tag0 commWorld
-                          req2 <- Serializable.iSend bigMsg receiver tag1 commWorld
+  | rank == sender   = do req1 <- Serializable.isend smallMsg receiver tag0 commWorld
+                          req2 <- Serializable.isend bigMsg receiver tag1 commWorld
                           stat1 <- wait req1
                           checkStatus stat1 sender tag0
                           stat2 <- wait req2
@@ -146,7 +146,7 @@ asyncSendRecv2ooo rank
   | otherwise        = return () -- idling
 
 crissCrossSendRecv rank 
-  | rank == sender   = do req <- Serializable.iSend smallMsg receiver tag0 commWorld
+  | rank == sender   = do req <- Serializable.isend smallMsg receiver tag0 commWorld
                           future <- Serializable.recvFuture receiver tag1 commWorld
                           result <- Serializable.waitFuture future
                           (length (result::BigMsg) == length bigMsg) @? "Got garbled BigMsg"
@@ -154,7 +154,7 @@ crissCrossSendRecv rank
                           checkStatus status receiver tag1
                           status2 <- wait req
                           checkStatus status2 sender tag0
-  | rank == receiver = do req <- Serializable.iSend bigMsg sender tag1 commWorld
+  | rank == receiver = do req <- Serializable.isend bigMsg sender tag1 commWorld
                           future <- Serializable.recvFuture sender tag0 commWorld
                           result <- Serializable.waitFuture future
                           (result == smallMsg) @? "Got garbled SmallMsg"

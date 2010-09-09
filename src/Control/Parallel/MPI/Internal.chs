@@ -6,7 +6,7 @@
 module Control.Parallel.MPI.Internal 
    ( init, initThread, finalize, send, bsend, ssend, rsend, recv,
      commRank, probe, commSize,
-     iSend, iRecv, bcast, barrier, wait, test
+     isend, ibsend, issend, irecv, bcast, barrier, wait, test
    ) where
 
 import Prelude hiding (init, error)
@@ -33,8 +33,10 @@ bsend = {# call unsafe Bsend as bsend_ #}
 ssend = {# call unsafe Ssend as ssend_ #}
 rsend = {# call unsafe Rsend as rsend_ #}
 recv = {# call unsafe Recv as recv_ #}
-iSend = {# call unsafe Isend as iSend_ #}
-iRecv = {# call Irecv as iRecv_ #}
+isend = {# call unsafe Isend as isend_ #}
+ibsend = {# call unsafe Ibsend as ibsend_ #}
+issend = {# call unsafe Issend as issend_ #}
+irecv = {# call Irecv as irecv_ #}
 bcast = {# call unsafe Bcast as bcast_ #}
 barrier = {# call unsafe Barrier as barrier_ #}
 wait = {# call unsafe Wait as wait_ #}

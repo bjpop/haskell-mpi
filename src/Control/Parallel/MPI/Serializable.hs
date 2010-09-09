@@ -6,8 +6,10 @@ module Control.Parallel.MPI.Serializable
    , sendBS
    , recv
    , recvBS
-   , iSend
-   , iSendBS
+   , isend
+   , ibsend
+   , issend
+   , isendBS
    , Future
    , cancelFuture
    , pollFuture
@@ -71,17 +73,21 @@ recvBS rank tag comm = do
              message <- BS.packCStringLen (castPtr bufferPtr, count)
              return (recvStatus, message))
 
-iSend :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO Request
-iSend = iSendBS . encode
+isend, ibsend, issend :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO Request
+isend  = isendBSwith Internal.isend  . encode
+ibsend = isendBSwith Internal.ibsend . encode
+issend = isendBSwith Internal.issend . encode
 
-iSendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO Request
-iSendBS bs rank tag comm = do
+isendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO Request
+isendBS = isendBSwith Internal.isend
+
+isendBSwith send_function bs rank tag comm = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
    alloca $ \requestPtr ->
       unsafeUseAsCString bs $ \cString -> do
-          checkError $ Internal.iSend (castPtr cString) cCount byte cRank cTag comm requestPtr
+          checkError $ send_function (castPtr cString) cCount byte cRank cTag comm requestPtr
           peek requestPtr
 
 data Future a =
