@@ -1,5 +1,8 @@
 module Control.Parallel.MPI.Serializable
    ( send
+   , bsend
+   , ssend
+   , rsend
    , sendBS
    , recv
    , recvBS
@@ -30,16 +33,21 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Common (probe, commRank)
 
-send :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO ()
-send = sendBS . encode
+send, bsend, ssend, rsend :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO ()
+send  = sendBSwith Internal.send . encode
+bsend = sendBSwith Internal.bsend . encode
+ssend = sendBSwith Internal.ssend . encode
+rsend = sendBSwith Internal.rsend . encode
 
 sendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO ()
-sendBS bs rank tag comm = do
+sendBS = sendBSwith Internal.send
+
+sendBSwith send_function bs rank tag comm = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
    unsafeUseAsCString bs $ \cString ->
-       checkError $ Internal.send (castPtr cString) cCount byte cRank cTag comm
+       checkError $ send_function (castPtr cString) cCount byte cRank cTag comm
 
 recv :: Serialize msg => Rank -> Tag -> Comm -> IO (Status, msg)
 recv rank tag comm = do

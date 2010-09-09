@@ -4,7 +4,8 @@
 #include "init_wrapper.h"
 
 module Control.Parallel.MPI.Internal 
-   ( init, initThread, finalize, send, recv, commRank, probe, commSize,
+   ( init, initThread, finalize, send, bsend, ssend, rsend, recv,
+     commRank, probe, commSize,
      iSend, iRecv, bcast, barrier, wait, test
    ) where
 
@@ -28,6 +29,9 @@ commSize = {# call unsafe Comm_size as commSize_ #}
 commRank = {# call unsafe Comm_rank as commRank_ #}
 probe = {# call Probe as probe_ #}
 send = {# call unsafe Send as send_ #}
+bsend = {# call unsafe Bsend as bsend_ #}
+ssend = {# call unsafe Ssend as ssend_ #}
+rsend = {# call unsafe Rsend as rsend_ #}
 recv = {# call unsafe Recv as recv_ #}
 iSend = {# call unsafe Isend as iSend_ #}
 iRecv = {# call Irecv as iRecv_ #}
