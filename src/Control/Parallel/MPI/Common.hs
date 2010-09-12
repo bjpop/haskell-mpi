@@ -16,6 +16,7 @@ module Control.Parallel.MPI.Common
    , barrier
    , wait
    , test
+   , cancel
    ) where
 
 import Prelude hiding (init)
@@ -95,3 +96,9 @@ test request =
               if flag
                  then Just <$> peek statusPtr
                  else return Nothing
+
+cancel :: Request -> IO ()
+cancel request =
+   alloca $ \reqPtr -> do
+       poke reqPtr request
+       checkError $ Internal.cancel reqPtr
