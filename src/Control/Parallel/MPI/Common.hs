@@ -78,7 +78,6 @@ wait :: Request -> IO Status
 wait request =
    alloca $ \statusPtr ->
      alloca $ \reqPtr -> do
-       s <- peek statusPtr
        poke reqPtr request
        checkError $ Internal.wait reqPtr $ castPtr statusPtr
        peek statusPtr
