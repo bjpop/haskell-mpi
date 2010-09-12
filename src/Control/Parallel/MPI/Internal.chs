@@ -7,7 +7,7 @@ module Control.Parallel.MPI.Internal
    ( init, initThread, finalize, send, bsend, ssend, rsend, recv,
      commRank, probe, commSize,
      isend, ibsend, issend, irecv, bcast, barrier, wait, test,
-     cancel
+     cancel, scatter
    ) where
 
 import Prelude hiding (init, error)
@@ -43,3 +43,4 @@ barrier = {# call unsafe Barrier as barrier_ #}
 wait = {# call unsafe Wait as wait_ #}
 test = {# call unsafe Test as test_ #}
 cancel = {# call unsafe Cancel as cancel_ #}
+scatter = {# call unsafe Scatter as scatter_ #}

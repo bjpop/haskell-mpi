@@ -11,6 +11,7 @@ module Control.Parallel.MPI.StorableArray
    , ibsend
    , issend
    , irecv
+   , scatter
    ) where
 
 import C2HS
@@ -59,7 +60,7 @@ recv range rank tag comm = do
          storableArray <- unsafeForeignPtrToStorableArray foreignPtr range
          return (recvStatus, storableArray)
 
-bcast :: forall e i . (Storable e, Ix i) => StorableArray i e -> (i,i) -> Rank -> Comm -> IO (StorableArray i e)
+bcast :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 bcast array range sendRank comm = do
    myRank <- commRank comm
    let cRank = fromRank sendRank
@@ -110,3 +111,38 @@ irecv range sendRank tag comm = do
          array <- unsafeForeignPtrToStorableArray foreignPtr range
          request <- peek requestPtr
          return (array, request)
+{-
+   MPI_Scatter allows the element types of the send and recv buffers to be different.
+   This is accommodated by changing the sendcount and recvcount arguments. I'm not sure
+   about the utility of that feature in C, and I'm even less sure it would be a good idea
+   in a strongly typed language like Haskell. So this version of scatter requires that
+   the send and recv element types (e) are the same. Note we also use a (i,i) range
+   argument instead of a sendcount argument. This makes it easier to work with
+   arbitrary Ix types, instead of just integers. This gives scatter the same type signature
+   as bcast, although the role of the range is different in the two. In bcast the range
+   specifies the lower and upper indices of the entire sent/recv array. In scatter
+   the range specifies the lower and upper indices of the sent/recv segmen of the
+   array.
+
+   XXX is it an error if:
+      (arraySize `div` segmentSize) /= commSize
+-}
+scatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+scatter array range sendRank comm = do
+   myRank <- commRank comm
+   let cRank = fromRank sendRank
+       elementSize = sizeOf (undefined :: e)
+       numElements = rangeSize range
+       numBytes = cIntConv (numElements * elementSize)
+   if myRank == sendRank
+      then withStorableArray array $ \sendPtr -> do
+         foreignPtr <- mallocForeignPtrArray numElements
+         withForeignPtr foreignPtr $ \recvPtr -> do
+            checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte cRank comm
+            unsafeForeignPtrToStorableArray foreignPtr range
+      else do
+         foreignPtr <- mallocForeignPtrArray numElements
+         withForeignPtr foreignPtr $ \recvPtr -> do
+            -- the sendPtr is ignored in this case, so we can make it NULL.
+            checkError $ Internal.scatter nullPtr numBytes byte (castPtr recvPtr) numBytes byte cRank comm
+            unsafeForeignPtrToStorableArray foreignPtr range
