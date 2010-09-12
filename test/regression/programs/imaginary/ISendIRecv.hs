@@ -17,22 +17,22 @@ tag = toTag ()
 
 type Msg = StorableArray Int Int
 
-maxSize :: Int
-maxSize = 50000
+range :: (Int, Int)
+range@(low, hi) = (1,50000)
 
 msg :: IO Msg
-msg = newListArray (1, maxSize) [1..maxSize]
+msg = newListArray range [low..hi]
 
 main :: IO ()
 main = mpi $ do
    rank <- commRank commWorld
    when (rank == sender) $ do
       array <- msg
-      isend array maxSize receiver tag commWorld
+      isend array receiver tag commWorld
       return ()
    when (rank == receiver) $ do
-      (array, request) <- irecv maxSize sender tag commWorld
-      busyWork request 1000
+      (array, request) <- irecv range sender tag commWorld
+      busyWork request 0
       msg <- getElems (array :: Msg)
       print $ length msg
 

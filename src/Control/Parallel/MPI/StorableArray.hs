@@ -44,25 +44,27 @@ sendWith send_function array rank tag comm = do
    withStorableArray array $ \arrayPtr -> do
       checkError $ send_function (castPtr arrayPtr) numBytes byte cRank cTag comm
 
-recv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (Status, StorableArray Int e)
-recv numElements rank tag comm = do
+recv :: forall e i . (Storable e, Ix i) => (i,i) -> Rank -> Tag -> Comm -> IO (Status, StorableArray i e)
+recv range rank tag comm = do
    let cRank = fromRank rank
        cTag = fromTag tag
        elementSize = sizeOf (undefined :: e)
+       numElements = rangeSize range
        cBytes = cIntConv (numElements * elementSize)
    foreignPtr <- mallocForeignPtrArray numElements
    withForeignPtr foreignPtr $ \arrayPtr ->
       alloca $ \statusPtr -> do
          checkError $ Internal.recv (castPtr arrayPtr) cBytes byte cRank cTag comm (castPtr statusPtr)
          recvStatus <- peek statusPtr
-         storableArray <- unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
+         storableArray <- unsafeForeignPtrToStorableArray foreignPtr range
          return (recvStatus, storableArray)
 
-bcast :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Comm -> IO (StorableArray Int e)
-bcast array numElements sendRank comm = do
+bcast :: forall e i . (Storable e, Ix i) => StorableArray i e -> (i,i) -> Rank -> Comm -> IO (StorableArray i e)
+bcast array range sendRank comm = do
    myRank <- commRank comm
    let cRank = fromRank sendRank
        elementSize = sizeOf (undefined :: e)
+       numElements = rangeSize range
        cBytes = cIntConv (numElements * elementSize)
    if myRank == sendRank
       then withStorableArray array $ \arrayPtr -> do
@@ -72,36 +74,39 @@ bcast array numElements sendRank comm = do
          foreignPtr <- mallocForeignPtrArray numElements
          withForeignPtr foreignPtr $ \arrayPtr -> do
             checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
-            unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
+            unsafeForeignPtrToStorableArray foreignPtr range
 
-isend, ibsend, issend :: forall e . Storable e => StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
+isend, ibsend, issend :: forall e i . (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO Request
 isend  = isendWith Internal.isend
 ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
-isendWith :: forall e . Storable e =>
+isendWith :: forall e i . (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
-  StorableArray Int e -> Int -> Rank -> Tag -> Comm -> IO Request
-isendWith send_function array numElements recvRank tag comm = do
-   let cRank = fromRank recvRank
+  StorableArray i e -> Rank -> Tag -> Comm -> IO Request
+isendWith send_function array recvRank tag comm = do
+   bounds <- getBounds array
+   let arraySize = rangeSize bounds
+       cRank = fromRank recvRank
        cTag  = fromTag tag
        elementSize = sizeOf (undefined :: e)
-       cBytes = cIntConv (numElements * elementSize)
+       cBytes = cIntConv (arraySize * elementSize)
    alloca $ \requestPtr ->
       withStorableArray array $ \arrayPtr -> do
          checkError $ send_function (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
          peek requestPtr
 
-irecv :: forall e . Storable e => Int -> Rank -> Tag -> Comm -> IO (StorableArray Int e, Request)
-irecv numElements sendRank tag comm = do
+irecv :: forall e i . (Storable e, Ix i) => (i, i) -> Rank -> Tag -> Comm -> IO (StorableArray i e, Request)
+irecv range sendRank tag comm = do
    let cRank = fromRank sendRank
        cTag  = fromTag tag
        elementSize = sizeOf (undefined :: e)
+       numElements = rangeSize range
        cBytes = cIntConv (numElements * elementSize)
    alloca $ \requestPtr -> do
       foreignPtr <- mallocForeignPtrArray numElements
       withForeignPtr foreignPtr $ \arrayPtr -> do
          checkError $ Internal.irecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
-         array <- unsafeForeignPtrToStorableArray foreignPtr (0, numElements-1)
+         array <- unsafeForeignPtrToStorableArray foreignPtr range
          request <- peek requestPtr
          return (array, request)

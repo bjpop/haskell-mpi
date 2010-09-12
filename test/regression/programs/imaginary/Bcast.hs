@@ -12,10 +12,11 @@ type StorMsg = StorableArray Int Int
 serMsg :: SerMsg
 serMsg = (True, 12, "fred", [(), (), ()])
 
+range :: (Int, Int)
+range@(low, hi) = (1,10)
+
 storMsg :: IO (StorableArray Int Int)
-storMsg = newListArray (0,size-1) [0..size-1]
-   where
-   size = 10
+storMsg = newListArray range [low..hi]
 
 root :: Rank
 root = toRank 0
@@ -25,8 +26,7 @@ main = mpi $ do
    newMsg <- Ser.bcast serMsg root commWorld
    rank <- commRank commWorld
    putStrLn $ "Serialized bcast: rank = " ++ show rank ++ " msg = " ++ show newMsg
-   let size = 10
    arr <- storMsg
-   newMsg <- Stor.bcast (arr :: StorMsg) size root commWorld
+   newMsg <- Stor.bcast (arr :: StorMsg) range root commWorld
    elems <- getElems newMsg
    putStrLn $ "StorableArray bcast: rank = " ++ show rank ++ " msg = " ++ show elems

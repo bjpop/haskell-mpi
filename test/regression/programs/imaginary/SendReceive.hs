@@ -1,12 +1,10 @@
--- Test sending and receiving a nested data structure 
--- of some arbitrary size and shape.
-
 module Main where
 
 import Control.Monad (when)
-import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Serializable as Ser
+import Control.Parallel.MPI.StorableArray as Stor
 import Control.Parallel.MPI.Common
-import Control.Concurrent
+import Data.Array.Storable (StorableArray, newListArray, getElems)
 
 data Actor = Sender | Receiver
    deriving (Enum, Eq)
@@ -14,10 +12,18 @@ data Actor = Sender | Receiver
 tag :: Tag
 tag = toTag ()
 
-type Msg = (Bool, Int, String, [()])
+type SerMsg = (Bool, Int, String, [()])
 
-msg :: Msg
-msg = (True, 12, "fred", [(), (), ()])
+serMsg :: SerMsg
+serMsg = (True, 12, "fred", [(), (), ()])
+
+type StorMsg = StorableArray Int Int
+
+bounds :: (Int, Int)
+bounds@(low,hi) = (1,50)
+
+storMsg :: IO StorMsg
+storMsg = newListArray bounds [low..hi]
 
 sender, receiver :: Rank
 sender = toRank Sender
@@ -29,8 +35,12 @@ main = mpi $ do
    when (size >= 2) $ do
       rank <- commRank commWorld
       when (rank == sender) $ do
-         send msg receiver tag commWorld
+         Ser.send serMsg receiver tag commWorld
+         array <- storMsg
+         Stor.send array receiver tag commWorld
       when (rank == receiver) $ do
-         (_status, result) <- recv sender tag commWorld
-         threadDelay (10*10^6)
-         print (result :: Msg)
+         (_status, result) <- Ser.recv sender tag commWorld
+         print (result :: SerMsg)
+         (_status, result) <- Stor.recv bounds sender tag commWorld
+         array <- getElems result
+         print (array :: [Int])

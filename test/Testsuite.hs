@@ -173,24 +173,26 @@ broadcast _ = do
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
 
+low,hi :: Int
+range :: (Int, Int)
+range@(low,hi) = (1,10)
+
 arrMsg :: IO ArrMsg
-arrMsg = newListArray (0,size-1) [0..size-1]
-   where
-   size = 10
-  
+arrMsg = newListArray range [low..hi]
+
 arraySyncRecv rank
   | rank == sender   = do msg <- arrMsg
                           Storable.send msg receiver tag2 commWorld
-  | rank == receiver = do (status, newMsg) <- Storable.recv 10 {-TODO: nasty hardcode-} sender tag2 commWorld
+  | rank == receiver = do (status, newMsg) <- Storable.recv range sender tag2 commWorld
                           checkStatus status sender tag2
                           elems <- getElems newMsg
-                          elems == [0..9::Int] {-TODO: hardcode!-} @? "Got wrong array: " ++ show elems
+                          elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
-  
+
 arrayBroadcast _ = do
   msg <- arrMsg
   bs <- getBounds msg
-  newMsg <- Storable.bcast (msg :: ArrMsg) (rangeSize bs) sender commWorld
+  newMsg <- Storable.bcast (msg :: ArrMsg) bs sender commWorld
   elems <- getElems msg
   newElems <- getElems newMsg
   elems == newElems @? "StorableArray bcast yielded garbled result: " ++ show newElems
