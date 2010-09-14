@@ -134,15 +134,10 @@ scatter array range sendRank comm = do
        elementSize = sizeOf (undefined :: e)
        numElements = rangeSize range
        numBytes = cIntConv (numElements * elementSize)
-   if myRank == sendRank
-      then withStorableArray array $ \sendPtr -> do
-         foreignPtr <- mallocForeignPtrArray numElements
-         withForeignPtr foreignPtr $ \recvPtr -> do
-            checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte cRank comm
-            unsafeForeignPtrToStorableArray foreignPtr range
-      else do
-         foreignPtr <- mallocForeignPtrArray numElements
-         withForeignPtr foreignPtr $ \recvPtr -> do
-            -- the sendPtr is ignored in this case, so we can make it NULL.
-            checkError $ Internal.scatter nullPtr numBytes byte (castPtr recvPtr) numBytes byte cRank comm
-            unsafeForeignPtrToStorableArray foreignPtr range
+   foreignPtr <- mallocForeignPtrArray numElements
+   withForeignPtr foreignPtr $ \recvPtr -> do
+     let worker = (\sendPtr -> checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte cRank comm)
+     if myRank == sendRank
+       then withStorableArray array worker
+       else worker nullPtr -- the sendPtr is ignored in this case, so we can make it NULL.
+     unsafeForeignPtrToStorableArray foreignPtr range
