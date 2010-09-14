@@ -12,10 +12,12 @@ module Control.Parallel.MPI.StorableArray
    , issend
    , irecv
    , scatter
+   , gather
    ) where
 
 import C2HS
 import Data.Array.Storable
+import Control.Applicative ((<$>))
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -128,13 +130,13 @@ irecv range sendRank tag comm = do
       (arraySize `div` segmentSize) /= commSize
 -}
 scatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-scatter array range sendRank comm = do
-   myRank <- commRank comm
-   let cRank = fromRank sendRank
+scatter array range root comm = do
+   let cRank = fromRank root
        elementSize = sizeOf (undefined :: e)
        numElements = rangeSize range
        numBytes = cIntConv (numElements * elementSize)
-   if myRank == sendRank
+   myRank <- commRank comm
+   if myRank == root
       then withStorableArray array $ \sendPtr -> do
          foreignPtr <- mallocForeignPtrArray numElements
          withForeignPtr foreignPtr $ \recvPtr -> do
@@ -146,3 +148,37 @@ scatter array range sendRank comm = do
             -- the sendPtr is ignored in this case, so we can make it NULL.
             checkError $ Internal.scatter nullPtr numBytes byte (castPtr recvPtr) numBytes byte cRank comm
             unsafeForeignPtrToStorableArray foreignPtr range
+
+{-
+Note the slightly odd semantics that on non-root processes the result array is the same as
+the input array. You might think it would be sensible to return an empty array - but we can't
+actually construct one, because we've no way of making empty bounds. It might also be
+tempting to use a Maybe type to wrap the result, but this would ultimately just be
+frustrating for the root process, who would always get their result in a Just
+constructor.
+
+XXX we should check that the outRange is large enough to store:
+
+   segmentSize * commSize
+-}
+
+gather :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+gather segment outRange root comm = do
+   segmentSize <- rangeSize <$> getBounds segment
+   let cRank = fromRank root
+       elementSize = sizeOf (undefined :: e)
+       segmentBytes = cIntConv (segmentSize * elementSize)
+   myRank <- commRank comm
+   if myRank == root
+      then do
+         let numElements = rangeSize outRange
+         foreignPtr <- mallocForeignPtrArray numElements
+         withStorableArray segment $ \sendPtr ->
+            withForeignPtr foreignPtr $ \recvPtr -> do
+               checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) segmentBytes byte cRank comm
+               unsafeForeignPtrToStorableArray foreignPtr outRange
+      else
+         withStorableArray segment $ \sendPtr -> do
+            -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
+            checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte nullPtr 0 byte cRank comm
+            return segment
