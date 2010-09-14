@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
 
 module Control.Parallel.MPI.StorableArray
    ( send
@@ -13,6 +13,7 @@ module Control.Parallel.MPI.StorableArray
    , irecv
    , scatter
    , gather
+   , scatterv
    ) where
 
 import C2HS
@@ -123,7 +124,7 @@ irecv range sendRank tag comm = do
    arbitrary Ix types, instead of just integers. This gives scatter the same type signature
    as bcast, although the role of the range is different in the two. In bcast the range
    specifies the lower and upper indices of the entire sent/recv array. In scatter
-   the range specifies the lower and upper indices of the sent/recv segmen of the
+   the range specifies the lower and upper indices of the sent/recv segment of the
    array.
 
    XXX is it an error if:
@@ -176,3 +177,73 @@ gather segment outRange root comm = do
             -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
             checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte nullPtr 0 byte cRank comm
             return segment
+
+{-
+For Scatterv/Gatherv we need arrays of "stripe lengths" and displacements.
+
+Sometimes it would be easy for end-user to furnish those array, sometimes not.
+
+We could steal the useful idea from mpy4pi and allow user to specify counts and displacements in several
+ways - as a number, an "empty" value, or a list/array of values. Semantic is as following:
+
+| count  | displacement | meaning                                                                                  |
+|--------+--------------+------------------------------------------------------------------------------------------|
+| number | nothing      | Uniform stripes of the given size, placed next to each other                             |
+| number | number       | Uniform stripes of the given size, with "displ" values between them                      |
+| number | vector       | Uniform stripes of the given size, at given displacements (we could check for overlap)   |
+| vector | nothing      | Stripe lengths are given, compute the displacements assuming they are contiguous         |
+| vector | number       | Stripe lengths are given, compute the displacements allowing "displ" values between them |
+| vector | vector       | Stripes and displacements are pre-computed elsewhere                                     |
+
+
+We could codify this with typeclass:
+
+class CountsAndDisplacements a b where
+  getCountsDisplacements :: (Ix i) => (i,i) -> a -> b -> (StorableArray Int Int, StorableArray Int Int)
+
+instance CountsAndDisplacements Int Int where
+  getCountsDisplacements bnds c d = striped bnds c d
+
+instance CountsAndDisplacements Int (Maybe Int) where
+  getCountsDisplacements bnds c Nothing  = striped bnds c 0
+  getCountsDisplacements bnds c (Just d) = striped bnds c d
+
+instance CountsAndDisplacements Int (StorableArray Int Int) where
+  getCountsDisplacements bnds n displs  = countsOnly bnds n
+
+instance CountsAndDisplacements (StorableArray Int Int) (Maybe Int) where
+  getCountsDisplacements bnds cs Nothing  = displacementsFromCounts cs 0
+  getCountsDisplacements bnds cs (Just d) = displacementsFromCounts cs d
+
+instance CountsAndDisplacements (StorableArray Int Int) (StorableArray Int Int) where
+  getCountsDisplacements bnds cs ds  = (cs,ds)
+
+striped  = undefined
+countsOnly = undefined
+displacementsFromCounts = undefined
+
+What do you think?
+-}
+
+-- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
+-- See Serializable for other alternatives.
+     
+-- receiver needs comm rank recvcount
+-- sender needs everything else
+scatterv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)     
+scatterv array counts displacements recvRange sendRank comm = do
+   myRank <- commRank comm
+   let cRank = fromRank sendRank
+       numElements = rangeSize recvRange
+       elementSize = sizeOf (undefined :: e)
+       numBytes = cIntConv (numElements * elementSize)
+   foreignPtr <- mallocForeignPtrArray numElements
+   withForeignPtr foreignPtr $ \recvPtr -> do
+     let worker = (\sendPtr countsPtr displPtr -> 
+                    checkError $ Internal.scatterv sendPtr countsPtr displPtr byte (castPtr recvPtr) numBytes byte cRank comm)
+     if myRank == sendRank
+       then withStorableArray array $ \sendPtr ->
+              withStorableArray counts $ \countsPtr ->  
+                withStorableArray displacements $ \displPtr -> worker (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr)
+       else worker nullPtr nullPtr nullPtr -- they are ignored in this case, so we can make them all NULL.
+     unsafeForeignPtrToStorableArray foreignPtr recvRange
