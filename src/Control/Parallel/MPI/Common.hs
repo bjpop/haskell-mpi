@@ -21,6 +21,8 @@ module Control.Parallel.MPI.Common
 
 import Prelude hiding (init)
 import C2HS
+import Control.Applicative ((<$>))
+import Control.Exception (finally)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -31,10 +33,9 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
-import Control.Applicative ((<$>))
 
 mpi :: IO () -> IO ()
-mpi action = init >> action >> finalize
+mpi action = init >> (action `finally` finalize)
 
 init :: IO ()
 init = checkError Internal.init
