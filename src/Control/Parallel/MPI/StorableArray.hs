@@ -139,7 +139,8 @@ scatter array range root comm = do
    foreignPtr <- mallocForeignPtrArray numElements
    withForeignPtr foreignPtr $ \recvPtr -> do
      let worker = (\sendPtr -> checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte cRank comm)
-     if myRank == sendRank
+     myRank <- commRank comm
+     if myRank == root 
        then withStorableArray array worker
        else worker nullPtr -- the sendPtr is ignored in this case, so we can make it NULL.
      unsafeForeignPtrToStorableArray foreignPtr range
