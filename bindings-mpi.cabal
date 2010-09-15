@@ -86,6 +86,6 @@ executable  bindings-mpi-testsuite
   main-is:       Testsuite.hs
   if flag(test)
     ghc-options: -fhpc
-    build-depends: base >=3 && <=5, HUnit, testrunner, hpc
+    build-depends: base >=3 && <=5, HUnit, testrunner, hpc, unix
   else
     buildable: False

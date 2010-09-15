@@ -12,9 +12,7 @@ import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
-import GHC.IO.Handle  (hDuplicateTo) -- for redirecting stdout to stderr
-import System.IO (stdout, stderr)
-import Data.Array (rangeSize)
+import System.Posix.IO (dupTo, stdError, stdOutput)
 import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds)
 
 import Trace.Hpc.Tix
@@ -29,7 +27,8 @@ main = do
     then putStrLn $ unlines [ "Need at least two processes to run the tests."
                             , "Typical command line could look like this:"
                             , "'mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log'" ]
-    else do when (rank /= 0) $ do hDuplicateTo stderr stdout  -- redirect stdout to stderr for non-root processes
+    else do when (rank /= 0) $ do _ <- dupTo stdError stdOutput  -- redirect stdout to stderr for non-root processes
+                                  return ()
             putStrLn $ "MPI implementation provides thread support level: " ++ show provided
             testRunnerMain $ tests rank
             barrier commWorld -- synchronize processes after all tests
