@@ -13,7 +13,8 @@ module Control.Parallel.MPI.StorableArray
    , irecv
    , scatter
    , gather
-   , scatterv
+   , sendScatterv
+   , recvScatterv
    , gatherv
    ) where
 
@@ -229,26 +230,40 @@ What do you think?
 
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
 -- See Serializable for other alternatives.
+
+-- | XXX: this should be moved out to some convenience module
+allocateBuffer :: forall e i. (Storable e, Ix i) => (i, i) -> IO (ForeignPtr e, CInt)
+allocateBuffer recvRange = do
+  let numElements = rangeSize recvRange
+      elementSize = sizeOf (undefined :: e)
+      numBytes = cIntConv (numElements * elementSize)
+  foreignPtr <- mallocForeignPtrArray numElements
+  return (foreignPtr, numBytes)
      
+
 -- receiver needs comm rank recvcount
 -- sender needs everything else
-scatterv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)     
-scatterv array counts displacements recvRange sendRank comm = do
-   myRank <- commRank comm
-   let cRank = fromRank sendRank
-       numElements = rangeSize recvRange
-       elementSize = sizeOf (undefined :: e)
-       numBytes = cIntConv (numElements * elementSize)
-   foreignPtr <- mallocForeignPtrArray numElements
-   withForeignPtr foreignPtr $ \recvPtr -> do
-     let worker = (\sendPtr countsPtr displPtr -> 
-                    checkError $ Internal.scatterv sendPtr countsPtr displPtr byte (castPtr recvPtr) numBytes byte cRank comm)
-     if myRank == sendRank
-       then withStorableArray array $ \sendPtr ->
-              withStorableArray counts $ \countsPtr ->  
-                withStorableArray displacements $ \displPtr -> worker (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr)
-       else worker nullPtr nullPtr nullPtr -- they are ignored in this case, so we can make them all NULL.
-     unsafeForeignPtrToStorableArray foreignPtr recvRange
+sendScatterv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)     
+sendScatterv array counts displacements recvRange sendRank comm = do
+   -- myRank <- commRank comm
+   -- assert myRank == sendRank ?
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     withStorableArray array $ \sendPtr ->
+       withStorableArray counts $ \countsPtr ->  
+         withStorableArray displacements $ \displPtr ->  
+           checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank sendRank) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
+
+
+recvScatterv :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+recvScatterv recvRange sendRank comm = do
+   -- myRank <- commRank comm
+   -- assert (myRank /= sendRank)
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank sendRank) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
 
 gatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 gatherv segment counts displacements outRange root comm = do

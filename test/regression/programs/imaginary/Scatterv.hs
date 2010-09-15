@@ -15,15 +15,18 @@ root = toRank 0
 main :: IO ()
 main = mpi $ do
    numProcs <- commSize commWorld
-   let bigRange@(low, hi) = (1, sum [1..numProcs])
-   (msg :: StorMsg) <- newListArray bigRange [low..hi]
-   
    myRank <- commRank commWorld
-   let msgRange = (1, numProcs)
-   (counts :: StorMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) [1..numProcs]
-   (displs :: StorMsg) <- newListArray msgRange $ 0:(Prelude.init $ scanl1 (+) $ map (sizeOf (undefined::Int) *) [1..numProcs])
-   
+
    let recvRange = (0, fromRank myRank)
-   segment <- scatterv msg counts displs recvRange root commWorld
+   segment <- if myRank == root then do
+     let bigRange@(low, hi) = (1, sum [1..numProcs])
+     (msg :: StorMsg) <- newListArray bigRange [low..hi]
+   
+     let msgRange = (1, numProcs)
+     (counts :: StorMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) [1..numProcs]
+     (displs :: StorMsg) <- newListArray msgRange $ 0:(Prelude.init $ scanl1 (+) $ map (sizeOf (undefined::Int) *) [1..numProcs])
+     
+     sendScatterv msg counts displs recvRange root commWorld
+     else recvScatterv recvRange root commWorld
    recvMsg <- getElems segment
    putStrLn $ "rank = " ++ show myRank ++ " segment = " ++ show recvMsg
