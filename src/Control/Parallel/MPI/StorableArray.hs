@@ -265,8 +265,8 @@ recvGatherv segment counts displacements outRange root comm = do
             checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr outRange
     
-sendGatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO ()
-sendGatherv segment counts displacements outRange root comm = do
+sendGatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Comm -> IO ()
+sendGatherv segment root comm = do
    segmentBytes <- arrayByteSize segment (undefined :: e)
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
