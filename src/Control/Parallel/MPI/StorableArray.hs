@@ -11,7 +11,8 @@ module Control.Parallel.MPI.StorableArray
    , ibsend
    , issend
    , irecv
-   , scatter
+   , sendScatter
+   , recvScatter
    , gather
    , sendScatterv
    , recvScatterv
@@ -132,20 +133,21 @@ irecv range sendRank tag comm = do
    XXX is it an error if:
       (arraySize `div` segmentSize) /= commSize
 -}
-scatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-scatter array range root comm = do
-   let cRank = fromRank root
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       numBytes = cIntConv (numElements * elementSize)
-   foreignPtr <- mallocForeignPtrArray numElements
-   withForeignPtr foreignPtr $ \recvPtr -> do
-     let worker = (\sendPtr -> checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte cRank comm)
-     myRank <- commRank comm
-     if myRank == root 
-       then withStorableArray array worker
-       else worker nullPtr -- the sendPtr is ignored in this case, so we can make it NULL.
-     unsafeForeignPtrToStorableArray foreignPtr range
+sendScatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+sendScatter array recvRange root comm = do
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     withStorableArray array $ \sendPtr -> 
+       checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
+
+recvScatter :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+recvScatter recvRange root comm = do
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     checkError $ Internal.scatter nullPtr numBytes byte (castPtr recvPtr) numBytes byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
+
 
 {-
 Note the slightly odd semantics that on non-root processes the result array is the same as
@@ -244,7 +246,7 @@ allocateBuffer recvRange = do
 -- receiver needs comm rank recvcount
 -- sender needs everything else
 sendScatterv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)     
-sendScatterv array counts displacements recvRange sendRank comm = do
+sendScatterv array counts displacements recvRange root comm = do
    -- myRank <- commRank comm
    -- assert myRank == sendRank ?
    (foreignPtr, numBytes) <- allocateBuffer recvRange
@@ -252,17 +254,17 @@ sendScatterv array counts displacements recvRange sendRank comm = do
      withStorableArray array $ \sendPtr ->
        withStorableArray counts $ \countsPtr ->  
          withStorableArray displacements $ \displPtr ->  
-           checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank sendRank) comm
+           checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr recvRange
 
 
 recvScatterv :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-recvScatterv recvRange sendRank comm = do
+recvScatterv recvRange root comm = do
    -- myRank <- commRank comm
    -- assert (myRank /= sendRank)
    (foreignPtr, numBytes) <- allocateBuffer recvRange
    withForeignPtr foreignPtr $ \recvPtr ->
-     checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank sendRank) comm
+     checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr recvRange
 
 gatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
