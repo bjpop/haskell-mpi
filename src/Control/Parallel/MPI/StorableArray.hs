@@ -14,6 +14,7 @@ module Control.Parallel.MPI.StorableArray
    , scatter
    , gather
    , scatterv
+   , gatherv
    ) where
 
 import C2HS
@@ -248,3 +249,34 @@ scatterv array counts displacements recvRange sendRank comm = do
                 withStorableArray displacements $ \displPtr -> worker (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr)
        else worker nullPtr nullPtr nullPtr -- they are ignored in this case, so we can make them all NULL.
      unsafeForeignPtrToStorableArray foreignPtr recvRange
+
+gatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+gatherv segment counts displacements outRange root comm = do
+   segmentSize <- rangeSize <$> getBounds segment
+   let cRank = fromRank root
+       elementSize = sizeOf (undefined :: e)
+       segmentBytes = cIntConv (segmentSize * elementSize)
+   myRank <- commRank comm
+   if myRank == root
+      then do
+         let numElements = rangeSize outRange
+         foreignPtr <- mallocForeignPtrArray numElements
+         withStorableArray segment $ \sendPtr ->
+           withStorableArray counts $ \countsPtr ->  
+              withStorableArray displacements $ \displPtr -> 
+                withForeignPtr foreignPtr $ \recvPtr -> do
+                  checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) byte cRank comm
+                  unsafeForeignPtrToStorableArray foreignPtr outRange
+      else
+         withStorableArray segment $ \sendPtr -> do
+            -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
+            checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte nullPtr nullPtr nullPtr byte cRank comm
+            return segment
+    
+    
+    
+    
+    
+    
+    
+    
