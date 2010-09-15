@@ -44,12 +44,9 @@ sendWith :: forall e i. (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
   StorableArray i e -> Rank -> Tag -> Comm -> IO ()
 sendWith send_function array rank tag comm = do
-   bounds <- getBounds array
-   let arraySize = rangeSize bounds
-       cRank = fromRank rank
+   let cRank = fromRank rank
        cTag  = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       numBytes = cIntConv (arraySize * elementSize)
+   numBytes <- arrayByteSize array (undefined :: e)
    withStorableArray array $ \arrayPtr -> do
       checkError $ send_function (castPtr arrayPtr) numBytes byte cRank cTag comm
 
@@ -57,10 +54,7 @@ recv :: forall e i . (Storable e, Ix i) => (i,i) -> Rank -> Tag -> Comm -> IO (S
 recv range rank tag comm = do
    let cRank = fromRank rank
        cTag = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       cBytes = cIntConv (numElements * elementSize)
-   foreignPtr <- mallocForeignPtrArray numElements
+   (foreignPtr, cBytes) <- allocateBuffer range
    withForeignPtr foreignPtr $ \arrayPtr ->
       alloca $ \statusPtr -> do
          checkError $ Internal.recv (castPtr arrayPtr) cBytes byte cRank cTag comm (castPtr statusPtr)
@@ -72,15 +66,13 @@ bcast :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -
 bcast array range sendRank comm = do
    myRank <- commRank comm
    let cRank = fromRank sendRank
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       cBytes = cIntConv (numElements * elementSize)
    if myRank == sendRank
       then withStorableArray array $ \arrayPtr -> do
+              cBytes <- arrayByteSize array (undefined :: e)
               checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
               return array
       else do
-         foreignPtr <- mallocForeignPtrArray numElements
+         (foreignPtr, cBytes) <- allocateBuffer range
          withForeignPtr foreignPtr $ \arrayPtr -> do
             checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
             unsafeForeignPtrToStorableArray foreignPtr range
@@ -94,12 +86,9 @@ isendWith :: forall e i . (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
   StorableArray i e -> Rank -> Tag -> Comm -> IO Request
 isendWith send_function array recvRank tag comm = do
-   bounds <- getBounds array
-   let arraySize = rangeSize bounds
-       cRank = fromRank recvRank
+   let cRank = fromRank recvRank
        cTag  = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       cBytes = cIntConv (arraySize * elementSize)
+   cBytes <- arrayByteSize array (undefined :: e)
    alloca $ \requestPtr ->
       withStorableArray array $ \arrayPtr -> do
          checkError $ send_function (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
@@ -109,11 +98,8 @@ irecv :: forall e i . (Storable e, Ix i) => (i, i) -> Rank -> Tag -> Comm -> IO 
 irecv range sendRank tag comm = do
    let cRank = fromRank sendRank
        cTag  = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       cBytes = cIntConv (numElements * elementSize)
    alloca $ \requestPtr -> do
-      foreignPtr <- mallocForeignPtrArray numElements
+      (foreignPtr,cBytes) <- allocateBuffer range
       withForeignPtr foreignPtr $ \arrayPtr -> do
          checkError $ Internal.irecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
          array <- unsafeForeignPtrToStorableArray foreignPtr range
@@ -211,9 +197,10 @@ allocateBuffer recvRange = do
   return (foreignPtr, numBytes)
      
 -- | XXX: this too should be moved out to some convenience module. Also, name is ugly
-rangeBytes range element = do
-   rSize <- rangeSize <$> getBounds range
-   return $ cIntConv (rSize * sizeOf element)
+arrayByteSize :: (Storable e, Ix i) => StorableArray i e -> e -> IO CInt
+arrayByteSize arr el = do
+   rSize <- rangeSize <$> getBounds arr
+   return $ cIntConv (rSize * sizeOf el)
 
 -- receiver needs comm rank recvcount
 -- sender needs everything else
@@ -247,7 +234,7 @@ XXX we should check that the outRange is large enough to store:
 
 recvGather :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 recvGather segment outRange root comm = do
-   segmentBytes <- rangeBytes segment (undefined :: e)
+   segmentBytes <- arrayByteSize segment (undefined :: e)
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
    (foreignPtr, _) <- allocateBuffer outRange
@@ -258,7 +245,7 @@ recvGather segment outRange root comm = do
 
 sendGather :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Comm -> IO ()
 sendGather segment root comm = do
-   segmentBytes <- rangeBytes segment (undefined :: e)
+   segmentBytes <- arrayByteSize segment (undefined :: e)
    -- myRank <- commRank comm
    -- XXX: assert it is /= root
    withStorableArray segment $ \sendPtr -> do
@@ -267,7 +254,7 @@ sendGather segment root comm = do
 
 recvGatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 recvGatherv segment counts displacements outRange root comm = do
-   segmentBytes <- rangeBytes segment (undefined :: e)
+   segmentBytes <- arrayByteSize segment (undefined :: e)
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
    (foreignPtr, _) <- allocateBuffer outRange
@@ -280,7 +267,7 @@ recvGatherv segment counts displacements outRange root comm = do
     
 sendGatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO ()
 sendGatherv segment counts displacements outRange root comm = do
-   segmentBytes <- rangeBytes segment (undefined :: e)
+   segmentBytes <- arrayByteSize segment (undefined :: e)
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
    withStorableArray segment $ \sendPtr ->
