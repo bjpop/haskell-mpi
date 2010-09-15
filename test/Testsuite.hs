@@ -25,11 +25,11 @@ main = do
   provided <- initThread Multiple
   size <- commSize commWorld
   rank <- commRank commWorld
-  if (size /= 2) 
-    then putStrLn $ unlines [ "Need exactly two processes to run the tests."
-                            , "Typical command line to achieve this is:"
+  if (size < 2) 
+    then putStrLn $ unlines [ "Need at least two processes to run the tests."
+                            , "Typical command line could look like this:"
                             , "'mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log'" ]
-    else do when (rank == 1) $ do hDuplicateTo stderr stdout  -- redirect stdout to stderr for receiver process
+    else do when (rank /= 0) $ do hDuplicateTo stderr stdout  -- redirect stdout to stderr for non-root processes
             putStrLn $ "MPI implementation provides thread support level: " ++ show provided
             testRunnerMain $ tests rank
             barrier commWorld -- synchronize processes after all tests
