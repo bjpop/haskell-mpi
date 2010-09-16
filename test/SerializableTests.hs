@@ -10,7 +10,8 @@ serializableTests :: Rank -> [(String,TestRunnerTest)]
 serializableTests rank =
   [ mpiTestCase rank "send+recv simple message" $ syncSendRecv send
   , mpiTestCase rank "send+recv simple message (with sending process blocking)" syncSendRecvBlock
-  , mpiTestCase rank "send+recv simple message" $ syncSendRecv ssend
+  , mpiTestCase rank "ssend+recv simple message" $ syncSendRecv ssend
+  , mpiTestCase rank "rsend+recv simple message" $ syncRSendRecv
   , mpiTestCase rank "send+recvFuture simple message" syncSendRecvFuture
   , mpiTestCase rank "isend+recv simple message" $ asyncSendRecv isend
   , mpiTestCase rank "issend+recv simple message" $ asyncSendRecv issend
@@ -21,7 +22,7 @@ serializableTests rank =
   ]
 syncSendRecv  :: (SmallMsg -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (BigMsg -> Rank -> Tag -> Comm -> IO Request) -> Rank -> IO ()
-syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
+syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
 crissCrossSendRecv, broadcast :: Rank -> IO ()
 
 
@@ -31,6 +32,14 @@ smallMsg :: SmallMsg
 smallMsg = (True, 12, "fred", [(), (), ()])
 syncSendRecv sendf rank 
   | rank == sender   = sendf smallMsg receiver tag0 commWorld
+  | rank == receiver = do (status, result) <- recv sender tag0 commWorld
+                          checkStatus status sender tag0
+                          result == smallMsg @? "Got garbled result " ++ show result
+  | otherwise        = return () -- idling
+
+syncRSendRecv rank 
+  | rank == sender   = do threadDelay (2* 10^(6 :: Integer))
+                          rsend smallMsg receiver tag0 commWorld
   | rank == receiver = do (status, result) <- recv sender tag0 commWorld
                           checkStatus status sender tag0
                           result == smallMsg @? "Got garbled result " ++ show result
