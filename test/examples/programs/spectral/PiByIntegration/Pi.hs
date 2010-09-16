@@ -7,30 +7,24 @@ import System.IO (hFlush, stdout)
 import Control.Applicative ((<$>))
 import Control.Monad (when, forM)
 
-root :: Rank
-root = toRank 0
-
-tag :: Tag
-tag = toTag ()
-
 main :: IO ()
 main = mpiWorld $ \procs rank -> do
-   n <- if (rank == root)
+   n <- if (rank == zeroRank)
            then do
               input <- getNumber "Enter number of intervals: "
-              bcast input root commWorld
+              bcast input zeroRank commWorld
            else
-              bcast undefined root commWorld
+              bcast undefined zeroRank commWorld
    let part = integrate (fromRank rank + 1) procs n (1 / fromIntegral n)
-   send part root tag commWorld
-   when (rank == root) $ do
+   send part zeroRank unitTag commWorld
+   when (rank == zeroRank) $ do
       pi <- sum <$> gatherAll procs
       print pi
 
 gatherAll :: Int -> IO [Double]
 gatherAll procs =
    forM [0..procs-1] $ \rank ->
-      snd <$> recv (toRank rank) tag commWorld
+      snd <$> recv (toRank rank) unitTag commWorld
 
 integrate :: Int -> Int -> Int -> Double -> Double
 integrate rank procs n h =
@@ -43,7 +37,7 @@ integrate rank procs n h =
    steps = [rank, rank + procs .. n]
    area :: Int -> Double
    area i
-      = 4 / (1 + x*x)
+      = 4 / (1 + x * x)
       where
       x = h * (fromIntegral i - 0.5)
 
