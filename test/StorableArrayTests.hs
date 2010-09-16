@@ -11,12 +11,14 @@ import Foreign.Storable
 storableArrayTests :: Rank -> [(String,TestRunnerTest)]
 storableArrayTests rank =
   [ mpiTestCase rank "send+recv array" syncSendRecvTest
-  , mpiTestCase rank "Broadcast array" broadcastTest
-  , mpiTestCase rank "Scatter array"   scatterTest
-  , mpiTestCase rank "Scatterv array"  scattervTest
-  , mpiTestCase rank "Gather array"    gatherTest    
+  , mpiTestCase rank "isend+irecv array" asyncSendRecvTest
+  , mpiTestCase rank "broadcast array" broadcastTest
+  , mpiTestCase rank "scatter array"   scatterTest
+  , mpiTestCase rank "scatterv array"  scattervTest
+  , mpiTestCase rank "gather array"    gatherTest    
+  , mpiTestCase rank "gatherv array"   gathervTest    
   ]
-syncSendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest :: Rank -> IO ()
+syncSendRecvTest, asyncSendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -33,6 +35,18 @@ syncSendRecvTest rank
                           send msg receiver tag2 commWorld
   | rank == receiver = do (status, newMsg) <- recv range sender tag2 commWorld
                           checkStatus status sender tag2
+                          elems <- getElems newMsg
+                          elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
+  | otherwise        = return ()
+
+asyncSendRecvTest rank
+  | rank == sender   = do msg <- arrMsg
+                          req <- isend msg receiver tag3 commWorld
+                          stat <- wait req
+                          checkStatus stat sender tag3
+  | rank == receiver = do (newMsg, req) <- irecv range sender tag3 commWorld
+                          stat <- wait req
+                          checkStatus stat sender tag3
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
@@ -84,7 +98,7 @@ scattervTest _ = do
   let myCount = counts!!myRankNo
       myDispl = displs!!myRankNo
       expected = take myCount $ drop myDispl [low..hi]
-  recvMsg == expected @? "rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+  recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
   
 gatherTest _ = do
   numProcs <- commSize commWorld
@@ -99,3 +113,25 @@ gatherTest _ = do
                else [1..segmentSize] ) @? "Rank " ++ show myRank ++ " got " ++ show recvMsg
   where segmentSize = 10
    
+gathervTest _ = do
+  numProcs <- commSize commWorld
+  let bigRange = (1, sum [1..numProcs])
+   
+  myRank <- commRank commWorld
+  let myRankNo = fromRank myRank
+      msgRange = (1, numProcs)
+      counts = [1..numProcs]
+      displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
+      sendRange = (0, myRankNo)
+  (packCounts :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
+  (packDispls :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
+  
+  (msg :: ArrMsg) <- newListArray sendRange [0..myRankNo]
+  
+  segment <- gatherv msg packCounts packDispls bigRange zeroRank commWorld
+  recvMsg <- getElems segment
+  
+  let expected = if myRank == zeroRank 
+                 then concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]                 
+                 else [0..myRankNo]
+  recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
