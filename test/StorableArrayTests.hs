@@ -6,11 +6,14 @@ import Control.Parallel.MPI.StorableArray
 import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds)
 
 import Foreign.Storable
-
+import Control.Concurrent (threadDelay)
+import Control.Monad (when)
 
 storableArrayTests :: Rank -> [(String,TestRunnerTest)]
 storableArrayTests rank =
-  [ mpiTestCase rank "send+recv array" syncSendRecvTest
+  [ mpiTestCase rank "send+recv array"  $ syncSendRecvTest send
+  , mpiTestCase rank "ssend+recv array" $ syncSendRecvTest ssend
+  , mpiTestCase rank "rsend+recv array" $ rsendRecvTest
   , mpiTestCase rank "isend+irecv array" asyncSendRecvTest
   , mpiTestCase rank "broadcast array" broadcastTest
   , mpiTestCase rank "scatter array"   scatterTest
@@ -18,7 +21,8 @@ storableArrayTests rank =
   , mpiTestCase rank "gather array"    gatherTest    
   , mpiTestCase rank "gatherv array"   gathervTest    
   ]
-syncSendRecvTest, asyncSendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
+syncSendRecvTest :: (StorableArray Int Int -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
+rsendRecvTest, asyncSendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -30,14 +34,24 @@ range@(low,hi) = (1,10)
 arrMsg :: IO ArrMsg
 arrMsg = newListArray range [low..hi]
 
-syncSendRecvTest rank
+syncSendRecvTest sendf rank
   | rank == sender   = do msg <- arrMsg
-                          send msg receiver tag2 commWorld
+                          sendf msg receiver tag2 commWorld
   | rank == receiver = do (status, newMsg) <- recv range sender tag2 commWorld
                           checkStatus status sender tag2
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
+
+rsendRecvTest rank = do
+  when (rank == receiver) $ do (status, newMsg) <- recv range sender tag2 commWorld
+                               checkStatus status sender tag2
+                               elems <- getElems newMsg
+                               elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
+  when (rank == sender)   $ do msg <- arrMsg
+                               threadDelay (2* 10^(6 :: Integer))
+                               rsend msg receiver tag2 commWorld
+  return ()
 
 asyncSendRecvTest rank
   | rank == sender   = do msg <- arrMsg
