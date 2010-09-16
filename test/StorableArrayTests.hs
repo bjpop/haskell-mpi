@@ -14,15 +14,17 @@ storableArrayTests rank =
   [ mpiTestCase rank "send+recv array"  $ syncSendRecvTest send
   , mpiTestCase rank "ssend+recv array" $ syncSendRecvTest ssend
   , mpiTestCase rank "rsend+recv array" $ rsendRecvTest
-  , mpiTestCase rank "isend+irecv array" asyncSendRecvTest
+  , mpiTestCase rank "isend+irecv array"  $ asyncSendRecvTest isend
+  , mpiTestCase rank "issend+irecv array" $ asyncSendRecvTest issend
   , mpiTestCase rank "broadcast array" broadcastTest
   , mpiTestCase rank "scatter array"   scatterTest
   , mpiTestCase rank "scatterv array"  scattervTest
   , mpiTestCase rank "gather array"    gatherTest    
   , mpiTestCase rank "gatherv array"   gathervTest    
   ]
-syncSendRecvTest :: (StorableArray Int Int -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
-rsendRecvTest, asyncSendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
+syncSendRecvTest  :: (StorableArray Int Int -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
+asyncSendRecvTest :: (StorableArray Int Int -> Rank -> Tag -> Comm -> IO Request) -> Rank -> IO ()
+rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -53,9 +55,9 @@ rsendRecvTest rank = do
                                rsend msg receiver tag2 commWorld
   return ()
 
-asyncSendRecvTest rank
+asyncSendRecvTest isendf rank
   | rank == sender   = do msg <- arrMsg
-                          req <- isend msg receiver tag3 commWorld
+                          req <- isendf msg receiver tag3 commWorld
                           stat <- wait req
                           checkStatus stat sender tag3
   | rank == receiver = do (newMsg, req) <- irecv range sender tag3 commWorld
