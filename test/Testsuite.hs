@@ -14,7 +14,6 @@ import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
 import GHC.IO.Handle  (hDuplicateTo) -- for redirecting stdout to stderr
 import System.IO (stdout, stderr)
-import Data.Array (rangeSize)
 import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds)
 
 import Trace.Hpc.Tix
