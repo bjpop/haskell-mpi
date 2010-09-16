@@ -216,15 +216,29 @@ sendScatterv array counts displacements recvRange root comm = do
            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr recvRange
 
+class (Ix i, Storable e) =>  MpiDestination a i e where
+  withMpiDestination :: a -> (CInt -> Ptr e -> IO ()) -> IO (StorableArray i e)
 
+instance (Ix i, Storable e) => MpiDestination (i,i) i e where
+  withMpiDestination range f = do
+    (foreignPtr, numBytes) <- allocateBuffer range
+    withForeignPtr foreignPtr $ \ptr -> do
+      f numBytes ptr
+    unsafeForeignPtrToStorableArray foreignPtr range
+    
+instance (Storable e, Ix i) => MpiDestination (StorableArray i e) i e where
+  withMpiDestination arr f = do
+    numBytes <- arrayByteSize arr (undefined :: e)
+    withStorableArray arr $ \ptr -> do
+      f numBytes ptr
+    return arr
+    
 recvScatterv :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 recvScatterv recvRange root comm = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
-   (foreignPtr, numBytes) <- allocateBuffer recvRange
-   withForeignPtr foreignPtr $ \recvPtr ->
+   withMpiDestination recvRange $ \numBytes recvPtr ->
      checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank root) comm
-   unsafeForeignPtrToStorableArray foreignPtr recvRange
 
 {-
 XXX we should check that the outRange is large enough to store:
@@ -273,11 +287,3 @@ sendGatherv segment root comm = do
    withStorableArray segment $ \sendPtr ->
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
      checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte nullPtr nullPtr nullPtr byte (fromRank root) comm
-
-    
-    
-    
-    
-    
-    
-    
