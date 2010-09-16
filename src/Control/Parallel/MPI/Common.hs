@@ -7,6 +7,7 @@ module Control.Parallel.MPI.Common
    , module ThreadSupport
    , module Request
    , mpi
+   , mpiWorld
    , init
    , initThread
    , finalize
@@ -36,6 +37,13 @@ import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
 
 mpi :: IO () -> IO ()
 mpi action = init >> (action `finally` finalize)
+
+mpiWorld :: (Int -> Rank -> IO ()) -> IO ()
+mpiWorld action = do
+   init
+   size <- commSize commWorld
+   rank <- commRank commWorld
+   action size rank `finally` finalize
 
 init :: IO ()
 init = checkError Internal.init
