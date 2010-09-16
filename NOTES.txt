@@ -56,3 +56,38 @@ single .tix file, which could be used to produce code coverage report.
 Simple script "bin/coverage.sh" does all this automatically. Note:
 script should be run from the toplevel project dir (where
 bindings-mpi.cabal is residing).
+
+Planned API coverage
+--------------------
+First tier:
+     MPI_Send,
+     MPI_Recv
+     MPI_Bcast,
+     MPI_Allgather
+     MPI_Barrier
+     MPI_Scatter,
+     MPI_Gather
+     MPI_Alltoall
+     MPI_Isend,
+     MPI_Wait, etc.
+     MPI_Reduce_scatter
+     MPI_Test,
+     MPI_Cancel
+     MPI_Wtime,
+     MPI_Wtick
+     MPI_Iprobe
+     MPI_Ssend
+     MPI_Probe
+
+Second tier or under consideration:
+     MPI_Op_create
+     MPI_Pcontrol
+     MPI_Type_commit
+     MPI_Pack_external
+     MPI_Register_datarep
+     MPI_Op_free
+     MPI_Query_thread
+     MPI_Win_create,
+     MPI_Put,
+     MPI_Get,
+     MPI_Accumulate
