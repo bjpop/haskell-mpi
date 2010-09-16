@@ -4,19 +4,24 @@ import TestHelpers
 import Control.Parallel.MPI.Serializable
 
 import Control.Concurrent (threadDelay)
+import Data.Serialize ()
 
 serializableTests :: Rank -> [(String,TestRunnerTest)]
 serializableTests rank =
-  [ mpiTestCase rank "Sending (sync)/receiving (sync) simple message" syncSendRecv
-  , mpiTestCase rank "Sending (sync)/receiving (sync) simple message (with one process blocking)" syncSendRecvBlock
-  , mpiTestCase rank "Sending (sync)/receiving (futures) simple message" syncSendRecvFuture
-  , mpiTestCase rank "Sending (async)/receiving (sync) simple message" asyncSendRecv
-  , mpiTestCase rank "Sending (async)/receiving (sync) two messages"   asyncSendRecv2
+  [ mpiTestCase rank "send+recv simple message" $ syncSendRecv send
+  , mpiTestCase rank "send+recv simple message (with sending process blocking)" syncSendRecvBlock
+  , mpiTestCase rank "send+recv simple message" $ syncSendRecv ssend
+  , mpiTestCase rank "send+recvFuture simple message" syncSendRecvFuture
+  , mpiTestCase rank "isend+recv simple message" $ asyncSendRecv isend
+  , mpiTestCase rank "issend+recv simple message" $ asyncSendRecv issend
+  , mpiTestCase rank "isend+recv two messages"   asyncSendRecv2
   , mpiTestCase rank "Sending (async)/receiving (futures) two messages, out of order" asyncSendRecv2ooo
-  , mpiTestCase rank "Criss-cross sending/receiving (async+futures) two messages" crissCrossSendRecv
-  , mpiTestCase rank "Broadcast message" broadcast
+  , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
+  , mpiTestCase rank "broadcast message" broadcast
   ]
-syncSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
+syncSendRecv  :: (SmallMsg -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
+asyncSendRecv :: (BigMsg -> Rank -> Tag -> Comm -> IO Request) -> Rank -> IO ()
+syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
 crissCrossSendRecv, broadcast :: Rank -> IO ()
 
 
@@ -24,8 +29,8 @@ crissCrossSendRecv, broadcast :: Rank -> IO ()
 type SmallMsg = (Bool, Int, String, [()])
 smallMsg :: SmallMsg 
 smallMsg = (True, 12, "fred", [(), (), ()])
-syncSendRecv rank 
-  | rank == sender   = send smallMsg receiver tag0 commWorld
+syncSendRecv sendf rank 
+  | rank == sender   = sendf smallMsg receiver tag0 commWorld
   | rank == receiver = do (status, result) <- recv sender tag0 commWorld
                           checkStatus status sender tag0
                           result == smallMsg @? "Got garbled result " ++ show result
@@ -51,8 +56,8 @@ syncSendRecvFuture rank
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
-asyncSendRecv rank 
-  | rank == sender   = do req <- isend bigMsg receiver tag3 commWorld
+asyncSendRecv isendf rank 
+  | rank == sender   = do req <- isendf bigMsg receiver tag3 commWorld
                           status <- wait req
                           checkStatus status sender tag3
   | rank == receiver = do (status, result) <- recv sender tag3 commWorld
