@@ -10,11 +10,13 @@ import Foreign.Storable
 
 storableArrayTests :: Rank -> [(String,TestRunnerTest)]
 storableArrayTests rank =
-  [ mpiTestCase rank "Sending (sync)/receiving (sync) simple array" syncSendRecvTest
+  [ mpiTestCase rank "send+recv array" syncSendRecvTest
   , mpiTestCase rank "Broadcast array" broadcastTest
-  , mpiTestCase rank "Scatterv array" scattervTest
+  , mpiTestCase rank "Scatter array"   scatterTest
+  , mpiTestCase rank "Scatterv array"  scattervTest
+  , mpiTestCase rank "Gather array"    gatherTest    
   ]
-syncSendRecvTest, broadcastTest, scattervTest :: Rank -> IO ()
+syncSendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -43,6 +45,25 @@ broadcastTest _ = do
   newElems <- getElems newMsg
   elems == newElems @? "StorableArray bcast yielded garbled result: " ++ show newElems
 
+
+scatterTest _ = do
+  numProcs <- commSize commWorld
+  let bigRange@(low, hi) = (1, segmentSize * numProcs)
+  (msg :: ArrMsg) <- newListArray bigRange [low..hi]
+  let segRange = (1, segmentSize)
+  segment <- scatter msg segRange zeroRank commWorld
+  myRank <- commRank commWorld
+  recvMsg <- getElems segment
+  recvMsg == take 10 [(fromRank myRank)*10+1..] @? "Rank " ++ show myRank ++ " got segment " ++ show recvMsg
+  where
+    segmentSize = 10
+
+-- scatter list [1..] in a way such that:
+-- rank 0 will receive [1]
+-- rank 1 will receive [2,3]
+-- rank 2 will receive [3,4,5]
+-- rank 3 will receive [6,7,8,9]
+-- etc
 scattervTest _ = do
   numProcs <- commSize commWorld
   let bigRange@(low, hi) = (1, sum [1..numProcs])
@@ -64,3 +85,17 @@ scattervTest _ = do
       myDispl = displs!!myRankNo
       expected = take myCount $ drop myDispl [low..hi]
   recvMsg == expected @? "rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+  
+gatherTest _ = do
+  numProcs <- commSize commWorld
+  let segRange@(low,hi) = (1, segmentSize)
+  (msg :: ArrMsg) <- newListArray segRange [low..hi]
+  let bigRange = (1, segmentSize * numProcs)
+  result <- gather msg bigRange zeroRank commWorld
+  myRank <- commRank commWorld
+  recvMsg <- getElems result
+  ( recvMsg == if myRank == zeroRank 
+               then concat $ replicate numProcs [1..segmentSize]
+               else [1..segmentSize] ) @? "Rank " ++ show myRank ++ " got " ++ show recvMsg
+  where segmentSize = 10
+   
