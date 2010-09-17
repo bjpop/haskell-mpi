@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 
 module Control.Parallel.MPI.StorableArray
    ( send
@@ -22,6 +22,7 @@ module Control.Parallel.MPI.StorableArray
    ) where
 
 import C2HS
+import Data.Array.Base (unsafeNewArray_)
 import Data.Array.Storable
 import Control.Applicative ((<$>))
 import qualified Control.Parallel.MPI.Internal as Internal
@@ -33,6 +34,21 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Common (commRank)
+
+-- | if the user wants to call recvScatterv for the first time without
+-- already having allocated the array, then they can call it like so:
+--
+--  array <- withRange range $ recvScatterv root comm
+--
+-- and thereafter they can call it like so:
+--
+--  recvScatterv root comm array
+withRange :: forall i e . (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
+withRange range f = do
+  arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
+                               -- should be faster than newArray_
+  f arr
+  return arr
 
 send, bsend, ssend, rsend :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO ()
 send  = sendWith Internal.send
@@ -216,30 +232,14 @@ sendScatterv array counts displacements recvRange root comm = do
            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr recvRange
 
-class (Ix i, Storable e) =>  Destination a i e where
-  withDestination :: a -> (CInt -> Ptr e -> IO ()) -> IO (StorableArray i e)
-
-instance (Ix i, Storable e) => Destination (i,i) i e where
-  withDestination range f = do
-    (foreignPtr, numBytes) <- allocateBuffer range
-    withForeignPtr foreignPtr $ \ptr -> do
-      f numBytes ptr
-    unsafeForeignPtrToStorableArray foreignPtr range
-    
-instance (Storable e, Ix i) => Destination (StorableArray i e) i e where
-  withDestination arr f = do
-    numBytes <- arrayByteSize arr (undefined :: e)
-    withStorableArray arr $ \ptr -> do
-      f numBytes ptr
-    return arr
-    
-recvScatterv :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-recvScatterv recvRange root comm = do
+recvScatterv :: forall e i. (Storable e, Ix i) => Comm -> Rank -> StorableArray i e -> IO ()
+recvScatterv comm root arr = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
-   withDestination recvRange $ \numBytes recvPtr ->
+   numBytes <- arrayByteSize arr (undefined :: e)
+   withStorableArray arr $ \recvPtr ->
      checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank root) comm
-
+     
 {-
 XXX we should check that the outRange is large enough to store:
 
