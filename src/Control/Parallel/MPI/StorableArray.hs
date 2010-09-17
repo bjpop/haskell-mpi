@@ -19,8 +19,8 @@ module Control.Parallel.MPI.StorableArray
    , recvGather
    , sendGatherv
    , recvGatherv
-   , withRange
-   , withRange_
+   , withNewArray
+   , withNewArray_
    ) where
 
 import C2HS
@@ -40,21 +40,21 @@ import Control.Parallel.MPI.Common (commRank)
 -- | if the user wants to call recvScatterv for the first time without
 -- already having allocated the array, then they can call it like so:
 --
--- (array,_) <- withRange range $ recvScatterv root comm
+-- (array,_) <- withNewArray range $ recvScatterv root comm
 --
 -- and thereafter they can call it like so:
 --
 --  recvScatterv root comm array
-withRange :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO a) -> IO (StorableArray i e, a)
-withRange range f = do
+withNewArray :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO a) -> IO (StorableArray i e, a)
+withNewArray range f = do
   arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
                                -- should be faster than newArray_
   res <- f arr
   return (arr, res)
 
 -- | Same as withRange, but discards the result of the processor function
-withRange_ :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
-withRange_ range f = do
+withNewArray_ :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
+withNewArray_ range f = do
   arr <- unsafeNewArray_ range
   f arr
   return arr
@@ -106,28 +106,14 @@ irecv comm sendRank tag array = do
          peek requestPtr
 
 {-
-   MPI_Scatter allows the element types of the send and recv buffers to be different.
-   This is accommodated by changing the sendcount and recvcount arguments. I'm not sure
-   about the utility of that feature in C, and I'm even less sure it would be a good idea
-   in a strongly typed language like Haskell. So this version of scatter requires that
-   the send and recv element types (e) are the same. Note we also use a (i,i) range
-   argument instead of a sendcount argument. This makes it easier to work with
-   arbitrary Ix types, instead of just integers. This gives scatter the same type signature
-   as bcast, although the role of the range is different in the two. In bcast the range
-   specifies the lower and upper indices of the entire sent/recv array. In scatter
-   the range specifies the lower and upper indices of the sent/recv segment of the
-   array.
-
    XXX is it an error if:
       (arraySize `div` segmentSize) /= commSize
 -}
-sendScatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-sendScatter array recvRange root comm = do
-   (foreignPtr, numBytes) <- allocateBuffer recvRange
-   withForeignPtr foreignPtr $ \recvPtr ->
-     withStorableArray array $ \sendPtr -> 
+sendScatter :: forall e i. (Storable e, Ix i) => Comm -> Rank -> StorableArray i e -> StorableArray i e -> IO ()
+sendScatter comm root sendArray recvArray = do
+   withStorableArrayAndSize recvArray $ \recvPtr numBytes ->
+     withStorableArray sendArray $ \sendPtr -> 
        checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte (fromRank root) comm
-   unsafeForeignPtrToStorableArray foreignPtr recvRange
 
 recvScatter :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 recvScatter recvRange root comm = do
