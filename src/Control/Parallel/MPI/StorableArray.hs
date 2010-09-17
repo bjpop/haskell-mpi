@@ -19,6 +19,8 @@ module Control.Parallel.MPI.StorableArray
    , recvGather
    , sendGatherv
    , recvGatherv
+   , withRange
+   , withRange_
    ) where
 
 import C2HS
@@ -49,6 +51,13 @@ withRange range f = do
                                -- should be faster than newArray_
   res <- f arr
   return (arr, res)
+
+-- | Same as withRange, but discards the result of the processor function
+withRange_ :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
+withRange_ range f = do
+  arr <- unsafeNewArray_ range
+  f arr
+  return arr
 
 send, bsend, ssend, rsend :: forall e i. (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO ()
 send  = sendWith Internal.send
