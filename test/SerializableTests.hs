@@ -20,8 +20,8 @@ serializableTests rank =
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
   , mpiTestCase rank "broadcast message" broadcast
   ]
-syncSendRecv  :: (SmallMsg -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
-asyncSendRecv :: (BigMsg -> Rank -> Tag -> Comm -> IO Request) -> Rank -> IO ()
+syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
+asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
 crissCrossSendRecv, broadcast :: Rank -> IO ()
 
@@ -31,16 +31,16 @@ type SmallMsg = (Bool, Int, String, [()])
 smallMsg :: SmallMsg 
 smallMsg = (True, 12, "fred", [(), (), ()])
 syncSendRecv sendf rank 
-  | rank == sender   = sendf smallMsg receiver tag0 commWorld
-  | rank == receiver = do (status, result) <- recv sender tag0 commWorld
+  | rank == sender   = sendf commWorld receiver tag0 smallMsg
+  | rank == receiver = do (result, status) <- recv commWorld sender tag0
                           checkStatus status sender tag0
                           result == smallMsg @? "Got garbled result " ++ show result
   | otherwise        = return () -- idling
 
 syncRSendRecv rank 
   | rank == sender   = do threadDelay (2* 10^(6 :: Integer))
-                          rsend smallMsg receiver tag0 commWorld
-  | rank == receiver = do (status, result) <- recv sender tag0 commWorld
+                          rsend commWorld receiver tag0 smallMsg
+  | rank == receiver = do (result, status) <- recv commWorld sender tag0
                           checkStatus status sender tag0
                           result == smallMsg @? "Got garbled result " ++ show result
   | otherwise        = return () -- idling
@@ -49,16 +49,16 @@ type BigMsg = [Int]
 bigMsg :: BigMsg
 bigMsg = [0..50000]
 syncSendRecvBlock rank 
-  | rank == sender   = send bigMsg receiver tag1 commWorld
-  | rank == receiver = do (status, result) <- recv sender tag1 commWorld
+  | rank == sender   = send commWorld receiver tag1 bigMsg
+  | rank == receiver = do (result, status) <- recv commWorld sender tag1
                           checkStatus status sender tag1
                           threadDelay (2* 10^(6 :: Integer))
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 syncSendRecvFuture rank 
-  | rank == sender   = do send bigMsg receiver tag2 commWorld
-  | rank == receiver = do future <- recvFuture sender tag2 commWorld
+  | rank == sender   = do send commWorld receiver tag2 bigMsg
+  | rank == receiver = do future <- recvFuture commWorld sender tag2
                           result <- waitFuture future
                           status <- getFutureStatus future
                           checkStatus status sender tag2
@@ -66,37 +66,37 @@ syncSendRecvFuture rank
   | otherwise        = return () -- idling
 
 asyncSendRecv isendf rank 
-  | rank == sender   = do req <- isendf bigMsg receiver tag3 commWorld
+  | rank == sender   = do req <- isendf commWorld receiver tag3 bigMsg
                           status <- wait req
                           checkStatus status sender tag3
-  | rank == receiver = do (status, result) <- recv sender tag3 commWorld
+  | rank == receiver = do (result, status) <- recv commWorld sender tag3
                           checkStatus status sender tag3
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
 asyncSendRecv2 rank 
-  | rank == sender   = do req1 <- isend smallMsg receiver tag0 commWorld
-                          req2 <- isend bigMsg receiver tag1 commWorld
+  | rank == sender   = do req1 <- isend commWorld receiver tag0 smallMsg
+                          req2 <- isend commWorld receiver tag1 bigMsg
                           stat1 <- wait req1
                           checkStatus stat1 sender tag0
                           stat2 <- wait req2
                           checkStatus stat2 sender tag1
-  | rank == receiver = do (stat1, result1) <- recv sender tag0 commWorld
+  | rank == receiver = do (result1, stat1) <- recv commWorld sender tag0
                           checkStatus stat1 sender tag0
-                          (stat2, result2) <- recv sender tag1 commWorld
+                          (result2, stat2) <- recv commWorld sender tag1
                           checkStatus stat2 sender tag1
                           (result2::BigMsg) == bigMsg && result1 == smallMsg @? "Got garbled result"
   | otherwise        = return () -- idling
 
 asyncSendRecv2ooo rank 
-  | rank == sender   = do req1 <- isend smallMsg receiver tag0 commWorld
-                          req2 <- isend bigMsg receiver tag1 commWorld
+  | rank == sender   = do req1 <- isend commWorld receiver tag0 smallMsg
+                          req2 <- isend commWorld receiver tag1 bigMsg
                           stat1 <- wait req1
                           checkStatus stat1 sender tag0
                           stat2 <- wait req2
                           checkStatus stat2 sender tag1
-  | rank == receiver = do future2 <- recvFuture sender tag1 commWorld
-                          future1 <- recvFuture sender tag0 commWorld
+  | rank == receiver = do future2 <- recvFuture commWorld sender tag1
+                          future1 <- recvFuture commWorld sender tag0
                           result2 <- waitFuture future2
                           result1 <- waitFuture future1
                           stat1 <- getFutureStatus future1
@@ -107,16 +107,16 @@ asyncSendRecv2ooo rank
   | otherwise        = return () -- idling
 
 crissCrossSendRecv rank 
-  | rank == sender   = do req <- isend smallMsg receiver tag0 commWorld
-                          future <- recvFuture receiver tag1 commWorld
+  | rank == sender   = do req <- isend commWorld receiver tag0 smallMsg
+                          future <- recvFuture commWorld receiver tag1
                           result <- waitFuture future
                           (length (result::BigMsg) == length bigMsg) @? "Got garbled BigMsg"
                           status <- getFutureStatus future
                           checkStatus status receiver tag1
                           status2 <- wait req
                           checkStatus status2 sender tag0
-  | rank == receiver = do req <- isend bigMsg sender tag1 commWorld
-                          future <- recvFuture sender tag0 commWorld
+  | rank == receiver = do req <- isend commWorld sender tag1 bigMsg
+                          future <- recvFuture commWorld sender tag0
                           result <- waitFuture future
                           (result == smallMsg) @? "Got garbled SmallMsg"
                           status <- getFutureStatus future
@@ -127,6 +127,6 @@ crissCrossSendRecv rank
 
 
 broadcast _ = do
-  result <- bcast bigMsg sender commWorld
+  result <- bcast commWorld sender bigMsg
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
 -- End of serializable tests
