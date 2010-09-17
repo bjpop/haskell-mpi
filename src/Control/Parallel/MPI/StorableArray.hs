@@ -216,18 +216,18 @@ sendScatterv array counts displacements recvRange root comm = do
            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr recvRange
 
-class (Ix i, Storable e) =>  MpiDestination a i e where
-  withMpiDestination :: a -> (CInt -> Ptr e -> IO ()) -> IO (StorableArray i e)
+class (Ix i, Storable e) =>  Destination a i e where
+  withDestination :: a -> (CInt -> Ptr e -> IO ()) -> IO (StorableArray i e)
 
-instance (Ix i, Storable e) => MpiDestination (i,i) i e where
-  withMpiDestination range f = do
+instance (Ix i, Storable e) => Destination (i,i) i e where
+  withDestination range f = do
     (foreignPtr, numBytes) <- allocateBuffer range
     withForeignPtr foreignPtr $ \ptr -> do
       f numBytes ptr
     unsafeForeignPtrToStorableArray foreignPtr range
     
-instance (Storable e, Ix i) => MpiDestination (StorableArray i e) i e where
-  withMpiDestination arr f = do
+instance (Storable e, Ix i) => Destination (StorableArray i e) i e where
+  withDestination arr f = do
     numBytes <- arrayByteSize arr (undefined :: e)
     withStorableArray arr $ \ptr -> do
       f numBytes ptr
@@ -237,7 +237,7 @@ recvScatterv :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (
 recvScatterv recvRange root comm = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
-   withMpiDestination recvRange $ \numBytes recvPtr ->
+   withDestination recvRange $ \numBytes recvPtr ->
      checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank root) comm
 
 {-
