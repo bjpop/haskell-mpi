@@ -19,8 +19,8 @@ storableArrayTests rank =
   , mpiTestCase rank "broadcast array" broadcastTest
   , mpiTestCase rank "scatter array"   scatterTest
   , mpiTestCase rank "scatterv array"  scattervTest
-  , mpiTestCase rank "gather array"    gatherTest    
-  , mpiTestCase rank "gatherv array"   gathervTest    
+  , mpiTestCase rank "gather array"    gatherTest
+  , mpiTestCase rank "gatherv array"   gathervTest
   ]
 syncSendRecvTest  :: (StorableArray Int Int -> Rank -> Tag -> Comm -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (StorableArray Int Int -> Rank -> Tag -> Comm -> IO Request) -> Rank -> IO ()
@@ -76,15 +76,21 @@ broadcastTest _ = do
   elems == newElems @? "StorableArray bcast yielded garbled result: " ++ show newElems
 
 
-scatterTest _ = do
+scatterTest myRank = do
   numProcs <- commSize commWorld
-  let bigRange@(low, hi) = (1, segmentSize * numProcs)
-  (msg :: ArrMsg) <- newListArray bigRange [low..hi]
   let segRange = (1, segmentSize)
-  segment <- scatter msg segRange zeroRank commWorld
-  myRank <- commRank commWorld
+
+  segment <- if myRank == zeroRank then do
+    let bigRange@(low, hi) = (1, segmentSize * numProcs)
+    (msg :: ArrMsg) <- newListArray bigRange [low..hi]
+    sendScatter msg segRange zeroRank commWorld
+    else recvScatter segRange zeroRank commWorld
+
+  let myRankNo = fromRank myRank
+      expected = take 10 [myRankNo*10+1..]
+
   recvMsg <- getElems segment
-  recvMsg == take 10 [(fromRank myRank)*10+1..] @? "Rank " ++ show myRank ++ " got segment " ++ show recvMsg
+  recvMsg == expected @? "Rank " ++ show myRank ++ " got segment " ++ show recvMsg ++ " instead of " ++ show expected
   where
     segmentSize = 10
 
@@ -94,60 +100,66 @@ scatterTest _ = do
 -- rank 2 will receive [3,4,5]
 -- rank 3 will receive [6,7,8,9]
 -- etc
-scattervTest _ = do
+scattervTest myRank = do
   numProcs <- commSize commWorld
+
   let bigRange@(low, hi) = (1, sum [1..numProcs])
-  (msg :: ArrMsg) <- newListArray bigRange [low..hi]
-   
-  myRank <- commRank commWorld
-  let myRankNo = fromRank myRank
-      msgRange = (1, numProcs)
+      recvRange = (0, myRankNo)
+      myRankNo = fromRank myRank
       counts = [1..numProcs]
       displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
-  (packCounts :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
-  (packDispls :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
-  
-  let recvRange = (0, myRankNo)
-  segment <- scatterv msg packCounts packDispls recvRange zeroRank commWorld
+
+  segment <- if myRank == zeroRank then do
+    (msg :: ArrMsg) <- newListArray bigRange [low..hi]
+
+    let msgRange = (1, numProcs)
+    (packCounts :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
+    (packDispls :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
+
+    sendScatterv msg packCounts packDispls recvRange zeroRank commWorld
+    else recvScatterv recvRange zeroRank commWorld
+
   recvMsg <- getElems segment
-  
+
   let myCount = counts!!myRankNo
       myDispl = displs!!myRankNo
       expected = take myCount $ drop myDispl [low..hi]
   recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
-  
-gatherTest _ = do
+
+gatherTest myRank = do
   numProcs <- commSize commWorld
+
   let segRange@(low,hi) = (1, segmentSize)
   (msg :: ArrMsg) <- newListArray segRange [low..hi]
-  let bigRange = (1, segmentSize * numProcs)
-  result <- gather msg bigRange zeroRank commWorld
-  myRank <- commRank commWorld
-  recvMsg <- getElems result
-  ( recvMsg == if myRank == zeroRank 
-               then concat $ replicate numProcs [1..segmentSize]
-               else [1..segmentSize] ) @? "Rank " ++ show myRank ++ " got " ++ show recvMsg
+
+  if myRank /= zeroRank
+    then sendGather msg zeroRank commWorld
+    else do
+    let bigRange = (1, segmentSize * numProcs)
+        expected = concat $ replicate numProcs [1..segmentSize]
+    result <- recvGather msg bigRange zeroRank commWorld
+    recvMsg <- getElems result
+    recvMsg == expected @? "Rank " ++ show myRank ++ " got " ++ show recvMsg ++ " instead of " ++ show expected
   where segmentSize = 10
-   
-gathervTest _ = do
+
+gathervTest myRank = do
   numProcs <- commSize commWorld
   let bigRange = (1, sum [1..numProcs])
-   
-  myRank <- commRank commWorld
+
   let myRankNo = fromRank myRank
-      msgRange = (1, numProcs)
-      counts = [1..numProcs]
-      displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
       sendRange = (0, myRankNo)
-  (packCounts :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
-  (packDispls :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
-  
   (msg :: ArrMsg) <- newListArray sendRange [0..myRankNo]
-  
-  segment <- gatherv msg packCounts packDispls bigRange zeroRank commWorld
-  recvMsg <- getElems segment
-  
-  let expected = if myRank == zeroRank 
-                 then concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]                 
-                 else [0..myRankNo]
-  recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+  if myRank /= zeroRank
+    then sendGatherv msg zeroRank commWorld
+    else do
+    let msgRange = (1, numProcs)
+        counts = [1..numProcs]
+        displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
+        expected = concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
+    (packCounts :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
+    (packDispls :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
+
+    segment <- recvGatherv msg packCounts packDispls bigRange zeroRank commWorld
+    recvMsg <- getElems segment
+
+    recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
