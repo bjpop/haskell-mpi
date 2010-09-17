@@ -16,7 +16,7 @@ serializableTests rank =
   , mpiTestCase rank "isend+recv simple message" $ asyncSendRecv isend
   , mpiTestCase rank "issend+recv simple message" $ asyncSendRecv issend
   , mpiTestCase rank "isend+recv two messages"   asyncSendRecv2
-  , mpiTestCase rank "Sending (async)/receiving (futures) two messages, out of order" asyncSendRecv2ooo
+  , mpiTestCase rank "isend+recvFuture two messages, out of order" asyncSendRecv2ooo
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
   , mpiTestCase rank "broadcast message" broadcast
   ]
