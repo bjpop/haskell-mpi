@@ -84,21 +84,18 @@ bcast comm sendRank array = do
    withStorableArrayAndSize array $ \arrayPtr numBytes -> do
       checkError $ Internal.bcast (castPtr arrayPtr) numBytes byte (fromRank sendRank) comm
 
-isend, ibsend, issend :: forall e i . (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO Request
+isend, ibsend, issend :: forall e i . (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 isend  = isendWith Internal.isend
 ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
 isendWith :: forall e i . (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
-  StorableArray i e -> Rank -> Tag -> Comm -> IO Request
-isendWith send_function array recvRank tag comm = do
-   let cRank = fromRank recvRank
-       cTag  = fromTag tag
-   cBytes <- arrayByteSize array (undefined :: e)
-   alloca $ \requestPtr ->
-      withStorableArray array $ \arrayPtr -> do
-         checkError $ send_function (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
+  Comm -> Rank -> Tag -> StorableArray i e -> IO Request
+isendWith send_function comm recvRank tag array = do
+   withStorableArrayAndSize array $ \arrayPtr numBytes -> 
+      alloca $ \requestPtr -> do
+         checkError $ send_function (castPtr arrayPtr) numBytes byte (fromRank recvRank) (fromTag tag) comm requestPtr
          peek requestPtr
 
 irecv :: forall e i . (Storable e, Ix i) => (i, i) -> Rank -> Tag -> Comm -> IO (StorableArray i e, Request)
