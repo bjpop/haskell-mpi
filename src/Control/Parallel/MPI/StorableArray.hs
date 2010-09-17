@@ -98,17 +98,13 @@ isendWith send_function comm recvRank tag array = do
          checkError $ send_function (castPtr arrayPtr) numBytes byte (fromRank recvRank) (fromTag tag) comm requestPtr
          peek requestPtr
 
-irecv :: forall e i . (Storable e, Ix i) => (i, i) -> Rank -> Tag -> Comm -> IO (StorableArray i e, Request)
-irecv range sendRank tag comm = do
-   let cRank = fromRank sendRank
-       cTag  = fromTag tag
-   alloca $ \requestPtr -> do
-      (foreignPtr,cBytes) <- allocateBuffer range
-      withForeignPtr foreignPtr $ \arrayPtr -> do
-         checkError $ Internal.irecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
-         array <- unsafeForeignPtrToStorableArray foreignPtr range
-         request <- peek requestPtr
-         return (array, request)
+irecv :: forall e i . (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
+irecv comm sendRank tag array = do
+   alloca $ \requestPtr ->
+      withStorableArrayAndSize array $ \arrayPtr numBytes -> do
+         checkError $ Internal.irecv (castPtr arrayPtr) numBytes byte (fromRank sendRank) (fromTag tag) comm requestPtr
+         peek requestPtr
+
 {-
    MPI_Scatter allows the element types of the send and recv buffers to be different.
    This is accommodated by changing the sendcount and recvcount arguments. I'm not sure
