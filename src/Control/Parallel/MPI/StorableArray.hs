@@ -79,20 +79,10 @@ recv comm rank tag arr = do
          checkError $ Internal.recv (castPtr arrayPtr) numBytes byte (fromRank rank) (fromTag tag) comm (castPtr statusPtr)
          peek statusPtr
 
-bcast :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-bcast array range sendRank comm = do
-   myRank <- commRank comm
-   let cRank = fromRank sendRank
-   if myRank == sendRank
-      then withStorableArray array $ \arrayPtr -> do
-              cBytes <- arrayByteSize array (undefined :: e)
-              checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
-              return array
-      else do
-         (foreignPtr, cBytes) <- allocateBuffer range
-         withForeignPtr foreignPtr $ \arrayPtr -> do
-            checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
-            unsafeForeignPtrToStorableArray foreignPtr range
+bcast :: forall e i. (Storable e, Ix i) => Comm -> Rank -> StorableArray i e -> IO ()
+bcast comm sendRank array = do
+   withStorableArrayAndSize array $ \arrayPtr numBytes -> do
+      checkError $ Internal.bcast (castPtr arrayPtr) numBytes byte (fromRank sendRank) comm
 
 isend, ibsend, issend :: forall e i . (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO Request
 isend  = isendWith Internal.isend
