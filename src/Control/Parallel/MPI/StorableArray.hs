@@ -38,19 +38,19 @@ import Control.Parallel.MPI.Common (commRank)
 -- | if the user wants to call recvScatterv for the first time without
 -- already having allocated the array, then they can call it like so:
 --
---  array <- withRange range $ recvScatterv root comm
+-- (array,_) <- withRange range $ recvScatterv root comm
 --
 -- and thereafter they can call it like so:
 --
 --  recvScatterv root comm array
-withRange :: forall i e . (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
+withRange :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO a) -> IO (StorableArray i e, a)
 withRange range f = do
   arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
                                -- should be faster than newArray_
-  f arr
-  return arr
+  res <- f arr
+  return (arr, res)
 
-send, bsend, ssend, rsend :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Tag -> Comm -> IO ()
+send, bsend, ssend, rsend :: forall e i. (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO ()
 send  = sendWith Internal.send
 bsend = sendWith Internal.bsend
 ssend = sendWith Internal.ssend
@@ -58,25 +58,17 @@ rsend = sendWith Internal.rsend
 
 sendWith :: forall e i. (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
-  StorableArray i e -> Rank -> Tag -> Comm -> IO ()
-sendWith send_function array rank tag comm = do
-   let cRank = fromRank rank
-       cTag  = fromTag tag
-   numBytes <- arrayByteSize array (undefined :: e)
-   withStorableArray array $ \arrayPtr -> do
-      checkError $ send_function (castPtr arrayPtr) numBytes byte cRank cTag comm
+  Comm -> Rank -> Tag -> StorableArray i e -> IO ()
+sendWith send_function comm rank tag array = do
+   withStorableArrayAndSize array $ \arrayPtr numBytes -> do
+      checkError $ send_function (castPtr arrayPtr) numBytes byte (fromRank rank) (fromTag tag) comm
 
-recv :: forall e i . (Storable e, Ix i) => (i,i) -> Rank -> Tag -> Comm -> IO (Status, StorableArray i e)
-recv range rank tag comm = do
-   let cRank = fromRank rank
-       cTag = fromTag tag
-   (foreignPtr, cBytes) <- allocateBuffer range
-   withForeignPtr foreignPtr $ \arrayPtr ->
+recv :: forall e i . (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO Status
+recv comm rank tag arr = do
+   withStorableArrayAndSize arr $ \arrayPtr numBytes ->
       alloca $ \statusPtr -> do
-         checkError $ Internal.recv (castPtr arrayPtr) cBytes byte cRank cTag comm (castPtr statusPtr)
-         recvStatus <- peek statusPtr
-         storableArray <- unsafeForeignPtrToStorableArray foreignPtr range
-         return (recvStatus, storableArray)
+         checkError $ Internal.recv (castPtr arrayPtr) numBytes byte (fromRank rank) (fromTag tag) comm (castPtr statusPtr)
+         peek statusPtr
 
 bcast :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
 bcast array range sendRank comm = do
@@ -232,12 +224,16 @@ sendScatterv array counts displacements recvRange root comm = do
            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank root) comm
    unsafeForeignPtrToStorableArray foreignPtr recvRange
 
+withStorableArrayAndSize :: (Storable e, Ix i) => StorableArray i e -> (Ptr e -> CInt -> IO a) -> IO a
+withStorableArrayAndSize arr f = do
+   numBytes <- arrayByteSize arr (undefined :: e)
+   withStorableArray arr $ \ptr -> f ptr numBytes
+
 recvScatterv :: forall e i. (Storable e, Ix i) => Comm -> Rank -> StorableArray i e -> IO ()
 recvScatterv comm root arr = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
-   numBytes <- arrayByteSize arr (undefined :: e)
-   withStorableArray arr $ \recvPtr ->
+   withStorableArrayAndSize arr $ \recvPtr numBytes ->
      checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank root) comm
      
 {-
