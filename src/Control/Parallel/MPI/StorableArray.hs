@@ -35,7 +35,6 @@ import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Request as Request
-import Control.Parallel.MPI.Common (commRank)
 
 -- | if the user wants to call recvScatterv for the first time without
 -- already having allocated the array, then they can call it like so:
@@ -53,7 +52,7 @@ withNewArray range f = do
   return (arr, res)
 
 -- | Same as withRange, but discards the result of the processor function
-withNewArray_ :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
+withNewArray_ :: forall i e. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
 withNewArray_ range f = do
   arr <- unsafeNewArray_ range
   f arr
