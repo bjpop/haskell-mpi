@@ -35,34 +35,34 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Common (probe, commRank)
 
-send, bsend, ssend, rsend :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO ()
-send  = sendBSwith Internal.send . encode
-bsend = sendBSwith Internal.bsend . encode
-ssend = sendBSwith Internal.ssend . encode
-rsend = sendBSwith Internal.rsend . encode
+send, bsend, ssend, rsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
+send  c r t m = sendBSwith Internal.send  c r t $ encode m
+bsend c r t m = sendBSwith Internal.bsend c r t $ encode m
+ssend c r t m = sendBSwith Internal.ssend c r t $ encode m
+rsend c r t m = sendBSwith Internal.rsend c r t $ encode m
 
-sendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO ()
+sendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO ()
 sendBS = sendBSwith Internal.send
 
 sendBSwith ::
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
-  BS.ByteString -> Rank -> Tag -> Comm -> IO ()
-sendBSwith send_function bs rank tag comm = do
+  Comm -> Rank -> Tag -> BS.ByteString -> IO ()
+sendBSwith send_function comm rank tag bs = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
    unsafeUseAsCString bs $ \cString ->
        checkError $ send_function (castPtr cString) cCount byte cRank cTag comm
 
-recv :: Serialize msg => Rank -> Tag -> Comm -> IO (Status, msg)
-recv rank tag comm = do
-   (status, bs) <- recvBS rank tag comm
+recv :: Serialize msg => Comm -> Rank -> Tag -> IO (msg, Status)
+recv comm rank tag = do
+   (bs, status) <- recvBS comm rank tag
    case decode bs of
       Left e -> fail e
-      Right val -> return (status, val)
+      Right val -> return (val, status)
 
-recvBS :: Rank -> Tag -> Comm -> IO (Status, BS.ByteString)
-recvBS rank tag comm = do
+recvBS :: Comm -> Rank -> Tag -> IO (BS.ByteString, Status)
+recvBS comm rank tag = do
    probeStatus <- probe rank tag comm
    let count = status_count probeStatus
        cSource = fromRank rank
@@ -74,20 +74,20 @@ recvBS rank tag comm = do
              checkError $ Internal.recv bufferPtr cCount byte cSource cTag comm $ castPtr statusPtr
              recvStatus <- peek statusPtr
              message <- BS.packCStringLen (castPtr bufferPtr, count)
-             return (recvStatus, message))
+             return (message, recvStatus))
 
-isend, ibsend, issend :: Serialize msg => msg -> Rank -> Tag -> Comm -> IO Request
-isend  = isendBSwith Internal.isend  . encode
-ibsend = isendBSwith Internal.ibsend . encode
-issend = isendBSwith Internal.issend . encode
+isend, ibsend, issend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
+isend  c r t m = isendBSwith Internal.isend  c r t $ encode m
+ibsend c r t m = isendBSwith Internal.ibsend c r t $ encode m
+issend c r t m = isendBSwith Internal.issend c r t $ encode m
 
-isendBS :: BS.ByteString -> Rank -> Tag -> Comm -> IO Request
+isendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO Request
 isendBS = isendBSwith Internal.isend
 
 isendBSwith ::
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
-  BS.ByteString -> Rank -> Tag -> Comm -> IO Request
-isendBSwith send_function bs rank tag comm = do
+  Comm -> Rank -> Tag -> BS.ByteString -> IO Request
+isendBSwith send_function comm rank tag bs = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
@@ -116,15 +116,15 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 
-recvFuture :: Serialize msg => Rank -> Tag -> Comm -> IO (Future msg)
-recvFuture rank tag comm = do
+recvFuture :: Serialize msg => Comm -> Rank -> Tag -> IO (Future msg)
+recvFuture comm rank tag = do
    valRef <- newEmptyMVar
    statusRef <- newEmptyMVar
    -- is forkIO acceptable here? Depends on thread local stateness of MPI.
    -- threadId <- forkOS $ do
    threadId <- forkIO $ do
       -- do a synchronous recv in another thread
-      (status, msg) <- recv rank tag comm
+      (msg, status) <- recv comm rank tag
       putMVar valRef msg
       putMVar statusRef status
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
@@ -146,8 +146,8 @@ recvFuture rank tag comm = do
    some precedent for doing it this way.
 -}
 
-bcast :: Serialize msg => msg -> Rank -> Comm -> IO msg
-bcast msg rootRank comm = do
+bcast :: Serialize msg => Comm -> Rank -> msg -> IO msg
+bcast comm rootRank msg = do
    myRank <- commRank comm
    let cRank  = fromRank rootRank
    if myRank == rootRank
