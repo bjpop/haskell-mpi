@@ -57,26 +57,96 @@ Simple script "bin/coverage.sh" does all this automatically. Note:
 script should be run from the toplevel project dir (where
 bindings-mpi.cabal is residing).
 
+Collective operations are split
+-------------------------------
+Collective operations in MPI usually take a large set of arguments
+that include pointers to both input and output buffers. This fits
+nicely in the C programming style:
+* Pointers to send and receive buffers are declared
+* if (my_rank == root) then (send buffer is allocated and filled)
+* both pointers are passed to collective function, which ignores
+  unallocated send buffer for all non-root processes.
+
+In Haskell there is no simple way to declare pointers beforehand and
+allocate memory for them to point to later. Plus, this would make for
+a lousy programming style. Plus, we wanted to encourage users to
+partially apply API calls both for convenience (see below) and for
+simplifying reuse of already-allocated arrays (also see below).
+
+Therefore it was decided to split most asymmetric collective calls in
+two parts - sending and receiving. Thus "gather" become "sendGather"
+and "recvGather", etc.
+
+Order of arguments and terseness of programs
+--------------------------------------------
+It seems that very ofter programmer finds himself in the situation
+where he wants to send/receive messages between the same processess
+over and over again. This is true for both point-to-point modes of
+communication and for collective operations.
+
+Which is why we've chosen to change the order of arguments in most API
+calls. We rearranged arguments in a way that would make partial
+application of API calls natural. For example, if your rank 0 process
+often sends single message msg1 to rank 1 and various messages to rank
+2, you could define the following shortcuts:
+
+sendMsg1 = send comm rank1 tag1 msg1
+sendTo2 = send comm rank2
+
+In-place receive vs new array allocation for Storable Array
+-----------------------------------------------------------
+When using StorableArray API in tight numeric loops, it is best to
+reuse existing arrays and avoid penalties incurred by
+allocation/deallocation of memory. Which is why destinations/receive
+buffers in StorableArray API are specified exclusively as
+(StorableArray i e).
+
+If you'd rather allocate new array for a particular operation, you
+could use withNewArray/withNewArray_:
+
+Instead of (recv comm rank tag arr) you would write 
+(arr <- withNewArray bounds $ recv comm rank tag), and new array would
+be allocated, supplied as the target of the (recv) operation and
+returned to you.
+
+You could easily write your own convenience wrappers similar to
+withNewArray. For example, you could create wrapper that would take an
+array size as a simple number instead of range.
+
+Rank checking in collective functions (Storable Array)
+------------------------------------------------------
+Collective operations that are split into separate send/recv parts
+(see above) take "root rank" as an argument. Right now no safeguards
+are in place to ensure that rank supplied to the send function is
+corresponding to the rank of that process. We believe that it does not
+worsen the general go-on-and-shoot-yourself-in-the-foot attitide of
+the MPI API, but this could be changed in the future.
+
 Planned API coverage
 --------------------
+Status:
++ - supported in both APIs
+A - only in StorableArray API
+S - only in Serializable API
+
 First tier:
-     MPI_Send,
-     MPI_Recv
-     MPI_Bcast,
++    MPI_Send,
++    MPI_Recv
++    MPI_Bcast,
      MPI_Allgather
-     MPI_Barrier
-     MPI_Scatter,
-     MPI_Gather
++    MPI_Barrier
+A    MPI_Scatter,
+A    MPI_Gather
      MPI_Alltoall
-     MPI_Isend,
-     MPI_Wait, etc.
++    MPI_Isend,
++    MPI_Wait,
      MPI_Reduce_scatter
-     MPI_Test,
-     MPI_Cancel
++    MPI_Test,
++    MPI_Cancel
      MPI_Wtime,
      MPI_Wtick
      MPI_Iprobe
-     MPI_Ssend
++    MPI_Ssend
      MPI_Probe
 
 Second tier or under consideration:
