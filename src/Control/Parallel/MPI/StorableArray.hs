@@ -11,10 +11,14 @@ module Control.Parallel.MPI.StorableArray
    , ibsend
    , issend
    , irecv
-   , scatter
-   , gather
-   , scatterv
-   , gatherv
+   , sendScatter
+   , recvScatter
+   , sendScatterv
+   , recvScatterv
+   , sendGather
+   , recvGather
+   , sendGatherv
+   , recvGatherv
    ) where
 
 import C2HS
@@ -40,12 +44,9 @@ sendWith :: forall e i. (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
   StorableArray i e -> Rank -> Tag -> Comm -> IO ()
 sendWith send_function array rank tag comm = do
-   bounds <- getBounds array
-   let arraySize = rangeSize bounds
-       cRank = fromRank rank
+   let cRank = fromRank rank
        cTag  = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       numBytes = cIntConv (arraySize * elementSize)
+   numBytes <- arrayByteSize array (undefined :: e)
    withStorableArray array $ \arrayPtr -> do
       checkError $ send_function (castPtr arrayPtr) numBytes byte cRank cTag comm
 
@@ -53,10 +54,7 @@ recv :: forall e i . (Storable e, Ix i) => (i,i) -> Rank -> Tag -> Comm -> IO (S
 recv range rank tag comm = do
    let cRank = fromRank rank
        cTag = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       cBytes = cIntConv (numElements * elementSize)
-   foreignPtr <- mallocForeignPtrArray numElements
+   (foreignPtr, cBytes) <- allocateBuffer range
    withForeignPtr foreignPtr $ \arrayPtr ->
       alloca $ \statusPtr -> do
          checkError $ Internal.recv (castPtr arrayPtr) cBytes byte cRank cTag comm (castPtr statusPtr)
@@ -68,15 +66,13 @@ bcast :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -
 bcast array range sendRank comm = do
    myRank <- commRank comm
    let cRank = fromRank sendRank
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       cBytes = cIntConv (numElements * elementSize)
    if myRank == sendRank
       then withStorableArray array $ \arrayPtr -> do
+              cBytes <- arrayByteSize array (undefined :: e)
               checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
               return array
       else do
-         foreignPtr <- mallocForeignPtrArray numElements
+         (foreignPtr, cBytes) <- allocateBuffer range
          withForeignPtr foreignPtr $ \arrayPtr -> do
             checkError $ Internal.bcast (castPtr arrayPtr) cBytes byte cRank comm
             unsafeForeignPtrToStorableArray foreignPtr range
@@ -90,12 +86,9 @@ isendWith :: forall e i . (Storable e, Ix i) =>
   (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
   StorableArray i e -> Rank -> Tag -> Comm -> IO Request
 isendWith send_function array recvRank tag comm = do
-   bounds <- getBounds array
-   let arraySize = rangeSize bounds
-       cRank = fromRank recvRank
+   let cRank = fromRank recvRank
        cTag  = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       cBytes = cIntConv (arraySize * elementSize)
+   cBytes <- arrayByteSize array (undefined :: e)
    alloca $ \requestPtr ->
       withStorableArray array $ \arrayPtr -> do
          checkError $ send_function (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
@@ -105,11 +98,8 @@ irecv :: forall e i . (Storable e, Ix i) => (i, i) -> Rank -> Tag -> Comm -> IO 
 irecv range sendRank tag comm = do
    let cRank = fromRank sendRank
        cTag  = fromTag tag
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       cBytes = cIntConv (numElements * elementSize)
    alloca $ \requestPtr -> do
-      foreignPtr <- mallocForeignPtrArray numElements
+      (foreignPtr,cBytes) <- allocateBuffer range
       withForeignPtr foreignPtr $ \arrayPtr -> do
          checkError $ Internal.irecv (castPtr arrayPtr) cBytes byte cRank cTag comm requestPtr
          array <- unsafeForeignPtrToStorableArray foreignPtr range
@@ -131,54 +121,21 @@ irecv range sendRank tag comm = do
    XXX is it an error if:
       (arraySize `div` segmentSize) /= commSize
 -}
-scatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-scatter array range root comm = do
-   let cRank = fromRank root
-       elementSize = sizeOf (undefined :: e)
-       numElements = rangeSize range
-       numBytes = cIntConv (numElements * elementSize)
-   foreignPtr <- mallocForeignPtrArray numElements
-   withForeignPtr foreignPtr $ \recvPtr -> do
-     let worker = (\sendPtr -> checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte cRank comm)
-     myRank <- commRank comm
-     if myRank == root 
-       then withStorableArray array worker
-       else worker nullPtr -- the sendPtr is ignored in this case, so we can make it NULL.
-     unsafeForeignPtrToStorableArray foreignPtr range
+sendScatter :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+sendScatter array recvRange root comm = do
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     withStorableArray array $ \sendPtr -> 
+       checkError $ Internal.scatter (castPtr sendPtr) numBytes byte (castPtr recvPtr) numBytes byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
 
-{-
-Note the slightly odd semantics that on non-root processes the result array is the same as
-the input array. You might think it would be sensible to return an empty array - but we can't
-actually construct one, because we've no way of making empty bounds. It might also be
-tempting to use a Maybe type to wrap the result, but this would ultimately just be
-frustrating for the root process, who would always get their result in a Just
-constructor.
+recvScatter :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+recvScatter recvRange root comm = do
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     checkError $ Internal.scatter nullPtr numBytes byte (castPtr recvPtr) numBytes byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
 
-XXX we should check that the outRange is large enough to store:
-
-   segmentSize * commSize
--}
-
-gather :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-gather segment outRange root comm = do
-   segmentSize <- rangeSize <$> getBounds segment
-   let cRank = fromRank root
-       elementSize = sizeOf (undefined :: e)
-       segmentBytes = cIntConv (segmentSize * elementSize)
-   myRank <- commRank comm
-   if myRank == root
-      then do
-         let numElements = rangeSize outRange
-         foreignPtr <- mallocForeignPtrArray numElements
-         withStorableArray segment $ \sendPtr ->
-            withForeignPtr foreignPtr $ \recvPtr -> do
-               checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) segmentBytes byte cRank comm
-               unsafeForeignPtrToStorableArray foreignPtr outRange
-      else
-         withStorableArray segment $ \sendPtr -> do
-            -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
-            checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte nullPtr 0 byte cRank comm
-            return segment
 
 {-
 For Scatterv/Gatherv we need arrays of "stripe lengths" and displacements.
@@ -229,54 +186,104 @@ What do you think?
 
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
 -- See Serializable for other alternatives.
+
+-- | XXX: this should be moved out to some convenience module
+allocateBuffer :: forall e i. (Storable e, Ix i) => (i, i) -> IO (ForeignPtr e, CInt)
+allocateBuffer recvRange = do
+  let numElements = rangeSize recvRange
+      elementSize = sizeOf (undefined :: e)
+      numBytes = cIntConv (numElements * elementSize)
+  foreignPtr <- mallocForeignPtrArray numElements
+  return (foreignPtr, numBytes)
      
+-- | XXX: this too should be moved out to some convenience module. Also, name is ugly
+arrayByteSize :: (Storable e, Ix i) => StorableArray i e -> e -> IO CInt
+arrayByteSize arr el = do
+   rSize <- rangeSize <$> getBounds arr
+   return $ cIntConv (rSize * sizeOf el)
+
 -- receiver needs comm rank recvcount
 -- sender needs everything else
-scatterv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)     
-scatterv array counts displacements recvRange sendRank comm = do
-   myRank <- commRank comm
-   let cRank = fromRank sendRank
-       numElements = rangeSize recvRange
-       elementSize = sizeOf (undefined :: e)
-       numBytes = cIntConv (numElements * elementSize)
-   foreignPtr <- mallocForeignPtrArray numElements
-   withForeignPtr foreignPtr $ \recvPtr -> do
-     let worker = (\sendPtr countsPtr displPtr -> 
-                    checkError $ Internal.scatterv sendPtr countsPtr displPtr byte (castPtr recvPtr) numBytes byte cRank comm)
-     if myRank == sendRank
-       then withStorableArray array $ \sendPtr ->
-              withStorableArray counts $ \countsPtr ->  
-                withStorableArray displacements $ \displPtr -> worker (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr)
-       else worker nullPtr nullPtr nullPtr -- they are ignored in this case, so we can make them all NULL.
-     unsafeForeignPtrToStorableArray foreignPtr recvRange
+sendScatterv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)     
+sendScatterv array counts displacements recvRange root comm = do
+   -- myRank <- commRank comm
+   -- XXX: assert myRank == sendRank ?
+   (foreignPtr, numBytes) <- allocateBuffer recvRange
+   withForeignPtr foreignPtr $ \recvPtr ->
+     withStorableArray array $ \sendPtr ->
+       withStorableArray counts $ \countsPtr ->  
+         withStorableArray displacements $ \displPtr ->  
+           checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte (castPtr recvPtr) numBytes byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr recvRange
 
-gatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
-gatherv segment counts displacements outRange root comm = do
-   segmentSize <- rangeSize <$> getBounds segment
-   let cRank = fromRank root
-       elementSize = sizeOf (undefined :: e)
-       segmentBytes = cIntConv (segmentSize * elementSize)
-   myRank <- commRank comm
-   if myRank == root
-      then do
-         let numElements = rangeSize outRange
-         foreignPtr <- mallocForeignPtrArray numElements
-         withStorableArray segment $ \sendPtr ->
-           withStorableArray counts $ \countsPtr ->  
-              withStorableArray displacements $ \displPtr -> 
-                withForeignPtr foreignPtr $ \recvPtr -> do
-                  checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) byte cRank comm
-                  unsafeForeignPtrToStorableArray foreignPtr outRange
-      else
-         withStorableArray segment $ \sendPtr -> do
-            -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
-            checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte nullPtr nullPtr nullPtr byte cRank comm
-            return segment
+class (Ix i, Storable e) =>  Destination a i e where
+  withDestination :: a -> (CInt -> Ptr e -> IO ()) -> IO (StorableArray i e)
+
+instance (Ix i, Storable e) => Destination (i,i) i e where
+  withDestination range f = do
+    (foreignPtr, numBytes) <- allocateBuffer range
+    withForeignPtr foreignPtr $ \ptr -> do
+      f numBytes ptr
+    unsafeForeignPtrToStorableArray foreignPtr range
     
+instance (Storable e, Ix i) => Destination (StorableArray i e) i e where
+  withDestination arr f = do
+    numBytes <- arrayByteSize arr (undefined :: e)
+    withStorableArray arr $ \ptr -> do
+      f numBytes ptr
+    return arr
     
+recvScatterv :: forall e i. (Storable e, Ix i) => (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+recvScatterv recvRange root comm = do
+   -- myRank <- commRank comm
+   -- XXX: assert (myRank /= sendRank)
+   withDestination recvRange $ \numBytes recvPtr ->
+     checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) numBytes byte (fromRank root) comm
+
+{-
+XXX we should check that the outRange is large enough to store:
+
+   segmentSize * commSize
+-}
+
+recvGather :: forall e i. (Storable e, Ix i) => StorableArray i e -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+recvGather segment outRange root comm = do
+   segmentBytes <- arrayByteSize segment (undefined :: e)
+   -- myRank <- commRank comm
+   -- XXX: assert myRank == root
+   (foreignPtr, _) <- allocateBuffer outRange
+   withStorableArray segment $ \sendPtr ->
+     withForeignPtr foreignPtr $ \recvPtr ->
+       checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) segmentBytes byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr outRange
+
+sendGather :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Comm -> IO ()
+sendGather segment root comm = do
+   segmentBytes <- arrayByteSize segment (undefined :: e)
+   -- myRank <- commRank comm
+   -- XXX: assert it is /= root
+   withStorableArray segment $ \sendPtr -> do
+     -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
+     checkError $ Internal.gather (castPtr sendPtr) segmentBytes byte nullPtr 0 byte (fromRank root) comm
+
+recvGatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> (i, i) -> Rank -> Comm -> IO (StorableArray i e)
+recvGatherv segment counts displacements outRange root comm = do
+   segmentBytes <- arrayByteSize segment (undefined :: e)
+   -- myRank <- commRank comm
+   -- XXX: assert myRank == root
+   (foreignPtr, _) <- allocateBuffer outRange
+   withStorableArray segment $ \sendPtr ->
+     withStorableArray counts $ \countsPtr ->  
+        withStorableArray displacements $ \displPtr -> 
+          withForeignPtr foreignPtr $ \recvPtr ->
+            checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) byte (fromRank root) comm
+   unsafeForeignPtrToStorableArray foreignPtr outRange
     
-    
-    
-    
-    
-    
+sendGatherv :: forall e i. (Storable e, Ix i) => StorableArray i e -> Rank -> Comm -> IO ()
+sendGatherv segment root comm = do
+   segmentBytes <- arrayByteSize segment (undefined :: e)
+   -- myRank <- commRank comm
+   -- XXX: assert myRank == root
+   withStorableArray segment $ \sendPtr ->
+     -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
+     checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte nullPtr nullPtr nullPtr byte (fromRank root) comm
