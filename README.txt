@@ -22,7 +22,7 @@ they act as simple integration tests, and may also include regression tests.
 How to enable testing
 ---------------------
 
-Add "-ftest" to install:
+Add "-ftest" to cabal install:
 
    cabal -ftest install
 
