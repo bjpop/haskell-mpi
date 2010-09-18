@@ -89,3 +89,14 @@ executable  bindings-mpi-testsuite
     build-depends: base >=3 && <=5, HUnit, testrunner, hpc, unix
   else
     buildable: False
+
+executable bindings-mpi-comprunclean
+  hs-source-dirs:
+    ./test
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
+  other-modules:
+  main-is:  CompileRunClean.hs
+  if flag(test)
+    build-depends: base >=3 && <=5, process
+  else
+    buildable: False
