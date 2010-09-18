@@ -1,27 +1,58 @@
 Bindings-MPI, Haskell bindings to the MPI library
 ------------------------------------------------
 
-How to Build
+How to build
 ------------
 
 Use "cabal install --extra-include-dirs=/usr/include/mpi" or something similar.
 Make sure that you have libmpi.a and libmpi.so available.
 
-How to Build Testsuite
-----------------------
+Testing
+-------
 
-Add "-ftest" to configure flags, like so:
+Two types of tests are provided:
 
-   cabal -ftest configure
+   1. Unit tests.
+   2. Standalone tests.
 
-and executable "bindings-mpi-testsuite" will be built.
+The unit tests are designed to test the functions exported by the library on
+an individual basis. The standalone tests are comprised of complete programs -
+they act as simple integration tests, and may also include regression tests.
 
-Run it with "mpirun" like this:
+How to enable testing
+---------------------
+
+Add "-ftest" to install:
+
+   cabal -ftest install
+
+How to run the unit tests
+-------------------------
+
+(Assuming you have build mpi-bindings with -ftest, as described above):
+
+Run the program "bindings-mpi-testsuite" using "mpirun" like so:
 
   mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log
 
 Process with rank 0 emits the output to stdout, and every other rank reports
 to the stderr.
+
+How to run standalone tests
+---------------------------
+
+Standalone test programs can be found in the test/examples directory.
+You can test the execution of these programs using the shelltestrunner package:
+
+   http://hackage.haskell.org/package/shelltestrunner
+
+Make sure you install shelltestrunner first, for example:
+
+   cabal install shelltestrunner
+
+To run the tests, issue this command:
+
+   shelltest --execdir test/examples/
 
 License and Copyright
 ---------------------
