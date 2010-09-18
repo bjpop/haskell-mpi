@@ -3,7 +3,6 @@ module Main where
 import Control.Parallel.MPI.Serializable
 import Control.Parallel.MPI.Common
 import Data.Char (isDigit)
-import System.IO (hFlush, stdout)
 import Control.Applicative ((<$>))
 import Control.Monad (when, forM)
 
@@ -11,12 +10,12 @@ main :: IO ()
 main = mpiWorld $ \procs rank -> do
    n <- if (rank == zeroRank)
            then do
-              input <- getNumber "Enter number of intervals: "
-              bcast input zeroRank commWorld
+              input <- getNumber
+              bcast commWorld zeroRank input
            else
-              bcast undefined zeroRank commWorld
+              bcast commWorld zeroRank undefined
    let part = integrate (fromRank rank + 1) procs n (1 / fromIntegral n)
-   send part zeroRank unitTag commWorld
+   send commWorld zeroRank unitTag part
    when (rank == zeroRank) $ do
       pi <- sum <$> gatherAll procs
       print pi
@@ -24,7 +23,7 @@ main = mpiWorld $ \procs rank -> do
 gatherAll :: Int -> IO [Double]
 gatherAll procs =
    forM [0..procs-1] $ \rank ->
-      snd <$> recv (toRank rank) unitTag commWorld
+      fst <$> recv commWorld (toRank rank) unitTag
 
 integrate :: Int -> Int -> Int -> Double -> Double
 integrate rank procs n h =
@@ -41,10 +40,8 @@ integrate rank procs n h =
       where
       x = h * (fromIntegral i - 0.5)
 
-getNumber :: String -> IO Int
-getNumber prompt = do
-   putStr prompt
-   hFlush stdout
+getNumber :: IO Int
+getNumber = do
    line <- getLine
    if (all isDigit line)
       then return $ read line
