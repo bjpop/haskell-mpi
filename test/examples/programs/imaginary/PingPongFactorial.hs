@@ -25,22 +25,21 @@ main = mpiWorld $ \size rank -> do
       when (rank == zero) $ do
          n <- getNumber
          send commWorld one unitTag (Left (n, 0, 1) :: Msg)
-      result <- factorial rank
+      result <- factorial $ switch rank
       when (rank == zero) $ print result
 
 factorial :: Rank -> IO Integer
 factorial rank = do
-   let other = switch rank
-   (msg :: Msg) <- fst <$> recv commWorld other unitTag
+   (msg :: Msg) <- fst <$> recv commWorld rank unitTag
    case msg of
       Right answer -> return answer
       Left (n, count, acc)
          | count == n -> do
-              send commWorld other unitTag (Right acc :: Msg)
+              send commWorld rank unitTag (Right acc :: Msg)
               return acc
          | otherwise -> do
               let nextCount = count + 1
-              send commWorld other unitTag (Left (n, nextCount, nextCount * acc) :: Msg)
+              send commWorld rank unitTag (Left (n, nextCount, nextCount * acc) :: Msg)
               factorial rank
 
 switch :: Rank -> Rank
