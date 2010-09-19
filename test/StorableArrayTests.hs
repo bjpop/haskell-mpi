@@ -67,7 +67,8 @@ asyncSendRecvTest isendf rank
                           req <- isendf commWorld receiver tag3 msg
                           stat <- wait req
                           checkStatus stat sender tag3
-  | rank == receiver = do (newMsg, req) <- withNewArray range $ irecv commWorld sender tag3
+  -- XXX this type annotation is ugly. Is there a way to make it nicer?
+  | rank == receiver = do (newMsg, req) <- withNewArray range $ (irecv commWorld sender tag3 :: StorableArray Int Int -> IO Request)
                           stat <- wait req
                           checkStatus stat sender tag3
                           elems <- getElems newMsg
