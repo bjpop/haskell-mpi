@@ -75,10 +75,12 @@ asyncSendRecvTest isendf rank
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
 
-broadcastTest _ = do
+broadcastTest myRank = do
   msg <- arrMsg
   expected <- arrMsg
-  bcast commWorld sender (msg :: ArrMsg)
+  if myRank == zeroRank
+     then bcastSend commWorld sender (msg :: ArrMsg)
+     else bcastRecv commWorld sender (msg :: ArrMsg)
   elems <- getElems msg
   expectedElems <- getElems expected
   elems == expectedElems @? "StorableArray bcast yielded garbled result: " ++ show elems

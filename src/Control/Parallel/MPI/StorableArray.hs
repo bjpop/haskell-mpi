@@ -6,7 +6,8 @@ module Control.Parallel.MPI.StorableArray
    , bsend
    , rsend
    , recv
-   , bcast
+   , bcastSend
+   , bcastRecv
    , isend
    , ibsend
    , issend
@@ -81,10 +82,14 @@ recv comm rank tag arr = do
          checkError $ Internal.recv (castPtr arrayPtr) numBytes byte (fromRank rank) (fromTag tag) comm (castPtr statusPtr)
          peek statusPtr
 
--- XXX this should be broken into a send and recv
-bcast :: (Storable e, Ix i, MessageArray a i e) => Comm -> Rank -> a i e -> IO ()
-bcast comm sendRank array = do
+bcastSend :: (Storable e, Ix i, MessageArray a i e) => Comm -> Rank -> a i e -> IO ()
+bcastSend comm sendRank array = do
    sendFrom array $ \arrayPtr numBytes -> do
+      checkError $ Internal.bcast (castPtr arrayPtr) numBytes byte (fromRank sendRank) comm
+
+bcastRecv :: (Storable e, Ix i, MessageArray a i e) => Comm -> Rank -> a i e -> IO ()
+bcastRecv comm sendRank array = do
+   recvInto array $ \arrayPtr numBytes -> do
       checkError $ Internal.bcast (castPtr arrayPtr) numBytes byte (fromRank sendRank) comm
 
 isend, ibsend, issend :: (Storable e, Ix i, MessageArray a i e) => Comm -> Rank -> Tag -> a i e -> IO Request
