@@ -4,6 +4,7 @@ import TestHelpers
 import OtherTests
 import SerializableTests
 import StorableArrayTests
+import IOArrayTests
 
 import Control.Monad (when)
 import System.Posix.IO (dupTo, stdError, stdOutput)
@@ -32,8 +33,8 @@ main = do
   finalize
 
 tests :: Rank -> [(String, TestRunnerTest)]
-tests rank =
+tests rank = 
   otherTests rank
   ++ serializableTests rank
   ++ storableArrayTests rank
-  
+  ++ ioArrayTests rank

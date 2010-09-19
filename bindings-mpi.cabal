@@ -82,7 +82,11 @@ executable  bindings-mpi-testsuite
     Control.Parallel.MPI.Serializable
     C2HS,
     Control.Parallel.MPI.MarshalUtils,
-    Control.Parallel.MPI.Utils
+    Control.Parallel.MPI.Utils,
+    IOArrayTests,
+    SerializableTests,
+    StorableArrayTests,
+    TestHelpers
   main-is:       Testsuite.hs
   if flag(test)
     ghc-options: -fhpc
