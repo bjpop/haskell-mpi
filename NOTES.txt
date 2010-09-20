@@ -161,3 +161,18 @@ Second tier or under consideration:
      MPI_Put,
      MPI_Get,
      MPI_Accumulate
+
+How to set up OpenMPI on 2 (3,4,..) nodes?
+------------------------------------------
+Quick intro for the impatient:
+1)Set up OpenMPI on each node
+2)Either use a global filesystem, or make sure that binary is on each
+node in the $PATH
+3)If you have several network interfaces on a particular node, but
+want to use only some of them, edit
+/etc/openmpi/openmpi-mca-params.conf and add there:
+btl_tcp_if_include=wlan0
+oob_tcp_if_include=wlan0
+oob_tcp_include=wlan0
+4)Create hostfile
+5)Use mpirun -np X --hostfile <hostfile>
