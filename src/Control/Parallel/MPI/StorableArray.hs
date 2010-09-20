@@ -21,6 +21,7 @@ module Control.Parallel.MPI.StorableArray
    , recvGatherv
    , allgather
    , allgatherv
+   , alltoall
    , withNewArray
    , withNewArray_
    ) where
@@ -230,17 +231,27 @@ sendGatherv comm root segment = do
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
      checkError $ Internal.gatherv (castPtr sendPtr) segmentBytes byte nullPtr nullPtr nullPtr byte (fromRank root) comm
 
+allgather :: forall i e.(Storable e, Ix i) => Comm -> StorableArray i e -> StorableArray i e -> IO ()
 allgather comm sendArray recvArray = do
   withStorableArrayAndSize sendArray $ \sendPtr sendBytes ->
     withStorableArrayAndSize recvArray $ \recvPtr _ -> -- Since amount sent equals amount received
       checkError $ Internal.allgather (castPtr sendPtr) sendBytes byte (castPtr recvPtr) sendBytes byte comm
 
+allgatherv :: forall i e.(Storable e, Ix i) => Comm -> StorableArray i e -> StorableArray Int Int -> StorableArray Int Int -> StorableArray i e -> IO ()
 allgatherv comm segment counts displacements recvArray = do
    withStorableArrayAndSize segment $ \sendPtr segmentBytes ->
      withStorableArray counts $ \countsPtr ->  
         withStorableArray displacements $ \displPtr -> 
           withStorableArray recvArray $ \recvPtr ->
             checkError $ Internal.allgatherv (castPtr sendPtr) segmentBytes byte (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) byte comm
+             
+alltoall :: forall i e.(Storable e, Ix i) => Comm -> StorableArray i e -> Int -> StorableArray i e -> IO ()
+alltoall comm sendArray sendCount recvArray = do
+  let elemSize = sizeOf (undefined :: e)
+      sendBytes = cIntConv (elemSize * sendCount)
+  withStorableArrayAndSize sendArray $ \sendPtr _ ->
+    withStorableArrayAndSize recvArray $ \recvPtr _ -> -- Since amount sent equals amount received
+      checkError $ Internal.alltoall (castPtr sendPtr) sendBytes byte (castPtr recvPtr) sendBytes byte comm
 
 withStorableArrayAndSize :: forall i e a. (Storable e, Ix i) => StorableArray i e -> (Ptr e -> CInt -> IO a) -> IO a
 withStorableArrayAndSize arr f = do

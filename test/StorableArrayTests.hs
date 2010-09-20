@@ -23,10 +23,12 @@ storableArrayTests rank =
   , mpiTestCase rank "gatherv array"   gathervTest
   , mpiTestCase rank "allgather array"   allgatherTest
   , mpiTestCase rank "allgatherv array"   allgathervTest
+  , mpiTestCase rank "alltoall array"   alltoallTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
+allgatherTest, allgathervTest, alltoallTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -202,6 +204,21 @@ allgathervTest myRank = do
   (packDispls :: ArrMsg) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
 
   result <- withNewArray_ bigRange $ allgatherv commWorld msg packCounts packDispls
+  recvMsg <- getElems result
+
+  recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+
+alltoallTest myRank = do
+  numProcs <- commSize commWorld
+  
+  let myRankNo = fromRank myRank
+      sendRange = (0, numProcs-1)
+  (msg :: ArrMsg) <- newListArray sendRange $ take numProcs $ repeat myRankNo
+    
+  let recvRange = sendRange
+      expected = [0..numProcs-1]
+
+  result <- withNewArray_ recvRange $ alltoall commWorld msg 1 -- sending 1 number to each process
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
