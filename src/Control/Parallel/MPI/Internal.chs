@@ -9,6 +9,7 @@ module Control.Parallel.MPI.Internal
      isend, ibsend, issend, irecv, bcast, barrier, wait, test,
      cancel, scatter, gather,
      scatterv, gatherv
+     , allgather, allgatherv
    ) where
 
 import Prelude hiding (init, error)
@@ -48,4 +49,5 @@ scatter = {# call unsafe Scatter as scatter_ #}
 gather = {# call unsafe Gather as gather_ #}
 scatterv = {# call unsafe Scatterv as scatterv_ #}
 gatherv = {# call unsafe Gatherv as gatherv_ #}
-
+allgather = {# call unsafe Allgather as allgather_ #}
+allgatherv = {# call unsafe Allgatherv as allgatherv_ #}
