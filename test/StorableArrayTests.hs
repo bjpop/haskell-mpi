@@ -11,19 +11,19 @@ import Control.Monad (when)
 
 storableArrayTests :: Rank -> [(String,TestRunnerTest)]
 storableArrayTests rank =
-  [ mpiTestCase rank "send+recv array"  $ syncSendRecvTest send
-  , mpiTestCase rank "ssend+recv array" $ syncSendRecvTest ssend
-  , mpiTestCase rank "rsend+recv array" $ rsendRecvTest
-  , mpiTestCase rank "isend+irecv array"  $ asyncSendRecvTest isend
-  , mpiTestCase rank "issend+irecv array" $ asyncSendRecvTest issend
-  , mpiTestCase rank "broadcast array" broadcastTest
-  , mpiTestCase rank "scatter array"   scatterTest
-  , mpiTestCase rank "scatterv array"  scattervTest
-  , mpiTestCase rank "gather array"    gatherTest
-  , mpiTestCase rank "gatherv array"   gathervTest
-  , mpiTestCase rank "allgather array"   allgatherTest
-  , mpiTestCase rank "allgatherv array"   allgathervTest
-  , mpiTestCase rank "alltoall array"   alltoallTest
+  [ mpiTestCase rank "send+recv storable array"  $ syncSendRecvTest send
+  , mpiTestCase rank "ssend+recv storable array" $ syncSendRecvTest ssend
+  , mpiTestCase rank "rsend+recv storable array" $ rsendRecvTest
+  , mpiTestCase rank "isend+irecv storable array"  $ asyncSendRecvTest isend
+  , mpiTestCase rank "issend+irecv storable array" $ asyncSendRecvTest issend
+  , mpiTestCase rank "broadcast storable array" broadcastTest
+  , mpiTestCase rank "scatter storable array"   scatterTest
+  , mpiTestCase rank "scatterv storable array"  scattervTest
+  , mpiTestCase rank "gather storable array"    gatherTest
+  , mpiTestCase rank "gatherv storable array"   gathervTest
+  , mpiTestCase rank "allgather storable array"   allgatherTest
+  , mpiTestCase rank "allgatherv storable array"   allgathervTest
+  , mpiTestCase rank "alltoall storable array"   alltoallTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO Request) -> Rank -> IO ()
