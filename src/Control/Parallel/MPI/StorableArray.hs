@@ -52,10 +52,10 @@ withNewArray range f = do
   return (arr, res)
 
 -- | Same as withRange, but discards the result of the processor function
-withNewArray_ :: forall i e. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO ()) -> IO (StorableArray i e)
+withNewArray_ :: forall i e a. (Ix i, Storable e) => (i,i) -> (StorableArray i e -> IO a) -> IO (StorableArray i e)
 withNewArray_ range f = do
   arr <- unsafeNewArray_ range
-  f arr
+  _ <- f arr
   return arr
 
 send, bsend, ssend, rsend :: forall e i. (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO ()
