@@ -15,8 +15,9 @@ ioArrayTests rank =
   [ mpiTestCase rank "send+recv array"  $ syncSendRecvTest send
   , mpiTestCase rank "ssend+recv array" $ syncSendRecvTest ssend
   , mpiTestCase rank "rsend+recv array" $ rsendRecvTest
-  , mpiTestCase rank "isend+irecv array"  $ asyncSendRecvTest isend
-  , mpiTestCase rank "issend+irecv array" $ asyncSendRecvTest issend
+-- irecv only works for StorableArray at the moment. See comments in source.
+--  , mpiTestCase rank "isend+irecv array"  $ asyncSendRecvTest isend
+--  , mpiTestCase rank "issend+irecv array" $ asyncSendRecvTest issend
   , mpiTestCase rank "broadcast array" broadcastTest
   , mpiTestCase rank "scatter array"   scatterTest
   , mpiTestCase rank "scatterv array"  scattervTest
@@ -24,7 +25,7 @@ ioArrayTests rank =
   , mpiTestCase rank "gatherv array"   gathervTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> IOArray Int Int -> IO ()) -> Rank -> IO ()
-asyncSendRecvTest :: (Comm -> Rank -> Tag -> IOArray Int Int -> IO Request) -> Rank -> IO ()
+-- asyncSendRecvTest :: (Comm -> Rank -> Tag -> IOArray Int Int -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 
 type ArrMsg = IOArray Int Int
@@ -62,6 +63,7 @@ rsendRecvTest rank = do
                                rsend commWorld receiver tag2 msg
   return ()
 
+{-
 asyncSendRecvTest isendf rank
   | rank == sender   = do msg <- arrMsg
                           req <- isendf commWorld receiver tag3 msg
@@ -74,6 +76,7 @@ asyncSendRecvTest isendf rank
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
+-}
 
 broadcastTest myRank = do
   msg <- arrMsg

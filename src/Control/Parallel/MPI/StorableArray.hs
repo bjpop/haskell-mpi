@@ -30,7 +30,6 @@ import Data.Array.Base (unsafeNewArray_)
 import Data.Array.IO
 import Data.Array.Storable
 import Control.Applicative ((<$>))
--- import Foreign.Marshal.Array (allocaArray)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -106,7 +105,22 @@ isendWith send_function comm recvRank tag array = do
          checkError $ send_function (castPtr arrayPtr) numBytes byte (fromRank recvRank) (fromTag tag) comm requestPtr
          peek requestPtr
 
-irecv :: (Storable e, Ix i, MessageArray a i e) => Comm -> Rank -> Tag -> a i e -> IO Request
+{-
+   At the moment we are limiting this to StorableArrays because they
+   are compatible with C pointers. This means that the recieved data can
+   be written directly to the array, and does not have to be copied out
+   at the end. This is important for the non-blocking operation of irecv.
+   It is not safe to copy the data from the C pointer until the transfer
+   is complete. So any array type which required copying of data after
+   receipt of the message would have to wait on complete transmission.
+   It is not clear how to incorporate the waiting automatically into
+   the same interface as the one below. One option is to use a Haskell
+   thread to do the data copying in the "background". Another option
+   is to introduce a new kind of data handle which would encapsulate the
+   wait operation, and would allow the user to request the data to be
+   copied when the wait was complete.
+-}
+irecv :: (Storable e, Ix i) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag array = do
    alloca $ \requestPtr ->
       recvInto array $ \arrayPtr numBytes -> do
@@ -353,6 +367,9 @@ sendWithMArrayAndSize array f = do
    let numBytes = cIntConv (numElements * elementSize)
    withArray elements $ \ptr -> f ptr numBytes
 
+-- XXX I wonder if this can be written without the intermediate list?
+-- Maybe GHC can elimiate it. We should look at the generated compiled
+-- code to see how well the loop is handled.
 fillArrayFromPtr :: (MArray a e IO, Storable e, Ix i) => [i] -> Int -> Ptr e -> a i e -> IO ()
 fillArrayFromPtr indices numElements startPtr array = do
    elems <- peekArray numElements startPtr
