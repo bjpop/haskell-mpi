@@ -12,21 +12,25 @@ import Control.Monad (when)
 
 ioArrayTests :: Rank -> [(String,TestRunnerTest)]
 ioArrayTests rank =
-  [ mpiTestCase rank "send+recv array"  $ syncSendRecvTest send
-  , mpiTestCase rank "ssend+recv array" $ syncSendRecvTest ssend
-  , mpiTestCase rank "rsend+recv array" $ rsendRecvTest
+  [ mpiTestCase rank "send+recv IO array"  $ syncSendRecvTest send
+  , mpiTestCase rank "ssend+recv IO array" $ syncSendRecvTest ssend
+  , mpiTestCase rank "rsend+recv IO array" $ rsendRecvTest
 -- irecv only works for StorableArray at the moment. See comments in source.
---  , mpiTestCase rank "isend+irecv array"  $ asyncSendRecvTest isend
---  , mpiTestCase rank "issend+irecv array" $ asyncSendRecvTest issend
-  , mpiTestCase rank "broadcast array" broadcastTest
-  , mpiTestCase rank "scatter array"   scatterTest
-  , mpiTestCase rank "scatterv array"  scattervTest
-  , mpiTestCase rank "gather array"    gatherTest
-  , mpiTestCase rank "gatherv array"   gathervTest
+--  , mpiTestCase rank "isend+irecv IO array"  $ asyncSendRecvTest isend
+--  , mpiTestCase rank "issend+irecv IO array" $ asyncSendRecvTest issend
+  , mpiTestCase rank "broadcast IO array" broadcastTest
+  , mpiTestCase rank "scatter IO array"   scatterTest
+  , mpiTestCase rank "scatterv IO array"  scattervTest
+  , mpiTestCase rank "gather IO array"    gatherTest
+  , mpiTestCase rank "gatherv IO array"   gathervTest
+  , mpiTestCase rank "allgather IO array"   allgatherTest
+  , mpiTestCase rank "allgatherv IO array"   allgathervTest
+  , mpiTestCase rank "alltoall IO array"   alltoallTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> IOArray Int Int -> IO ()) -> Rank -> IO ()
 -- asyncSendRecvTest :: (Comm -> Rank -> Tag -> IOArray Int Int -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
+allgatherTest, allgathervTest, alltoallTest :: Rank -> IO ()
 
 type ArrMsg = IOArray Int Int
 
@@ -176,3 +180,51 @@ gathervTest myRank = do
     recvMsg <- getElems segment
 
     recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+
+allgatherTest _ = do
+  numProcs <- commSize commWorld
+
+  let segRange@(low,hi) = (1, segmentSize)
+  (msg :: ArrMsg) <- newListArray segRange [low..hi]
+
+  let bigRange = (1, segmentSize * numProcs)
+      expected = concat $ replicate numProcs [1..segmentSize]
+  result <- withNewArray_ bigRange $ allgather commWorld msg
+  recvMsg <- getElems result
+  recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
+  where segmentSize = 10
+
+allgathervTest myRank = do
+  numProcs <- commSize commWorld
+  let bigRange = (1, sum [1..numProcs])
+
+  let myRankNo = fromRank myRank
+      sendRange = (0, myRankNo)
+  (msg :: ArrMsg) <- newListArray sendRange [0..myRankNo]
+    
+  let msgRange = (1, numProcs)
+      counts = [1..numProcs]
+      displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
+      expected = concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
+  (packCounts :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
+  (packDispls :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
+
+  result <- withNewArray_ bigRange $ allgatherv commWorld msg packCounts packDispls
+  recvMsg <- getElems result
+
+  recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+
+alltoallTest myRank = do
+  numProcs <- commSize commWorld
+  
+  let myRankNo = fromRank myRank
+      sendRange = (0, numProcs-1)
+  (msg :: ArrMsg) <- newListArray sendRange $ take numProcs $ repeat myRankNo
+    
+  let recvRange = sendRange
+      expected = [0..numProcs-1]
+
+  result <- withNewArray_ recvRange $ alltoall commWorld msg 1 -- sending 1 number to each process
+  recvMsg <- getElems result
+
+  recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
