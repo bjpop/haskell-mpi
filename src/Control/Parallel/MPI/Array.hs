@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, MultiParamTypeClasses #-}
 
-module Control.Parallel.MPI.StorableArray
+module Control.Parallel.MPI.Array
    ( send
    , ssend
    , bsend

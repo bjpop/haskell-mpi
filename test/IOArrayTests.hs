@@ -3,7 +3,7 @@ module IOArrayTests (ioArrayTests) where
 
 import TestHelpers
 import Data.Array.Storable (StorableArray)
-import Control.Parallel.MPI.StorableArray
+import Control.Parallel.MPI.Array
 import Data.Array.IO (IOArray, newListArray, getElems, Ix)
 
 import Foreign.Storable

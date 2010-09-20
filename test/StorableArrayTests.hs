@@ -2,7 +2,7 @@
 module StorableArrayTests (storableArrayTests) where
 
 import TestHelpers
-import Control.Parallel.MPI.StorableArray
+import Control.Parallel.MPI.Array
 import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds, Ix)
 
 import Foreign.Storable
