@@ -19,6 +19,8 @@ module Control.Parallel.MPI.Serializable
    , bcast
    , sendGather
    , recvGather
+   , sendScatter
+   , recvScatter
    ) where
 
 import C2HS
@@ -36,7 +38,6 @@ import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Common (probe, commRank, commSize)
-import qualified Control.Parallel.MPI.Array as Arr
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
 
@@ -219,10 +220,54 @@ recvGather comm root msg = do
             checkError $ Internal.gatherv (castPtr sendPtr) len byte recvPtr countsPtr displPtr byte (fromRank root) comm
             -- decode payloads
             bs <- BS.packCStringLen (castPtr recvPtr, payload_len)
-            return $ unfoldr decodeNext (map fromIntegral lengths,bs)
+            return $ decodeList (map fromIntegral lengths) bs
+
+decodeList :: (Serialize msg) => [Int] -> BS.ByteString -> [msg]
+decodeList lengths bs = unfoldr decodeNext (lengths,bs)
   where
     decodeNext ([],_) = Nothing
     decodeNext ((l:ls),bs) = 
       case decode bs of
         Left e -> fail e
         Right val -> Just (val, (ls, BS.drop l bs))
+        
+recvScatter :: Serialize msg => Comm -> Rank -> IO msg
+recvScatter comm root = do
+  -- Recv length
+  len <- alloca $ \ptr -> do
+    checkError $ Internal.scatter nullPtr 0 int (castPtr ptr) (1::CInt) int (fromRank root) comm
+    peek ptr
+  -- Recv payload
+  allocaBytes len $ \recvPtr -> do
+    checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) (cIntConv len) byte (fromRank root) comm
+    bs <- BS.packCStringLen (castPtr recvPtr, len)
+    case decode bs of
+      Left e -> fail e
+      Right val -> return val
+    
+-- List should have exactly numProcs elements  
+sendScatter :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
+sendScatter comm root msgs = do
+  let enc_msgs = map encode msgs
+      lengths = map (cIntConv . BS.length) enc_msgs
+      payload = BS.concat enc_msgs
+  numProcs <- commSize comm
+  unsafeUseAsCString payload $ \sendPtr -> do
+    alloca $ \myLenPtr -> do
+      -- scatter numProcs ints - sizes of payloads to be sent to other processes
+      lengthsArr <- SA.newListArray (0,numProcs-1) lengths :: IO (SA.StorableArray Int CInt)
+      SA.withStorableArray lengthsArr $ \countsPtr -> do
+        checkError $ Internal.scatter (castPtr countsPtr) (1::CInt) int (castPtr myLenPtr) (1::CInt) int (fromRank root) comm
+      myLen <- peek myLenPtr
+      -- calculate displacements from sizes
+      displ <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths) :: IO (SA.StorableArray Int CInt)
+      -- scatter payloads
+      SA.withStorableArray displ $ \displPtr ->
+        SA.withStorableArray lengthsArr $ \countsPtr ->
+          allocaBytes myLen $ \recvPtr -> do
+            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte recvPtr (cIntConv myLen) byte (fromRank root) comm
+            -- decode out payload
+            bs <- BS.packCStringLen (castPtr recvPtr, myLen)
+            case decode bs of
+              Left e -> fail e
+              Right val -> return val

@@ -19,12 +19,13 @@ serializableTests rank =
   , mpiTestCase rank "isend+recvFuture two messages, out of order" asyncSendRecv2ooo
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
   , mpiTestCase rank "broadcast message" broadcast
+  , mpiTestCase rank "scatter message" scatterTest
   , mpiTestCase rank "gather message" gatherTest
   ]
 syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
-crissCrossSendRecv, broadcast, gatherTest :: Rank -> IO ()
+crissCrossSendRecv, broadcast, scatterTest, gatherTest :: Rank -> IO ()
 
 
 -- Serializable tests
@@ -138,4 +139,13 @@ gatherTest rank
                               got = concat (result::[[Int]])
                           got == expected @? "Got " ++ show got ++ " instead of " ++ show expected
   | otherwise        = sendGather commWorld zeroRank [0..fromRank rank :: Int]
+
+scatterTest rank
+  | rank == zeroRank = do numProcs <- commSize commWorld
+                          result <- sendScatter commWorld zeroRank $ map (^2) [1..numProcs]
+                          result == 1 @? "Root got " ++ show result ++ " instead of 1"
+  | otherwise        = do result <- recvScatter commWorld zeroRank
+                          let expected = (fromRank rank + 1)^2 :: Int
+                          result == expected @? "Got " ++ show result ++ " instead of " ++ show expected
+
 -- End of serializable tests
