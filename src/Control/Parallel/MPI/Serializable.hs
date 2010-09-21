@@ -29,6 +29,7 @@ import Control.Concurrent.MVar (MVar, newEmptyMVar, tryTakeMVar, readMVar, putMV
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
+import qualified Control.Parallel.MPI.Storable as Storable
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -159,15 +160,10 @@ bcast comm rootRank msg = do
    if myRank == rootRank
       then do
          let bs = encode msg
-             cCount = cIntConv $ BS.length bs
          -- broadcast the size of the message first
-         alloca $ \ptr -> do
-            poke ptr cCount
-            let numberOfInts = 1::CInt
-            checkError $ Internal.bcast (castPtr ptr) numberOfInts int cRank comm
+         Storable.bcastSend comm rootRank (BS.length bs)
          -- then broadcast the actual message
-         unsafeUseAsCString bs $ \cString -> do
-            checkError $ Internal.bcast (castPtr cString) cCount byte cRank comm
+         Storable.bcastSend comm rootRank bs
          return msg
       else do
          -- receive the broadcast of the size
