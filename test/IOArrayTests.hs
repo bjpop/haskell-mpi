@@ -41,24 +41,17 @@ range@(low,hi) = (1,10)
 arrMsg :: IO ArrMsg
 arrMsg = newListArray range [low..hi]
 
--- Convenience shortcuts
--- sendToReceiver :: forall i e.(Ix i, Storable e) => Tag -> IOArray i e -> IO ()
-recvFromSender :: forall i e . (Ix i, Storable e) => Tag -> IOArray i e -> IO Status
-
--- sendToReceiver = send commWorld receiver
-recvFromSender = recv commWorld sender
-
 syncSendRecvTest sendf rank
   | rank == sender   = do msg <- arrMsg
                           sendf commWorld receiver tag2 msg
-  | rank == receiver = do (newMsg, status) <- withNewArray range $ recvFromSender tag2
+  | rank == receiver = do (newMsg::ArrMsg, status) <- withNewArray range $ recv commWorld sender tag2
                           checkStatus status sender tag2
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
 
 rsendRecvTest rank = do
-  when (rank == receiver) $ do (newMsg, status) <- withNewArray range $ recvFromSender tag2
+  when (rank == receiver) $ do (newMsg::ArrMsg, status) <- withNewArray range $ recv commWorld sender tag2
                                checkStatus status sender tag2
                                elems <- getElems newMsg
                                elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
@@ -97,7 +90,7 @@ scatterTest myRank = do
   numProcs <- commSize commWorld
   let segRange = (1, segmentSize)
 
-  segment <- if myRank == zeroRank then do
+  (segment::ArrMsg) <- if myRank == zeroRank then do
                let bigRange@(low, hi) = (1, segmentSize * numProcs)
                (msg :: ArrMsg) <- newListArray bigRange [low..hi]
                withNewArray_ segRange $ sendScatter commWorld zeroRank msg
@@ -126,7 +119,7 @@ scattervTest myRank = do
       counts = [1..numProcs]
       displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
 
-  segment <- if myRank == zeroRank then do
+  (segment::ArrMsg) <- if myRank == zeroRank then do
     (msg :: ArrMsg) <- newListArray bigRange [low..hi]
 
     let msgRange = (1, numProcs)
@@ -154,7 +147,7 @@ gatherTest myRank = do
     else do
     let bigRange = (1, segmentSize * numProcs)
         expected = concat $ replicate numProcs [1..segmentSize]
-    result <- withNewArray_ bigRange $ recvGather commWorld zeroRank msg
+    (result::ArrMsg) <- withNewArray_ bigRange $ recvGather commWorld zeroRank msg
     recvMsg <- getElems result
     recvMsg == expected @? "Rank " ++ show myRank ++ " got " ++ show recvMsg ++ " instead of " ++ show expected
   where segmentSize = 10
@@ -176,7 +169,7 @@ gathervTest myRank = do
     (packCounts :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
     (packDispls :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
 
-    segment <- withNewArray_ bigRange $ recvGatherv commWorld zeroRank msg packCounts packDispls
+    (segment::ArrMsg) <- withNewArray_ bigRange $ recvGatherv commWorld zeroRank msg packCounts packDispls
     recvMsg <- getElems segment
 
     recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
@@ -189,7 +182,7 @@ allgatherTest _ = do
 
   let bigRange = (1, segmentSize * numProcs)
       expected = concat $ replicate numProcs [1..segmentSize]
-  result <- withNewArray_ bigRange $ allgather commWorld msg
+  (result::ArrMsg) <- withNewArray_ bigRange $ allgather commWorld msg
   recvMsg <- getElems result
   recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
   where segmentSize = 10
@@ -209,7 +202,7 @@ allgathervTest myRank = do
   (packCounts :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) counts
   (packDispls :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::Int) *) displs
 
-  result <- withNewArray_ bigRange $ allgatherv commWorld msg packCounts packDispls
+  (result::ArrMsg) <- withNewArray_ bigRange $ allgatherv commWorld msg packCounts packDispls
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
@@ -224,7 +217,7 @@ alltoallTest myRank = do
   let recvRange = sendRange
       expected = [0..numProcs-1]
 
-  result <- withNewArray_ recvRange $ alltoall commWorld msg 1 -- sending 1 number to each process
+  (result::ArrMsg) <- withNewArray_ recvRange $ alltoall commWorld msg 1 -- sending 1 number to each process
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
