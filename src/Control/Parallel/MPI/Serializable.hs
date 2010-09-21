@@ -190,7 +190,6 @@ sendGather comm root msg = do
       len = cIntConv $ BS.length enc_msg
   -- Send length
   alloca $ \ptr -> do
-    putStrLn $ "sendGather: len=" ++ show len
     poke ptr len
     checkError $ Internal.gather (castPtr ptr) (1::CInt) int nullPtr 0 int (fromRank root) comm
   -- Send payload
@@ -205,14 +204,12 @@ recvGather comm root msg = do
   unsafeUseAsCString enc_msg $ \sendPtr -> do
     alloca $ \ptr -> do
       poke ptr len
-      putStrLn $ "recvGather: len="++show len
       -- receive array of numProcs ints - sizes of payloads to be send by other processes
       lengthsArr <- SA.newArray_ (0,numProcs-1) :: IO (SA.StorableArray Int CInt)
       SA.withStorableArray lengthsArr $ \countsPtr -> do
         checkError $ Internal.gather (castPtr ptr) (1::CInt) int (castPtr countsPtr) (1::CInt) int (fromRank root) comm
       -- calculate displacements from sizes
       lengths <- SA.getElems lengthsArr
-      putStrLn $ "recvGather: lengths=" ++ show lengths
       displ <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths) :: IO (SA.StorableArray Int CInt)
       let payload_len = cIntConv $ sum lengths
       -- receive payloads
