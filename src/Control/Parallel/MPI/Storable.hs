@@ -33,6 +33,8 @@ import Data.Array.Base (unsafeNewArray_)
 import Data.Array.IO
 import Data.Array.Storable
 import Control.Applicative ((<$>))
+import Data.ByteString.Unsafe as BS
+import qualified Data.ByteString as BS
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -282,6 +284,9 @@ class UnderlyingMpiDatatype e where
 instance UnderlyingMpiDatatype Int where
   representation _ = int
 
+instance UnderlyingMpiDatatype CInt where
+  representation _ = int
+
 instance UnderlyingMpiDatatype (StorableArray i e) where
   representation _ = byte
 
@@ -291,6 +296,9 @@ instance UnderlyingMpiDatatype (IOArray i e) where
 instance UnderlyingMpiDatatype (IOUArray i e) where
   representation _ = byte
   
+instance UnderlyingMpiDatatype BS.ByteString where
+  representation _ = byte
+
 -- Value `v' represented by storable(s) `e', and "identified to MPI" by some datatype defined by `v'
 class (Storable e, UnderlyingMpiDatatype v) => MpiSrc v e | v->e where
    sendFrom :: v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
@@ -341,3 +349,24 @@ fillArrayFromPtr :: (MArray a e IO, Storable e, Ix i) => [i] -> Int -> Ptr e -> 
 fillArrayFromPtr indices numElements startPtr array = do
    elems <- peekArray numElements startPtr
    mapM_ (\(index, element) -> writeArray array index element ) (zip indices elems)
+
+-- ByteString
+instance MpiSrc (BS.ByteString) CChar where
+  sendFrom = sendWithByteStringAndSize
+
+sendWithByteStringAndSize :: BS.ByteString -> (Ptr CChar -> CInt -> Datatype -> IO a) -> IO a
+sendWithByteStringAndSize bs f = do
+  unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f bsPtr (cIntConv len) byte
+
+-- Single values
+instance MpiSrc CInt CInt where
+  sendFrom = sendFromSingleValue
+
+instance MpiSrc Int CInt where
+  sendFrom v = sendFromSingleValue (cIntConv v)
+
+sendFromSingleValue :: (Storable e, UnderlyingMpiDatatype e) => e -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
+sendFromSingleValue v f = do
+  alloca $ \ptr -> do
+    poke ptr v
+    f ptr (1::CInt) (representation v)
