@@ -19,11 +19,12 @@ serializableTests rank =
   , mpiTestCase rank "isend+recvFuture two messages, out of order" asyncSendRecv2ooo
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
   , mpiTestCase rank "broadcast message" broadcast
+  , mpiTestCase rank "gather message" gatherTest
   ]
 syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
-crissCrossSendRecv, broadcast :: Rank -> IO ()
+crissCrossSendRecv, broadcast, gatherTest :: Rank -> IO ()
 
 
 -- Serializable tests
@@ -129,4 +130,12 @@ crissCrossSendRecv rank
 broadcast _ = do
   result <- bcast commWorld sender bigMsg
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
+
+gatherTest rank
+  | rank == zeroRank = do result <- recvGather commWorld zeroRank [fromRank rank :: Int]
+                          numProcs <- commSize commWorld
+                          let expected = concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
+                              got = concat (result::[[Int]])
+                          got == expected @? "Got " ++ show got ++ " instead of " ++ show expected
+  | otherwise        = sendGather commWorld zeroRank [0..fromRank rank :: Int]
 -- End of serializable tests

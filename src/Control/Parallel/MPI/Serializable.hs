@@ -17,6 +17,8 @@ module Control.Parallel.MPI.Serializable
    , getFutureStatus
    , recvFuture
    , bcast
+   , sendGather
+   , recvGather
    ) where
 
 import C2HS
@@ -33,7 +35,10 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
-import Control.Parallel.MPI.Common (probe, commRank)
+import Control.Parallel.MPI.Common (probe, commRank, commSize)
+import qualified Control.Parallel.MPI.Array as Arr
+import qualified Data.Array.Storable as SA
+import Data.List (unfoldr)
 
 send, bsend, ssend, rsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 send  c r t m = sendBSwith Internal.send  c r t $ encode m
@@ -177,3 +182,50 @@ bcast comm rootRank msg = do
                case decode bs of
                   Left e -> fail e
                   Right val -> return val
+
+-- List should have exactly numProcs elements
+sendGather :: Serialize msg => Comm -> Rank -> msg -> IO ()
+sendGather comm root msg = do
+  let enc_msg = encode msg
+      len = cIntConv $ BS.length enc_msg
+  -- Send length
+  alloca $ \ptr -> do
+    putStrLn $ "sendGather: len=" ++ show len
+    poke ptr len
+    checkError $ Internal.gather (castPtr ptr) (1::CInt) int nullPtr 0 int (fromRank root) comm
+  -- Send payload
+  unsafeUseAsCString enc_msg $ \cString -> do
+    checkError $ Internal.gatherv (castPtr cString) len byte nullPtr nullPtr nullPtr byte (fromRank root) comm
+  
+recvGather :: Serialize msg => Comm -> Rank -> msg -> IO [msg]
+recvGather comm root msg = do
+  let enc_msg = encode msg
+      len = cIntConv $ BS.length enc_msg
+  numProcs <- commSize comm
+  unsafeUseAsCString enc_msg $ \sendPtr -> do
+    alloca $ \ptr -> do
+      poke ptr len
+      putStrLn $ "recvGather: len="++show len
+      -- receive array of numProcs ints - sizes of payloads to be send by other processes
+      lengthsArr <- SA.newArray_ (0,numProcs-1) :: IO (SA.StorableArray Int CInt)
+      SA.withStorableArray lengthsArr $ \countsPtr -> do
+        checkError $ Internal.gather (castPtr ptr) (1::CInt) int (castPtr countsPtr) (1::CInt) int (fromRank root) comm
+      -- calculate displacements from sizes
+      lengths <- SA.getElems lengthsArr
+      putStrLn $ "recvGather: lengths=" ++ show lengths
+      displ <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths) :: IO (SA.StorableArray Int CInt)
+      let payload_len = cIntConv $ sum lengths
+      -- receive payloads
+      SA.withStorableArray displ $ \displPtr ->
+        SA.withStorableArray lengthsArr $ \countsPtr ->
+          allocaBytes payload_len $ \recvPtr -> do
+            checkError $ Internal.gatherv (castPtr sendPtr) len byte recvPtr countsPtr displPtr byte (fromRank root) comm
+            -- decode payloads
+            bs <- BS.packCStringLen (castPtr recvPtr, payload_len)
+            return $ unfoldr decodeNext (map fromIntegral lengths,bs)
+  where
+    decodeNext ([],_) = Nothing
+    decodeNext ((l:ls),bs) = 
+      case decode bs of
+        Left e -> fail e
+        Right val -> Just (val, (ls, BS.drop l bs))
