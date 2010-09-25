@@ -21,11 +21,12 @@ serializableTests rank =
   , mpiTestCase rank "broadcast message" broadcast
   , mpiTestCase rank "scatter message" scatterTest
   , mpiTestCase rank "gather message" gatherTest
+  , mpiTestCase rank "allgather message" allgatherTest
   ]
 syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
-crissCrossSendRecv, broadcast, scatterTest, gatherTest :: Rank -> IO ()
+crissCrossSendRecv, broadcast, scatterTest, gatherTest, allgatherTest :: Rank -> IO ()
 
 
 -- Serializable tests
@@ -148,4 +149,9 @@ scatterTest rank
                           let expected = (fromRank rank + 1)^2 :: Int
                           result == expected @? "Got " ++ show result ++ " instead of " ++ show expected
 
--- End of serializable tests
+allgatherTest rank = do
+  let msg = [fromRank rank]
+  numProcs <- commSize commWorld
+  result <- allgather commWorld msg
+  let expected = map (:[]) [0..numProcs-1]
+  result == expected @? "Got " ++ show result ++ " instead of " ++ show expected

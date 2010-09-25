@@ -22,6 +22,7 @@ module Control.Parallel.MPI.Serializable
    , recvGather
    , sendScatter
    , recvScatter
+   , allgather
    ) where
 
 import C2HS
@@ -230,3 +231,16 @@ sendScatter comm root msgs = do
   case decode bs of
     Left e -> fail e
     Right val -> return val
+
+allgather :: (Serialize msg) => Comm -> msg -> IO [msg]
+allgather comm msg = do
+  let enc_msg = encode msg
+  numProcs <- commSize comm      
+  -- Send length of my message and receive lengths from other ranks
+  (lengthsArr :: SA.StorableArray Int Int) <- Storable.withNewArray_ (0, numProcs-1) $ Storable.allgather comm (BS.length enc_msg)
+  -- calculate displacements from sizes
+  lengths <- SA.getElems lengthsArr
+  (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
+  -- Send my payload and receive payloads from other ranks
+  bs <- Storable.withNewBS_ (sum lengths) $ Storable.allgatherv comm enc_msg lengthsArr displArr
+  return $ decodeList lengths bs
