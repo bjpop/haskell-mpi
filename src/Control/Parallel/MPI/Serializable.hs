@@ -178,39 +178,21 @@ bcast comm rootRank msg = do
 sendGather :: Serialize msg => Comm -> Rank -> msg -> IO ()
 sendGather comm root msg = do
   let enc_msg = encode msg
-      len = cIntConv $ BS.length enc_msg
   -- Send length
-  alloca $ \ptr -> do
-    poke ptr len
-    checkError $ Internal.gather (castPtr ptr) (1::CInt) int nullPtr 0 int (fromRank root) comm
+  Storable.sendGather comm root (BS.length enc_msg)
   -- Send payload
-  unsafeUseAsCString enc_msg $ \cString -> do
-    checkError $ Internal.gatherv (castPtr cString) len byte nullPtr nullPtr nullPtr byte (fromRank root) comm
+  Storable.sendGatherv comm root enc_msg
   
 recvGather :: Serialize msg => Comm -> Rank -> msg -> IO [msg]
 recvGather comm root msg = do
   let enc_msg = encode msg
-      len = cIntConv $ BS.length enc_msg
   numProcs <- commSize comm
-  unsafeUseAsCString enc_msg $ \sendPtr -> do
-    alloca $ \ptr -> do
-      poke ptr len
-      -- receive array of numProcs ints - sizes of payloads to be send by other processes
-      lengthsArr <- SA.newArray_ (0,numProcs-1) :: IO (SA.StorableArray Int CInt)
-      SA.withStorableArray lengthsArr $ \countsPtr -> do
-        checkError $ Internal.gather (castPtr ptr) (1::CInt) int (castPtr countsPtr) (1::CInt) int (fromRank root) comm
-      -- calculate displacements from sizes
-      lengths <- SA.getElems lengthsArr
-      displ <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths) :: IO (SA.StorableArray Int CInt)
-      let payload_len = cIntConv $ sum lengths
-      -- receive payloads
-      SA.withStorableArray displ $ \displPtr ->
-        SA.withStorableArray lengthsArr $ \countsPtr ->
-          allocaBytes payload_len $ \recvPtr -> do
-            checkError $ Internal.gatherv (castPtr sendPtr) len byte recvPtr countsPtr displPtr byte (fromRank root) comm
-            -- decode payloads
-            bs <- BS.packCStringLen (castPtr recvPtr, payload_len)
-            return $ decodeList (map fromIntegral lengths) bs
+  (lengthsArr :: SA.StorableArray Int Int) <- Storable.withNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (BS.length enc_msg) 
+  -- calculate displacements from sizes
+  lengths <- SA.getElems lengthsArr
+  (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
+  bs <- Storable.withNewBS_ (sum lengths) $ Storable.recvGatherv comm root enc_msg lengthsArr displArr
+  return $ decodeList lengths bs
 
 decodeList :: (Serialize msg) => [Int] -> BS.ByteString -> [msg]
 decodeList lengths bs = unfoldr decodeNext (lengths,bs)
@@ -224,40 +206,27 @@ decodeList lengths bs = unfoldr decodeNext (lengths,bs)
 recvScatter :: Serialize msg => Comm -> Rank -> IO msg
 recvScatter comm root = do
   -- Recv length
-  len <- alloca $ \ptr -> do
-    checkError $ Internal.scatter nullPtr 0 int (castPtr ptr) (1::CInt) int (fromRank root) comm
-    peek ptr
+  (len::Int) <- Storable.withNewVal_ $ Storable.recvScatter comm root
   -- Recv payload
-  allocaBytes len $ \recvPtr -> do
-    checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) (cIntConv len) byte (fromRank root) comm
-    bs <- BS.packCStringLen (castPtr recvPtr, len)
-    case decode bs of
-      Left e -> fail e
-      Right val -> return val
+  bs <- Storable.withNewBS_ len $ Storable.recvScatterv comm root
+  case decode bs of
+    Left e -> fail e
+    Right val -> return val
     
 -- List should have exactly numProcs elements  
 sendScatter :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
 sendScatter comm root msgs = do
   let enc_msgs = map encode msgs
-      lengths = map (cIntConv . BS.length) enc_msgs
+      lengths = map BS.length enc_msgs
       payload = BS.concat enc_msgs
   numProcs <- commSize comm
-  unsafeUseAsCString payload $ \sendPtr -> do
-    alloca $ \myLenPtr -> do
-      -- scatter numProcs ints - sizes of payloads to be sent to other processes
-      lengthsArr <- SA.newListArray (0,numProcs-1) lengths :: IO (SA.StorableArray Int CInt)
-      SA.withStorableArray lengthsArr $ \countsPtr -> do
-        checkError $ Internal.scatter (castPtr countsPtr) (1::CInt) int (castPtr myLenPtr) (1::CInt) int (fromRank root) comm
-      myLen <- peek myLenPtr
-      -- calculate displacements from sizes
-      displ <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths) :: IO (SA.StorableArray Int CInt)
-      -- scatter payloads
-      SA.withStorableArray displ $ \displPtr ->
-        SA.withStorableArray lengthsArr $ \countsPtr ->
-          allocaBytes myLen $ \recvPtr -> do
-            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) byte recvPtr (cIntConv myLen) byte (fromRank root) comm
-            -- decode out payload
-            bs <- BS.packCStringLen (castPtr recvPtr, myLen)
-            case decode bs of
-              Left e -> fail e
-              Right val -> return val
+  -- scatter numProcs ints - sizes of payloads to be sent to other processes
+  (lengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) lengths
+  (myLen :: Int) <- Storable.withNewVal_ $ Storable.sendScatter comm root lengthsArr
+  -- calculate displacements from sizes
+  (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
+  -- scatter payloads
+  bs <- Storable.withNewBS_ myLen $ Storable.sendScatterv comm root payload lengthsArr displArr
+  case decode bs of
+    Left e -> fail e
+    Right val -> return val
