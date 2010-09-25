@@ -24,11 +24,12 @@ storableArrayTests rank =
   , mpiTestCase rank "allgather storable array"   allgatherTest
   , mpiTestCase rank "allgatherv storable array"   allgathervTest
   , mpiTestCase rank "alltoall storable array"   alltoallTest
+  , mpiTestCase rank "alltoallv storable array"   alltoallvTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
-allgatherTest, allgathervTest, alltoallTest :: Rank -> IO ()
+allgatherTest, allgathervTest, alltoallTest, alltoallvTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -222,3 +223,30 @@ alltoallTest myRank = do
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
+
+-- Each rank sends its own number (Int) with sendCounts [1,2,3..]
+-- Each rank receives Ints with recvCounts [rank+1,rank+1,rank+1,...]
+-- Rank 0 should receive 0,1,2
+-- Rank 1 should receive 0,0,1,1,2,2
+-- Rank 2 should receive 0,0,0,1,1,1,2,2,2
+-- etc
+alltoallvTest myRank = do
+  numProcs <- commSize commWorld
+  let myRankNo   = fromRank myRank
+      sendCounts = take numProcs [1..]
+      sendDispls = Prelude.init $ scanl1 (+) $ 0:sendCounts
+      recvCounts = take numProcs (repeat (myRankNo+1))
+      recvDispls = Prelude.init $ scanl1 (+) $ 0:recvCounts
+      expected   = concatMap (replicate (myRankNo+1)) (take numProcs [0..])
+  
+  (packSendCounts :: ArrMsg) <- newListArray (1, length sendCounts) $ map (sizeOf (undefined::Int) *) sendCounts
+  (packSendDispls :: ArrMsg) <- newListArray (1, length sendDispls) $ map (sizeOf (undefined::Int) *) sendDispls
+  (packRecvCounts :: ArrMsg) <- newListArray (1, length recvCounts) $ map (sizeOf (undefined::Int) *) recvCounts
+  (packRecvDispls :: ArrMsg) <- newListArray (1, length recvDispls) $ map (sizeOf (undefined::Int) *) recvDispls
+  (msg :: ArrMsg) <- newListArray (1, sum sendCounts) $ take (sum sendCounts) $ repeat myRankNo
+      
+  (result::ArrMsg) <- withNewArray_ (1, length expected) $ alltoallv commWorld msg packSendCounts packSendDispls
+                                                                                   packRecvCounts packRecvDispls
+  recvMsg <- getElems result
+
+  recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected

@@ -10,7 +10,7 @@ module Control.Parallel.MPI.Internal
      cancel, scatter, gather,
      scatterv, gatherv,
      allgather, allgatherv,
-     alltoall
+     alltoall, alltoallv
    ) where
 
 import Prelude hiding (init, error)
@@ -53,3 +53,4 @@ gatherv = {# call unsafe Gatherv as gatherv_ #}
 allgather = {# call unsafe Allgather as allgather_ #}
 allgatherv = {# call unsafe Allgatherv as allgatherv_ #}
 alltoall = {# call unsafe Alltoall as alltoall_ #}
+alltoallv = {# call unsafe Alltoallv as alltoallv_ #}

@@ -23,6 +23,7 @@ module Control.Parallel.MPI.Storable
    , allgather
    , allgatherv
    , alltoall
+   , alltoallv
    , withNewArray
    , withNewArray_
    , withNewVal
@@ -281,6 +282,17 @@ alltoall comm sendVal sendCount recvVal = do
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
       checkError $ Internal.alltoall (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
 
+alltoallv :: forall v1 v2.(MpiSrc v1, MpiDst v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
+  sendFrom sendVal $ \sendPtr _ sendType ->
+    recvInto recvVal $ \recvPtr _ recvType ->
+      withStorableArray sendCounts $ \sendCountsPtr ->
+        withStorableArray sendDisplacements $ \sendDisplPtr ->
+          withStorableArray recvCounts $ \recvCountsPtr ->
+            withStorableArray recvDisplacements $ \recvDisplPtr ->
+              checkError $ Internal.alltoallv (castPtr sendPtr) (castPtr sendCountsPtr) (castPtr sendDisplPtr) sendType
+                                              (castPtr recvPtr) (castPtr recvCountsPtr) (castPtr recvDisplPtr) recvType comm
+  
 class UnderlyingMpiDatatype e where
   representation :: e -> Datatype
   
