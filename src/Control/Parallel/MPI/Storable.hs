@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, UndecidableInstances #-}
 
 module Control.Parallel.MPI.Storable
    ( send
@@ -25,10 +25,13 @@ module Control.Parallel.MPI.Storable
    , alltoall
    , withNewArray
    , withNewArray_
+   , withNewVal
+   , withNewVal_
+   , withNewBS
+   , withNewBS_
    ) where
 
 import C2HS
-import Data.Word
 import Data.Array.Base (unsafeNewArray_)
 import Data.Array.IO
 import Data.Array.Storable
@@ -287,6 +290,9 @@ instance UnderlyingMpiDatatype Int where
 instance UnderlyingMpiDatatype CInt where
   representation _ = int
 
+instance UnderlyingMpiDatatype CChar where
+  representation _ = byte
+
 instance UnderlyingMpiDatatype (StorableArray i e) where
   representation _ = byte
 
@@ -374,3 +380,39 @@ instance MpiSrc BS.ByteString where
 sendWithByteStringAndSize :: BS.ByteString -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
 sendWithByteStringAndSize bs f = do
   unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (cIntConv len) byte
+
+-- Pointers to storable with known on-wire representation
+instance (Storable e, UnderlyingMpiDatatype e) => MpiDst (Ptr e) where
+  recvInto = recvIntoElemPtr (representation (undefined :: e))
+    where
+      recvIntoElemPtr datatype p f = f (castPtr p) 1 datatype
+
+instance (Storable e, UnderlyingMpiDatatype e) => MpiDst (Ptr e, Int) where
+  recvInto = recvIntoVectorPtr (representation (undefined :: e))
+    where
+      recvIntoVectorPtr datatype (p,len) f = f (castPtr p) (cIntConv len :: CInt) datatype
+
+withNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
+withNewVal f = do
+  alloca $ \ptr -> do
+    res <- f ptr
+    val <- peek ptr
+    return (val, res)
+
+withNewVal_ :: (Storable e) => (Ptr e -> IO r) -> IO e
+withNewVal_ f = do
+  (val, _) <- withNewVal f
+  return val
+
+-- Receiving into new bytestrings
+withNewBS :: Int -> ((Ptr CChar,Int) -> IO r) -> IO (BS.ByteString, r)
+withNewBS len f = do
+  allocaBytes len $ \ptr -> do
+    res <- f (ptr, len)
+    bs <- BS.packCStringLen (ptr, len)
+    return (bs, res)
+
+withNewBS_ :: Int -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
+withNewBS_ len f = do
+  (bs, _) <- withNewBS len f
+  return bs
