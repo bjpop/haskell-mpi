@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module Control.Parallel.MPI.Serializable
    ( send
    , bsend
@@ -156,7 +157,6 @@ recvFuture comm rank tag = do
 bcast :: Serialize msg => Comm -> Rank -> msg -> IO msg
 bcast comm rootRank msg = do
    myRank <- commRank comm
-   let cRank  = fromRank rootRank
    if myRank == rootRank
       then do
          let bs = encode msg
@@ -167,18 +167,12 @@ bcast comm rootRank msg = do
          return msg
       else do
          -- receive the broadcast of the size
-         count <- alloca $ \ptr -> do
-            checkError $ Internal.bcast (castPtr ptr) 1 int cRank comm
-            peek ptr
+         (count::Int) <- Storable.withNewVal_ $ Storable.bcastRecv comm rootRank
          -- receive the broadcast of the message
-         allocaBytes count $
-            \bufferPtr -> do
-               let cCount = cIntConv count
-               checkError $ Internal.bcast bufferPtr cCount byte cRank comm
-               bs <- BS.packCStringLen (castPtr bufferPtr, count)
-               case decode bs of
-                  Left e -> fail e
-                  Right val -> return val
+         bs <- Storable.withNewBS_ count $ Storable.bcastRecv comm rootRank
+         case decode bs of
+           Left e -> fail e
+           Right val -> return val
 
 -- List should have exactly numProcs elements
 sendGather :: Serialize msg => Comm -> Rank -> msg -> IO ()
