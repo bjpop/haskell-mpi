@@ -214,12 +214,12 @@ alltoallTest myRank = do
   
   let myRankNo = fromRank myRank
       sendRange = (0, numProcs-1)
-  (msg :: ArrMsg) <- newListArray sendRange $ take numProcs $ repeat myRankNo
+  (msg :: ArrMsg) <- newListArray sendRange $ take numProcs $ repeat (maxBound - myRankNo)
     
   let recvRange = sendRange
-      expected = [0..numProcs-1]
+      expected = map (maxBound-) [0..numProcs-1]
 
-  (result::ArrMsg) <- withNewArray_ recvRange $ alltoall commWorld msg 1 -- sending 1 number to each process
+  (result::ArrMsg) <- withNewArray_ recvRange $ alltoall commWorld msg (1 * sizeOf (undefined::Int)) -- sending 1 Int to each process
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected

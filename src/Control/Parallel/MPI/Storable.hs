@@ -274,13 +274,15 @@ allgatherv comm segment counts displacements recvVal = do
           recvInto recvVal $ \recvPtr _ recvType ->
             checkError $ Internal.allgatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) recvType comm
              
-alltoall :: forall v1 v2.(UnderlyingMpiDatatype v1, MpiSrc v1, MpiDst v2) => Comm -> v1 -> Int -> v2 -> IO ()
+-- XXX: when sending arrays, we can not measure the size of the array element with sizeOf here without
+-- breaking the abstraction. Hence for now `sendCount' should be treated as "count of the underlying MPI
+-- representation elements that have to be sent to each process". User is expected to know that type and its size.
+alltoall :: forall v1 v2.(MpiSrc v1, MpiDst v2) => Comm -> v1 -> Int -> v2 -> IO ()
 alltoall comm sendVal sendCount recvVal = do
-  let elemSize = sizeOf (representation (undefined :: v1))
-      sendElements = cIntConv (elemSize * sendCount)
+  let sendCount_ = cIntConv sendCount
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
-      checkError $ Internal.alltoall (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
+      checkError $ Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
 
 alltoallv :: forall v1 v2.(MpiSrc v1, MpiDst v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
