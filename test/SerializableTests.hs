@@ -22,11 +22,12 @@ serializableTests rank =
   , mpiTestCase rank "scatter message" scatterTest
   , mpiTestCase rank "gather message" gatherTest
   , mpiTestCase rank "allgather message" allgatherTest
+  , mpiTestCase rank "alltoall message" alltoallTest
   ]
 syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
-crissCrossSendRecv, broadcast, scatterTest, gatherTest, allgatherTest :: Rank -> IO ()
+crissCrossSendRecv, broadcast, scatterTest, gatherTest, allgatherTest, alltoallTest :: Rank -> IO ()
 
 
 -- Serializable tests
@@ -154,4 +155,20 @@ allgatherTest rank = do
   numProcs <- commSize commWorld
   result <- allgather commWorld msg
   let expected = map (:[]) [0..numProcs-1]
+  result == expected @? "Got " ++ show result ++ " instead of " ++ show expected
+
+-- Each rank sends its own number (Int) with sendCounts [1,2,3..]
+-- Each rank receives Ints with recvCounts [rank+1,rank+1,rank+1,...]
+-- Rank 0 should receive 0,1,2
+-- Rank 1 should receive 0,0,1,1,2,2
+-- Rank 2 should receive 0,0,0,1,1,1,2,2,2
+-- etc
+alltoallTest myRank = do
+  numProcs <- commSize commWorld
+  let myRankNo = fromRank myRank
+      msg = take numProcs $ map (`take` (repeat myRankNo)) [1..]
+      expected = map (replicate (myRankNo+1)) (take numProcs [0..])
+      
+  result <- alltoall commWorld msg
+
   result == expected @? "Got " ++ show result ++ " instead of " ++ show expected

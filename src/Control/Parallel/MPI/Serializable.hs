@@ -23,6 +23,7 @@ module Control.Parallel.MPI.Serializable
    , sendScatter
    , recvScatter
    , allgather
+   , alltoall
    ) where
 
 import C2HS
@@ -244,3 +245,21 @@ allgather comm msg = do
   -- Send my payload and receive payloads from other ranks
   bs <- Storable.withNewBS_ (sum lengths) $ Storable.allgatherv comm enc_msg lengthsArr displArr
   return $ decodeList lengths bs
+
+alltoall :: (Serialize msg) => Comm -> [msg] -> IO [msg]
+alltoall comm msgs = do
+  let enc_msgs = map encode msgs
+      sendLengths = map BS.length enc_msgs
+      sendPayload = BS.concat enc_msgs
+  numProcs <- commSize comm
+  -- First, all-to-all payload sizes
+  (sendLengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) sendLengths
+  (recvLengthsArr :: SA.StorableArray Int Int) <- Storable.withNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr (1*sizeOf(undefined::Int))
+  recvLengths <- SA.getElems recvLengthsArr
+  -- calculate displacements from sizes
+  (sendDisplArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:sendLengths)
+  (recvDisplArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:recvLengths)
+  -- Receive payloads
+  bs <- Storable.withNewBS_ (sum recvLengths) $ Storable.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
+  return $ decodeList recvLengths bs
+  
