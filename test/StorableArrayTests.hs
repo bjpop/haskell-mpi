@@ -26,8 +26,8 @@ storableArrayTests rank =
   , mpiTestCase rank "alltoall storable array"   alltoallTest
   , mpiTestCase rank "alltoallv storable array"   alltoallvTest
   ]
-syncSendRecvTest  :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO ()) -> Rank -> IO ()
-asyncSendRecvTest :: (Comm -> Rank -> Tag -> StorableArray Int Int -> IO Request) -> Rank -> IO ()
+syncSendRecvTest  :: (Comm -> Rank -> Tag -> ArrMsg -> IO ()) -> Rank -> IO ()
+asyncSendRecvTest :: (Comm -> Rank -> Tag -> ArrMsg -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 allgatherTest, allgathervTest, alltoallTest, alltoallvTest :: Rank -> IO ()
 
@@ -70,7 +70,7 @@ asyncSendRecvTest isendf rank
                           stat <- wait req
                           checkStatus stat sender tag3
   -- XXX this type annotation is ugly. Is there a way to make it nicer?
-  | rank == receiver = do (newMsg, req) <- withNewArray range $ (irecv commWorld sender tag3 :: StorableArray Int Int -> IO Request)
+  | rank == receiver = do (newMsg, req) <- withNewArray range $ irecv commWorld sender tag3
                           stat <- wait req
                           checkStatus stat sender tag3
                           elems <- getElems newMsg
