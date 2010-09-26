@@ -133,11 +133,11 @@ First tier:
 +    MPI_Send,
 +    MPI_Recv
 +    MPI_Bcast,
-A    MPI_Allgather
++    MPI_Allgather[v]
 +    MPI_Barrier
-A    MPI_Scatter,
-A    MPI_Gather
-A    MPI_Alltoall
++    MPI_Scatter[v]
++    MPI_Gather[v]
++    MPI_Alltoall[v]
 +    MPI_Isend,
 +    MPI_Wait,
      MPI_Reduce_scatter
