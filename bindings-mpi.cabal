@@ -31,7 +31,7 @@ Library
    hs-source-dirs:
       src
    build-depends:
-      base,
+      base >3 && <=5,
       haskell98,
       bytestring,
       cereal,
@@ -48,8 +48,11 @@ Library
       Control.Parallel.MPI.Request,
       Control.Parallel.MPI.Tag,
       Control.Parallel.MPI.Rank,
-      Control.Parallel.MPI.Array,
+      -- Control.Parallel.MPI.Array,
       Control.Parallel.MPI.Serializable
+      Control.Parallel.MPI.Messaging,
+      -- Control.Parallel.MPI.ArrayUtils,
+      Control.Parallel.MPI.Future
    other-modules:
       C2HS,
       Control.Parallel.MPI.MarshalUtils,
@@ -78,11 +81,14 @@ executable  bindings-mpi-testsuite
     Control.Parallel.MPI.Request,
     Control.Parallel.MPI.Tag,
     Control.Parallel.MPI.Rank,
-    Control.Parallel.MPI.Array,
-    Control.Parallel.MPI.Serializable
+    -- Control.Parallel.MPI.Array,
+    -- Control.Parallel.MPI.Serializable
     C2HS,
     Control.Parallel.MPI.MarshalUtils,
     Control.Parallel.MPI.Utils,
+    Control.Parallel.MPI.Messaging,
+    -- Control.Parallel.MPI.ArrayUtils,
+    Control.Parallel.MPI.Future,
     IOArrayTests,
     SerializableTests,
     StorableArrayTests,
@@ -90,7 +96,7 @@ executable  bindings-mpi-testsuite
   main-is:       Testsuite.hs
   if flag(test)
     ghc-options: -fhpc
-    build-depends: base >=3 && <=5, HUnit, testrunner, hpc, unix
+    build-depends: base >3 && <=5, HUnit, testrunner, hpc, unix
   else
     buildable: False
 
@@ -101,6 +107,6 @@ executable bindings-mpi-comprunclean
   other-modules:
   main-is:  CompileRunClean.hs
   if flag(test)
-    build-depends: base >=3 && <=5, process
+    build-depends: base >3 && <=5, process
   else
     buildable: False

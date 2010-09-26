@@ -1,7 +1,9 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 module SerializableTests (serializableTests) where
 
 import TestHelpers
 import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Future
 
 import Control.Concurrent (threadDelay)
 import Data.Serialize ()
@@ -126,7 +128,15 @@ crissCrossSendRecv rank
   | otherwise        = return () -- idling
 
 
+broadcast rank
+   | rank == sender = bcastSend commWorld sender bigMsg
+   | rank == receiver = do
+        (result :: BigMsg) <- bcastRecv commWorld sender
+        result == bigMsg @? "Got garbled BigMsg"
+   | otherwise = return ()
+{-
 broadcast _ = do
   result <- bcast commWorld sender bigMsg
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
+-}
 -- End of serializable tests

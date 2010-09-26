@@ -3,8 +3,10 @@ module Main where
 import TestHelpers
 import OtherTests
 import SerializableTests
+{-
 import StorableArrayTests
 import IOArrayTests
+-}
 
 import Control.Monad (when)
 import System.Posix.IO (dupTo, stdError, stdOutput)
@@ -36,5 +38,7 @@ tests :: Rank -> [(String, TestRunnerTest)]
 tests rank = 
   otherTests rank
   ++ serializableTests rank
+{-
   ++ storableArrayTests rank
   ++ ioArrayTests rank
+-}

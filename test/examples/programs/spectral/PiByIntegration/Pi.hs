@@ -11,9 +11,10 @@ main = mpiWorld $ \procs rank -> do
    n <- if (rank == zeroRank)
            then do
               input <- getNumber
-              bcast commWorld zeroRank input
+              bcastSend commWorld zeroRank input
+              return input
            else
-              bcast commWorld zeroRank undefined
+              bcastRecv commWorld zeroRank
    let part = integrate (fromRank rank + 1) procs n (1 / fromIntegral n)
    send commWorld zeroRank unitTag part
    when (rank == zeroRank) $ do
