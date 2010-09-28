@@ -129,7 +129,7 @@ isendWith send_function comm recvRank tag val = do
    wait operation, and would allow the user to request the data to be
    copied when the wait was complete.
 -}
-irecv :: (Storable e, Ix i, UnderlyingMpiDatatype e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
+irecv :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag recvVal = do
    alloca $ \requestPtr ->
       recvInto recvVal $ \recvPtr recvElements recvType -> do
@@ -244,28 +244,28 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
               checkError $ Internal.alltoallv (castPtr sendPtr) (castPtr sendCountsPtr) (castPtr sendDisplPtr) sendType
                                               (castPtr recvPtr) (castPtr recvCountsPtr) (castPtr recvDisplPtr) recvType comm
   
-class UnderlyingMpiDatatype e where
+class Repr e where
   representation :: e -> Datatype
   
-instance UnderlyingMpiDatatype Int where
+instance Repr Int where
   representation _ = int
 
-instance UnderlyingMpiDatatype CInt where
+instance Repr CInt where
   representation _ = int
 
-instance UnderlyingMpiDatatype CChar where
+instance Repr CChar where
   representation _ = byte
 
-instance UnderlyingMpiDatatype (StorableArray i e) where
+instance Repr (StorableArray i e) where
   representation _ = byte
 
-instance UnderlyingMpiDatatype (IOArray i e) where
+instance Repr (IOArray i e) where
   representation _ = byte
   
-instance UnderlyingMpiDatatype (IOUArray i e) where
+instance Repr (IOUArray i e) where
   representation _ = byte
   
-instance UnderlyingMpiDatatype BS.ByteString where
+instance Repr BS.ByteString where
   representation _ = byte
 
 -- Note that 'e' is not bound by the typeclass, so all kinds of foul play
@@ -283,7 +283,7 @@ instance SendFrom CInt where
 instance SendFrom Int where
   sendFrom x = sendFromSingleValue (cIntConv x :: CInt)
 
-sendFromSingleValue :: (UnderlyingMpiDatatype v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
+sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 sendFromSingleValue v f = do
   alloca $ \ptr -> do
     poke ptr v
@@ -303,12 +303,12 @@ withStorableArrayAndSize arr f = do
    withStorableArray arr $ \ptr -> f (castPtr ptr) numBytes (representation (undefined :: StorableArray i e))
 
 -- Same, for IOArray
-instance (Storable e, UnderlyingMpiDatatype (IOArray i e), Ix i) => SendFrom (IOArray i e) where
+instance (Storable e, Repr (IOArray i e), Ix i) => SendFrom (IOArray i e) where
   sendFrom = sendWithMArrayAndSize
-instance (Storable e, UnderlyingMpiDatatype (IOArray i e), Ix i) => RecvInto (IOArray i e) where
+instance (Storable e, Repr (IOArray i e), Ix i) => RecvInto (IOArray i e) where
   recvInto = recvWithMArrayAndSize
 
-recvWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, UnderlyingMpiDatatype (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
+recvWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Repr (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
 recvWithMArrayAndSize array f = do
    bounds <- getBounds array
    let numElements = rangeSize bounds
@@ -319,7 +319,7 @@ recvWithMArrayAndSize array f = do
       fillArrayFromPtr (range bounds) numElements ptr array
       return result
 
-sendWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, UnderlyingMpiDatatype (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
+sendWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Repr (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
 sendWithMArrayAndSize array f = do
    elements <- getElems array
    bounds <- getBounds array
@@ -345,12 +345,12 @@ sendWithByteStringAndSize bs f = do
   unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (cIntConv len) byte
 
 -- Pointers to storable with known on-wire representation
-instance (Storable e, UnderlyingMpiDatatype e) => RecvInto (Ptr e) where
+instance (Storable e, Repr e) => RecvInto (Ptr e) where
   recvInto = recvIntoElemPtr (representation (undefined :: e))
     where
       recvIntoElemPtr datatype p f = f (castPtr p) 1 datatype
 
-instance (Storable e, UnderlyingMpiDatatype e) => RecvInto (Ptr e, Int) where
+instance (Storable e, Repr e) => RecvInto (Ptr e, Int) where
   recvInto = recvIntoVectorPtr (representation (undefined :: e))
     where
       recvIntoVectorPtr datatype (p,len) f = f (castPtr p) (cIntConv len :: CInt) datatype
