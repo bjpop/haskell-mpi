@@ -20,6 +20,11 @@ module Control.Parallel.MPI.Common
    , cancel
    , zeroRank
    , unitTag
+   , Future(..)
+   , waitFuture
+   , getFutureStatus
+   , pollFuture
+   , cancelFuture
    ) where
 
 import Prelude hiding (init)
@@ -36,6 +41,9 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
+import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
+import Control.Concurrent (ThreadId, killThread)
+
 
 zeroRank :: Rank
 zeroRank = toRank (0::Int)
@@ -118,3 +126,24 @@ cancel request =
    alloca $ \reqPtr -> do
        poke reqPtr request
        checkError $ Internal.cancel reqPtr
+
+-- Futures
+data Future a =
+   Future
+   { futureThread :: ThreadId
+   , futureStatus :: MVar Status
+   , futureVal :: MVar a
+   }
+
+waitFuture :: Future a -> IO a
+waitFuture = readMVar . futureVal
+
+getFutureStatus :: Future a -> IO Status
+getFutureStatus = readMVar . futureStatus
+
+pollFuture :: Future a -> IO (Maybe a)
+pollFuture = tryTakeMVar . futureVal
+
+-- May want to stop people from waiting on Futures which are killed...
+cancelFuture :: Future a -> IO ()
+cancelFuture = killThread . futureThread

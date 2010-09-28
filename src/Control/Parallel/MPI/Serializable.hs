@@ -11,11 +11,6 @@ module Control.Parallel.MPI.Serializable
    , ibsend
    , issend
    , isendBS
-   , Future
-   , cancelFuture
-   , pollFuture
-   , waitFuture
-   , getFutureStatus
    , recvFuture
    , bcast
    , sendGather
@@ -27,8 +22,8 @@ module Control.Parallel.MPI.Serializable
    ) where
 
 import C2HS
-import Control.Concurrent (forkIO, ThreadId, killThread)
-import Control.Concurrent.MVar (MVar, newEmptyMVar, tryTakeMVar, readMVar, putMVar)
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar)
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
@@ -41,7 +36,7 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
-import Control.Parallel.MPI.Common (probe, commRank, commSize)
+import Control.Parallel.MPI.Common
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
 
@@ -105,26 +100,6 @@ isendBSwith send_function comm rank tag bs = do
       unsafeUseAsCString bs $ \cString -> do
           checkError $ send_function (castPtr cString) cCount byte cRank cTag comm requestPtr
           peek requestPtr
-
-data Future a =
-   Future
-   { futureThread :: ThreadId
-   , futureStatus :: MVar Status
-   , futureVal :: MVar a
-   }
-
-waitFuture :: Future a -> IO a
-waitFuture = readMVar . futureVal
-
-getFutureStatus :: Future a -> IO Status
-getFutureStatus = readMVar . futureStatus
-
-pollFuture :: Future a -> IO (Maybe a)
-pollFuture = tryTakeMVar . futureVal
-
--- May want to stop people from waiting on Futures which are killed...
-cancelFuture :: Future a -> IO ()
-cancelFuture = killThread . futureThread
 
 recvFuture :: Serialize msg => Comm -> Rank -> Tag -> IO (Future msg)
 recvFuture comm rank tag = do
