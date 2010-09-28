@@ -169,9 +169,9 @@ bcast comm rootRank msg = do
          return msg
       else do
          -- receive the broadcast of the size
-         (count::Int) <- Storable.withNewVal_ $ Storable.bcastRecv comm rootRank
+         (count::Int) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
          -- receive the broadcast of the message
-         bs <- Storable.withNewBS_ count $ Storable.bcastRecv comm rootRank
+         bs <- Storable.intoNewBS_ count $ Storable.bcastRecv comm rootRank
          case decode bs of
            Left e -> fail e
            Right val -> return val
@@ -189,11 +189,11 @@ recvGather :: Serialize msg => Comm -> Rank -> msg -> IO [msg]
 recvGather comm root msg = do
   let enc_msg = encode msg
   numProcs <- commSize comm
-  (lengthsArr :: SA.StorableArray Int Int) <- Storable.withNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (BS.length enc_msg) 
+  (lengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (BS.length enc_msg) 
   -- calculate displacements from sizes
   lengths <- SA.getElems lengthsArr
   (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
-  bs <- Storable.withNewBS_ (sum lengths) $ Storable.recvGatherv comm root enc_msg lengthsArr displArr
+  bs <- Storable.intoNewBS_ (sum lengths) $ Storable.recvGatherv comm root enc_msg lengthsArr displArr
   return $ decodeList lengths bs
 
 decodeList :: (Serialize msg) => [Int] -> BS.ByteString -> [msg]
@@ -208,9 +208,9 @@ decodeList lengths bs = unfoldr decodeNext (lengths,bs)
 recvScatter :: Serialize msg => Comm -> Rank -> IO msg
 recvScatter comm root = do
   -- Recv length
-  (len::Int) <- Storable.withNewVal_ $ Storable.recvScatter comm root
+  (len::Int) <- Storable.intoNewVal_ $ Storable.recvScatter comm root
   -- Recv payload
-  bs <- Storable.withNewBS_ len $ Storable.recvScatterv comm root
+  bs <- Storable.intoNewBS_ len $ Storable.recvScatterv comm root
   case decode bs of
     Left e -> fail e
     Right val -> return val
@@ -224,11 +224,11 @@ sendScatter comm root msgs = do
   numProcs <- commSize comm
   -- scatter numProcs ints - sizes of payloads to be sent to other processes
   (lengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) lengths
-  (myLen :: Int) <- Storable.withNewVal_ $ Storable.sendScatter comm root lengthsArr
+  (myLen :: Int) <- Storable.intoNewVal_ $ Storable.sendScatter comm root lengthsArr
   -- calculate displacements from sizes
   (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
   -- scatter payloads
-  bs <- Storable.withNewBS_ myLen $ Storable.sendScatterv comm root payload lengthsArr displArr
+  bs <- Storable.intoNewBS_ myLen $ Storable.sendScatterv comm root payload lengthsArr displArr
   case decode bs of
     Left e -> fail e
     Right val -> return val
@@ -238,12 +238,12 @@ allgather comm msg = do
   let enc_msg = encode msg
   numProcs <- commSize comm      
   -- Send length of my message and receive lengths from other ranks
-  (lengthsArr :: SA.StorableArray Int Int) <- Storable.withNewArray_ (0, numProcs-1) $ Storable.allgather comm (BS.length enc_msg)
+  (lengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (0, numProcs-1) $ Storable.allgather comm (BS.length enc_msg)
   -- calculate displacements from sizes
   lengths <- SA.getElems lengthsArr
   (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
   -- Send my payload and receive payloads from other ranks
-  bs <- Storable.withNewBS_ (sum lengths) $ Storable.allgatherv comm enc_msg lengthsArr displArr
+  bs <- Storable.intoNewBS_ (sum lengths) $ Storable.allgatherv comm enc_msg lengthsArr displArr
   return $ decodeList lengths bs
 
 alltoall :: (Serialize msg) => Comm -> [msg] -> IO [msg]
@@ -254,12 +254,12 @@ alltoall comm msgs = do
   numProcs <- commSize comm
   -- First, all-to-all payload sizes
   (sendLengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) sendLengths
-  (recvLengthsArr :: SA.StorableArray Int Int) <- Storable.withNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr (1*sizeOf(undefined::Int))
+  (recvLengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr (1*sizeOf(undefined::Int))
   recvLengths <- SA.getElems recvLengthsArr
   -- calculate displacements from sizes
   (sendDisplArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:sendLengths)
   (recvDisplArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:recvLengths)
   -- Receive payloads
-  bs <- Storable.withNewBS_ (sum recvLengths) $ Storable.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
+  bs <- Storable.intoNewBS_ (sum recvLengths) $ Storable.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
   return $ decodeList recvLengths bs
   

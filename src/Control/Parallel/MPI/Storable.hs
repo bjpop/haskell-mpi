@@ -24,12 +24,12 @@ module Control.Parallel.MPI.Storable
    , allgatherv
    , alltoall
    , alltoallv
-   , withNewArray
-   , withNewArray_
-   , withNewVal
-   , withNewVal_
-   , withNewBS
-   , withNewBS_
+   , intoNewArray
+   , intoNewArray_
+   , intoNewVal
+   , intoNewVal_
+   , intoNewBS
+   , intoNewBS_
    ) where
 
 import C2HS
@@ -51,21 +51,21 @@ import Control.Parallel.MPI.Request as Request
 -- | if the user wants to call recvScatterv for the first time without
 -- already having allocated the array, then they can call it like so:
 --
--- (array,_) <- withNewArray range $ recvScatterv root comm
+-- (array,_) <- intoNewArray range $ recvScatterv root comm
 --
 -- and thereafter they can call it like so:
 --
 --  recvScatterv root comm array
-withNewArray :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
-withNewArray range f = do
+intoNewArray :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
+intoNewArray range f = do
   arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
                                -- should be faster than newArray_
   res <- f arr
   return (arr, res)
 
 -- | Same as withRange, but discards the result of the processor function
-withNewArray_ :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e)
-withNewArray_ range f = do
+intoNewArray_ :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e)
+intoNewArray_ range f = do
   arr <- unsafeNewArray_ range
   _ <- f arr
   return arr
@@ -355,27 +355,27 @@ instance (Storable e, Repr e) => RecvInto (Ptr e, Int) where
     where
       recvIntoVectorPtr datatype (p,len) f = f (castPtr p) (cIntConv len :: CInt) datatype
 
-withNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
-withNewVal f = do
+intoNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
+intoNewVal f = do
   alloca $ \ptr -> do
     res <- f ptr
     val <- peek ptr
     return (val, res)
 
-withNewVal_ :: (Storable e) => (Ptr e -> IO r) -> IO e
-withNewVal_ f = do
-  (val, _) <- withNewVal f
+intoNewVal_ :: (Storable e) => (Ptr e -> IO r) -> IO e
+intoNewVal_ f = do
+  (val, _) <- intoNewVal f
   return val
 
 -- Receiving into new bytestrings
-withNewBS :: Int -> ((Ptr CChar,Int) -> IO r) -> IO (BS.ByteString, r)
-withNewBS len f = do
+intoNewBS :: Int -> ((Ptr CChar,Int) -> IO r) -> IO (BS.ByteString, r)
+intoNewBS len f = do
   allocaBytes len $ \ptr -> do
     res <- f (ptr, len)
     bs <- BS.packCStringLen (ptr, len)
     return (bs, res)
 
-withNewBS_ :: Int -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
-withNewBS_ len f = do
-  (bs, _) <- withNewBS len f
+intoNewBS_ :: Int -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
+intoNewBS_ len f = do
+  (bs, _) <- intoNewBS len f
   return bs
