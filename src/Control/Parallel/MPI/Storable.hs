@@ -147,58 +147,7 @@ recvScatter comm root recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      checkError $ Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
-{-
-For Scatterv/Gatherv we need arrays of "stripe lengths" and displacements.
-
-Sometimes it would be easy for end-user to furnish those array, sometimes not.
-
-We could steal the useful idea from mpy4pi and allow user to specify counts and displacements in several
-ways - as a number, an "empty" value, or a list/array of values. Semantic is as following:
-
-| count  | displacement | meaning                                                                                  |
-|--------+--------------+------------------------------------------------------------------------------------------|
-| number | nothing      | Uniform stripes of the given size, placed next to each other                             |
-| number | number       | Uniform stripes of the given size, with "displ" values between them                      |
-| number | vector       | Uniform stripes of the given size, at given displacements (we could check for overlap)   |
-| vector | nothing      | Stripe lengths are given, compute the displacements assuming they are contiguous         |
-| vector | number       | Stripe lengths are given, compute the displacements allowing "displ" values between them |
-| vector | vector       | Stripes and displacements are pre-computed elsewhere                                     |
-
-
-We could codify this with typeclass:
-
-class CountsAndDisplacements a b where
-  getCountsDisplacements :: (Ix i) => (i,i) -> a -> b -> (StorableArray Int Int, StorableArray Int Int)
-
-instance CountsAndDisplacements Int Int where
-  getCountsDisplacements bnds c d = striped bnds c d
-
-instance CountsAndDisplacements Int (Maybe Int) where
-  getCountsDisplacements bnds c Nothing  = striped bnds c 0
-  getCountsDisplacements bnds c (Just d) = striped bnds c d
-
-instance CountsAndDisplacements Int (StorableArray Int Int) where
-  getCountsDisplacements bnds n displs  = countsOnly bnds n
-
-instance CountsAndDisplacements (StorableArray Int Int) (Maybe Int) where
-  getCountsDisplacements bnds cs Nothing  = displacementsFromCounts cs 0
-  getCountsDisplacements bnds cs (Just d) = displacementsFromCounts cs d
-
-instance CountsAndDisplacements (StorableArray Int Int) (StorableArray Int Int) where
-  getCountsDisplacements bnds cs ds  = (cs,ds)
-
-striped  = undefined
-countsOnly = undefined
-displacementsFromCounts = undefined
-
-What do you think?
--}
-
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
--- See Serializable for other alternatives.
-
--- receiver needs comm rank recvcount
--- sender needs everything else
 sendScatterv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                  StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 sendScatterv comm root sendVal counts displacements recvVal  = do
