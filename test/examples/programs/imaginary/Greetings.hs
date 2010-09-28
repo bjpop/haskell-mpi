@@ -24,7 +24,7 @@ main = mpi $ do
    rank <- commRank comm
    size <- commSize comm
    if (rank /= root)
-      then send (msg rank) root tag comm
+      then send comm root tag (msg rank)
       else do forM_ [1..size-1] $ \sender -> do
-              (_status, result) <- recv (toRank sender) tag comm
+              (result, _status) <- recv comm (toRank sender) tag
               putStrLn result
