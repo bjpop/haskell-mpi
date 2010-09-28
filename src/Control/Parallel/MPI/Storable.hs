@@ -56,7 +56,7 @@ import Control.Parallel.MPI.Request as Request
 -- and thereafter they can call it like so:
 --
 --  recvScatterv root comm array
-withNewArray :: (Ix i, MArray a e m, MpiDst (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
+withNewArray :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
 withNewArray range f = do
   arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
                                -- should be faster than newArray_
@@ -64,13 +64,13 @@ withNewArray range f = do
   return (arr, res)
 
 -- | Same as withRange, but discards the result of the processor function
-withNewArray_ :: (Ix i, MArray a e m, MpiDst (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e)
+withNewArray_ :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e)
 withNewArray_ range f = do
   arr <- unsafeNewArray_ range
   _ <- f arr
   return arr
 
-send, bsend, ssend, rsend :: (MpiSrc v) => Comm -> Rank -> Tag -> v -> IO ()
+send, bsend, ssend, rsend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
 send  = sendWith Internal.send
 bsend = sendWith Internal.bsend
 ssend = sendWith Internal.ssend
@@ -78,36 +78,36 @@ rsend = sendWith Internal.rsend
 
 type SendPrim = Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt
 
-sendWith :: (MpiSrc v) => SendPrim -> Comm -> Rank -> Tag -> v -> IO ()
+sendWith :: (SendFrom v) => SendPrim -> Comm -> Rank -> Tag -> v -> IO ()
 sendWith send_function comm rank tag val = do
    sendFrom val $ \valPtr numBytes dtype -> do
       checkError $ send_function (castPtr valPtr) numBytes dtype (fromRank rank) (fromTag tag) comm
 
-recv :: (MpiDst v) => Comm -> Rank -> Tag -> v -> IO Status
+recv :: (RecvInto v) => Comm -> Rank -> Tag -> v -> IO Status
 recv comm rank tag arr = do
    recvInto arr $ \valPtr numBytes dtype ->
       alloca $ \statusPtr -> do
          checkError $ Internal.recv (castPtr valPtr) numBytes dtype (fromRank rank) (fromTag tag) comm (castPtr statusPtr)
          peek statusPtr
 
-bcastSend :: (MpiSrc v) => Comm -> Rank -> v -> IO ()
+bcastSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 bcastSend comm sendRank val = do
    sendFrom val $ \valPtr numBytes dtype -> do
       checkError $ Internal.bcast (castPtr valPtr) numBytes dtype (fromRank sendRank) comm
 
-bcastRecv :: (MpiDst v) => Comm -> Rank -> v -> IO ()
+bcastRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 bcastRecv comm sendRank val = do
    recvInto val $ \valPtr numBytes dtype -> do
       checkError $ Internal.bcast (castPtr valPtr) numBytes dtype (fromRank sendRank) comm
 
-isend, ibsend, issend :: (MpiSrc v) => Comm -> Rank -> Tag -> v -> IO Request
+isend, ibsend, issend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
 isend  = isendWith Internal.isend
 ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
 type ISendPrim = Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt
 
-isendWith :: (MpiSrc v) => ISendPrim -> Comm -> Rank -> Tag -> v -> IO Request
+isendWith :: (SendFrom v) => ISendPrim -> Comm -> Rank -> Tag -> v -> IO Request
 isendWith send_function comm recvRank tag val = do
    sendFrom val $ \valPtr numBytes dtype ->
       alloca $ \requestPtr -> do
@@ -136,13 +136,13 @@ irecv comm sendRank tag recvVal = do
          checkError $ Internal.irecv (castPtr recvPtr) recvElements recvType (fromRank sendRank) (fromTag tag) comm requestPtr
          peek requestPtr
 
-sendScatter :: (MpiSrc v1, MpiDst v2) => Comm -> Rank -> v1 -> v2 -> IO ()
+sendScatter :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 sendScatter comm root sendVal recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      sendFrom sendVal $ \sendPtr _ _ ->
        checkError $ Internal.scatter (castPtr sendPtr) recvElements recvType (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
-recvScatter :: (MpiDst v) => Comm -> Rank -> v -> IO ()
+recvScatter :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 recvScatter comm root recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      checkError $ Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
@@ -199,7 +199,7 @@ What do you think?
 
 -- receiver needs comm rank recvcount
 -- sender needs everything else
-sendScatterv :: (MpiSrc v1, MpiDst v2) => Comm -> Rank -> v1 ->
+sendScatterv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                  StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 sendScatterv comm root sendVal counts displacements recvVal  = do
    -- myRank <- commRank comm
@@ -211,7 +211,7 @@ sendScatterv comm root sendVal counts displacements recvVal  = do
            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) sendType
                         (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
-recvScatterv :: (MpiDst v) => Comm -> Rank -> v -> IO ()
+recvScatterv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 recvScatterv comm root arr = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
@@ -223,7 +223,7 @@ XXX we should check that the recvArray is large enough to store:
 
    segmentSize * commSize
 -}
-recvGather :: (MpiSrc v1, MpiDst v2) => Comm -> Rank -> v1 -> v2 -> IO ()
+recvGather :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 recvGather comm root segment recvVal = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
@@ -232,7 +232,7 @@ recvGather comm root segment recvVal = do
        checkError $ Internal.gather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType 
                     (fromRank root) comm
 
-sendGather :: (MpiSrc v) => Comm -> Rank -> v -> IO ()
+sendGather :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 sendGather comm root segment = do
    -- myRank <- commRank comm
    -- XXX: assert it is /= root
@@ -240,7 +240,7 @@ sendGather comm root segment = do
      -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
      checkError $ Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte (fromRank root) comm
 
-recvGatherv :: (MpiSrc v1, MpiDst v2) => Comm -> Rank -> v1 ->
+recvGatherv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                 StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 recvGatherv comm root segment counts displacements recvVal = do
    -- myRank <- commRank comm
@@ -252,7 +252,7 @@ recvGatherv comm root segment counts displacements recvVal = do
             checkError $ Internal.gatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr)
                          (castPtr countsPtr) (castPtr displPtr) recvType (fromRank root) comm
 
-sendGatherv :: (MpiSrc v) => Comm -> Rank -> v -> IO ()
+sendGatherv :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 sendGatherv comm root segment = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
@@ -260,13 +260,13 @@ sendGatherv comm root segment = do
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
      checkError $ Internal.gatherv (castPtr sendPtr) sendElements sendType nullPtr nullPtr nullPtr byte (fromRank root) comm
 
-allgather :: (MpiSrc v1, MpiDst v2) => Comm -> v1 -> v2 -> IO ()
+allgather :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> v2 -> IO ()
 allgather comm sendVal recvVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent equals amount received
       checkError $ Internal.allgather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
 
-allgatherv :: (MpiSrc v1, MpiDst v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+allgatherv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 allgatherv comm segment counts displacements recvVal = do
    sendFrom segment $ \sendPtr sendElements sendType ->
      withStorableArray counts $ \countsPtr ->  
@@ -277,14 +277,14 @@ allgatherv comm segment counts displacements recvVal = do
 -- XXX: when sending arrays, we can not measure the size of the array element with sizeOf here without
 -- breaking the abstraction. Hence for now `sendCount' should be treated as "count of the underlying MPI
 -- representation elements that have to be sent to each process". User is expected to know that type and its size.
-alltoall :: forall v1 v2.(MpiSrc v1, MpiDst v2) => Comm -> v1 -> Int -> v2 -> IO ()
+alltoall :: forall v1 v2.(SendFrom v1, RecvInto v2) => Comm -> v1 -> Int -> v2 -> IO ()
 alltoall comm sendVal sendCount recvVal = do
   let sendCount_ = cIntConv sendCount
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
       checkError $ Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
 
-alltoallv :: forall v1 v2.(MpiSrc v1, MpiDst v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+alltoallv :: forall v1 v2.(SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ recvType ->
@@ -322,16 +322,16 @@ instance UnderlyingMpiDatatype BS.ByteString where
 -- Note that 'e' is not bound by the typeclass, so all kinds of foul play
 -- are possible. However, since MPI declares all buffers as 'void*' anyway, 
 -- we are not making life all _that_ unsafe with this
-class MpiSrc v where
+class SendFrom v where
    sendFrom :: v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 
-class MpiDst v where
+class RecvInto v where
    recvInto :: v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 
 -- Sending from a single Storable values
-instance MpiSrc CInt where
+instance SendFrom CInt where
   sendFrom = sendFromSingleValue
-instance MpiSrc Int where
+instance SendFrom Int where
   sendFrom x = sendFromSingleValue (cIntConv x :: CInt)
 
 sendFromSingleValue :: (UnderlyingMpiDatatype v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
@@ -341,10 +341,10 @@ sendFromSingleValue v f = do
     f (castPtr ptr) (1::CInt) (representation v)
   
 -- Sending-receiving arrays of such values
-instance (Storable e, Ix i) => MpiSrc (StorableArray i e) where
+instance (Storable e, Ix i) => SendFrom (StorableArray i e) where
   sendFrom = withStorableArrayAndSize
 
-instance (Storable e, Ix i) => MpiDst (StorableArray i e) where
+instance (Storable e, Ix i) => RecvInto (StorableArray i e) where
   recvInto = withStorableArrayAndSize
 
 withStorableArrayAndSize :: forall a i e z.(Storable e, Ix i) => StorableArray i e -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
@@ -354,9 +354,9 @@ withStorableArrayAndSize arr f = do
    withStorableArray arr $ \ptr -> f (castPtr ptr) numBytes (representation (undefined :: StorableArray i e))
 
 -- Same, for IOArray
-instance (Storable e, UnderlyingMpiDatatype (IOArray i e), Ix i) => MpiSrc (IOArray i e) where
+instance (Storable e, UnderlyingMpiDatatype (IOArray i e), Ix i) => SendFrom (IOArray i e) where
   sendFrom = sendWithMArrayAndSize
-instance (Storable e, UnderlyingMpiDatatype (IOArray i e), Ix i) => MpiDst (IOArray i e) where
+instance (Storable e, UnderlyingMpiDatatype (IOArray i e), Ix i) => RecvInto (IOArray i e) where
   recvInto = recvWithMArrayAndSize
 
 recvWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, UnderlyingMpiDatatype (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
@@ -388,7 +388,7 @@ fillArrayFromPtr indices numElements startPtr array = do
    mapM_ (\(index, element) -> writeArray array index element ) (zip indices elems)
 
 -- ByteString
-instance MpiSrc BS.ByteString where
+instance SendFrom BS.ByteString where
   sendFrom = sendWithByteStringAndSize
 
 sendWithByteStringAndSize :: BS.ByteString -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
@@ -396,12 +396,12 @@ sendWithByteStringAndSize bs f = do
   unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (cIntConv len) byte
 
 -- Pointers to storable with known on-wire representation
-instance (Storable e, UnderlyingMpiDatatype e) => MpiDst (Ptr e) where
+instance (Storable e, UnderlyingMpiDatatype e) => RecvInto (Ptr e) where
   recvInto = recvIntoElemPtr (representation (undefined :: e))
     where
       recvIntoElemPtr datatype p f = f (castPtr p) 1 datatype
 
-instance (Storable e, UnderlyingMpiDatatype e) => MpiDst (Ptr e, Int) where
+instance (Storable e, UnderlyingMpiDatatype e) => RecvInto (Ptr e, Int) where
   recvInto = recvIntoVectorPtr (representation (undefined :: e))
     where
       recvIntoVectorPtr datatype (p,len) f = f (castPtr p) (cIntConv len :: CInt) datatype
