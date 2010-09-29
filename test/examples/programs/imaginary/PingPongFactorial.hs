@@ -4,6 +4,10 @@
    Ping Pong Factorial.
 
    Two processes calculate the factorial of the input.
+
+   Note: this is not a fast, nor sensible way to compute factorials.
+   It is merely intended to be used to demonstrate point-to-point
+   communications.
 -}
 module Main where
 
