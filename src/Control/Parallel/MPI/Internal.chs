@@ -10,7 +10,8 @@ module Control.Parallel.MPI.Internal
      cancel, scatter, gather,
      scatterv, gatherv,
      allgather, allgatherv,
-     alltoall, alltoallv
+     alltoall, alltoallv,
+     wtime, wtick
    ) where
 
 import Prelude hiding (init, error)
@@ -54,3 +55,5 @@ allgather = {# call unsafe Allgather as allgather_ #}
 allgatherv = {# call unsafe Allgatherv as allgatherv_ #}
 alltoall = {# call unsafe Alltoall as alltoall_ #}
 alltoallv = {# call unsafe Alltoallv as alltoallv_ #}
+wtime = {# call unsafe Wtime as wtime_ #}
+wtick = {# call unsafe Wtick as wtick_ #}

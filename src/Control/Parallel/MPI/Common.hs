@@ -25,6 +25,8 @@ module Control.Parallel.MPI.Common
    , getFutureStatus
    , pollFuture
    , cancelFuture
+   , wtime
+   , wtick
    ) where
 
 import Prelude hiding (init)
@@ -126,6 +128,16 @@ cancel request =
    alloca $ \reqPtr -> do
        poke reqPtr request
        checkError $ Internal.cancel reqPtr
+
+wtime, wtick :: IO Double
+wtime = do
+   res <- Internal.wtime
+   return $ realToFrac res
+
+wtick = do
+   res <- Internal.wtick
+   return $ realToFrac res
+
 
 -- Futures
 data Future a =
