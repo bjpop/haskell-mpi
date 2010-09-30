@@ -3,7 +3,7 @@ module StorableArrayTests (storableArrayTests) where
 
 import TestHelpers
 import Control.Parallel.MPI.Storable
-import Data.Array.Storable (StorableArray, newListArray, getElems, getBounds, Ix)
+import Data.Array.Storable (StorableArray, newListArray, getElems)
 
 import Foreign.Storable
 import Control.Concurrent (threadDelay)
@@ -196,7 +196,7 @@ allgathervTest myRank = do
   let myRankNo = fromRank myRank
       sendRange = (0, myRankNo)
   (msg :: ArrMsg) <- newListArray sendRange [0..myRankNo]
-    
+
   let msgRange = (1, numProcs)
       counts = [1..numProcs]
       displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
@@ -211,11 +211,11 @@ allgathervTest myRank = do
 
 alltoallTest myRank = do
   numProcs <- commSize commWorld
-  
+
   let myRankNo = fromRank myRank
       sendRange = (0, numProcs-1)
   (msg :: ArrMsg) <- newListArray sendRange $ take numProcs $ repeat (maxBound - myRankNo)
-    
+
   let recvRange = sendRange
       expected = map (maxBound-) [0..numProcs-1]
 
@@ -238,13 +238,13 @@ alltoallvTest myRank = do
       recvCounts = take numProcs (repeat (myRankNo+1))
       recvDispls = Prelude.init $ scanl1 (+) $ 0:recvCounts
       expected   = concatMap (replicate (myRankNo+1)) (take numProcs [0..])
-  
+
   (packSendCounts :: ArrMsg) <- newListArray (1, length sendCounts) $ map (sizeOf (undefined::Int) *) sendCounts
   (packSendDispls :: ArrMsg) <- newListArray (1, length sendDispls) $ map (sizeOf (undefined::Int) *) sendDispls
   (packRecvCounts :: ArrMsg) <- newListArray (1, length recvCounts) $ map (sizeOf (undefined::Int) *) recvCounts
   (packRecvDispls :: ArrMsg) <- newListArray (1, length recvDispls) $ map (sizeOf (undefined::Int) *) recvDispls
   (msg :: ArrMsg) <- newListArray (1, sum sendCounts) $ take (sum sendCounts) $ repeat myRankNo
-      
+
   (result::ArrMsg) <- intoNewArray_ (1, length expected) $ alltoallv commWorld msg packSendCounts packSendDispls
                                                                                    packRecvCounts packRecvDispls
   recvMsg <- getElems result

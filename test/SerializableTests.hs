@@ -32,16 +32,16 @@ crissCrossSendRecv, broadcast, scatterTest, gatherTest, allgatherTest, alltoallT
 
 -- Serializable tests
 type SmallMsg = (Bool, Int, String, [()])
-smallMsg :: SmallMsg 
+smallMsg :: SmallMsg
 smallMsg = (True, 12, "fred", [(), (), ()])
-syncSendRecv sendf rank 
+syncSendRecv sendf rank
   | rank == sender   = sendf commWorld receiver tag0 smallMsg
   | rank == receiver = do (result, status) <- recv commWorld sender tag0
                           checkStatus status sender tag0
                           result == smallMsg @? "Got garbled result " ++ show result
   | otherwise        = return () -- idling
 
-syncRSendRecv rank 
+syncRSendRecv rank
   | rank == sender   = do threadDelay (2* 10^(6 :: Integer))
                           rsend commWorld receiver tag0 smallMsg
   | rank == receiver = do (result, status) <- recv commWorld sender tag0
@@ -52,7 +52,7 @@ syncRSendRecv rank
 type BigMsg = [Int]
 bigMsg :: BigMsg
 bigMsg = [0..50000]
-syncSendRecvBlock rank 
+syncSendRecvBlock rank
   | rank == sender   = send commWorld receiver tag1 bigMsg
   | rank == receiver = do (result, status) <- recv commWorld sender tag1
                           checkStatus status sender tag1
@@ -60,7 +60,7 @@ syncSendRecvBlock rank
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
-syncSendRecvFuture rank 
+syncSendRecvFuture rank
   | rank == sender   = do send commWorld receiver tag2 bigMsg
   | rank == receiver = do future <- recvFuture commWorld sender tag2
                           result <- waitFuture future
@@ -69,7 +69,7 @@ syncSendRecvFuture rank
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
-asyncSendRecv isendf rank 
+asyncSendRecv isendf rank
   | rank == sender   = do req <- isendf commWorld receiver tag3 bigMsg
                           status <- wait req
                           checkStatus status sender tag3
@@ -78,7 +78,7 @@ asyncSendRecv isendf rank
                           (result::BigMsg) == bigMsg @? "Got garbled result: " ++ show (length result)
   | otherwise        = return () -- idling
 
-asyncSendRecv2 rank 
+asyncSendRecv2 rank
   | rank == sender   = do req1 <- isend commWorld receiver tag0 smallMsg
                           req2 <- isend commWorld receiver tag1 bigMsg
                           stat1 <- wait req1
@@ -92,7 +92,7 @@ asyncSendRecv2 rank
                           (result2::BigMsg) == bigMsg && result1 == smallMsg @? "Got garbled result"
   | otherwise        = return () -- idling
 
-asyncSendRecv2ooo rank 
+asyncSendRecv2ooo rank
   | rank == sender   = do req1 <- isend commWorld receiver tag0 smallMsg
                           req2 <- isend commWorld receiver tag1 bigMsg
                           stat1 <- wait req1
@@ -110,7 +110,7 @@ asyncSendRecv2ooo rank
                           (length (result2::BigMsg) == length bigMsg) && (result1 == smallMsg) @? "Got garbled result"
   | otherwise        = return () -- idling
 
-crissCrossSendRecv rank 
+crissCrossSendRecv rank
   | rank == sender   = do req <- isend commWorld receiver tag0 smallMsg
                           future <- recvFuture commWorld receiver tag1
                           result <- waitFuture future
@@ -144,10 +144,10 @@ gatherTest rank
 
 scatterTest rank
   | rank == zeroRank = do numProcs <- commSize commWorld
-                          result <- sendScatter commWorld zeroRank $ map (^2) [1..numProcs]
+                          result <- sendScatter commWorld zeroRank $ map (^(2::Int)) [1..numProcs]
                           result == 1 @? "Root got " ++ show result ++ " instead of 1"
   | otherwise        = do result <- recvScatter commWorld zeroRank
-                          let expected = (fromRank rank + 1)^2 :: Int
+                          let expected = (fromRank rank + 1::Int)^(2::Int)
                           result == expected @? "Got " ++ show result ++ " instead of " ++ show expected
 
 allgatherTest rank = do
@@ -168,7 +168,7 @@ alltoallTest myRank = do
   let myRankNo = fromRank myRank
       msg = take numProcs $ map (`take` (repeat myRankNo)) [1..]
       expected = map (replicate (myRankNo+1)) (take numProcs [0..])
-      
+
   result <- alltoall commWorld msg
 
   result == expected @? "Got " ++ show result ++ " instead of " ++ show expected

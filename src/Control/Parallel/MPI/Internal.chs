@@ -16,14 +16,6 @@ module Control.Parallel.MPI.Internal
 
 import Prelude hiding (init, error)
 import C2HS
-import Control.Applicative ((<$>))
-import Control.Parallel.MPI.Comm (Comm)
-import Control.Parallel.MPI.Request (Request)
-import Control.Parallel.MPI.Status (Status, StatusPtr)
-import Control.Parallel.MPI.MarshalUtils (enumToCInt)
-import Control.Parallel.MPI.ErrorClasses (ErrorClass)
-import Control.Parallel.MPI.MarshalUtils (enumFromCInt)
-import Control.Parallel.MPI.Utils (checkError)
 
 {# context prefix = "MPI" #}
 
