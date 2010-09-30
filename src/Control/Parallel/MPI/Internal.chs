@@ -1,4 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 #include <mpi.h>
 #include "init_wrapper.h"
