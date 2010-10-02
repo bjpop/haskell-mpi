@@ -24,6 +24,7 @@ module Control.Parallel.MPI.Serializable
 import C2HS
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar)
+import Control.Monad (when)
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
@@ -134,22 +135,40 @@ recvFuture comm rank tag = do
 bcast :: Serialize msg => Comm -> Rank -> msg -> IO msg
 bcast comm rootRank msg = do
    myRank <- commRank comm
-   if myRank == rootRank
-      then do
-         let bs = encode msg
-         -- broadcast the size of the message first
-         Storable.bcastSend comm rootRank (BS.length bs)
-         -- then broadcast the actual message
-         Storable.bcastSend comm rootRank bs
-         return msg
-      else do
-         -- receive the broadcast of the size
-         (count::Int) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
-         -- receive the broadcast of the message
-         bs <- Storable.intoNewBS_ count $ Storable.bcastRecv comm rootRank
-         case decode bs of
-           Left e -> fail e
-           Right val -> return val
+   -- Intercommunicators are handled differently.
+   -- Basically, if communicator is intercommunicator, it means that
+   -- there are two groups of processes - sending group and
+   -- receiving group. From the sending group only one process
+   -- actually sends the data - the one that specifies
+   -- "theRoot" as the value of rootRank. All other processes from the
+   -- sending group should specify "procNull" as the
+   -- rootRank and (if I understand MPI specs properly)
+   -- would disregard "sending buffer" argument and would
+   -- not actually send anything. That's why for procNull ranks we
+   -- use empty ByteString as payload.
+   isInter <- commTestInter comm
+   if isInter then if rootRank == theRoot then doSend (encode msg)
+                   else if rootRank ==  procNull then doSend BS.empty -- do nothing
+                        else doRecv
+     else -- intra-communicator, i.e. a single homogenous group of processes.
+     if (myRank == rootRank)
+     then doSend (encode msg)
+     else doRecv
+  where
+    doSend bs = do
+      -- broadcast the size of the message first
+      Storable.bcastSend comm rootRank (BS.length bs)
+      -- then broadcast the actual message
+      Storable.bcastSend comm rootRank bs
+      return msg
+    doRecv = do
+      -- receive the broadcast of the size
+      (count::Int) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
+      -- receive the broadcast of the message
+      bs <- Storable.intoNewBS_ count $ Storable.bcastRecv comm rootRank
+      case decode bs of
+        Left e -> fail e
+        Right val -> return val
 
 -- List should have exactly numProcs elements
 sendGather :: Serialize msg => Comm -> Rank -> msg -> IO ()
@@ -162,14 +181,21 @@ sendGather comm root msg = do
   
 recvGather :: Serialize msg => Comm -> Rank -> msg -> IO [msg]
 recvGather comm root msg = do
-  let enc_msg = encode msg
-  numProcs <- commSize comm
-  (lengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (BS.length enc_msg) 
-  -- calculate displacements from sizes
-  lengths <- SA.getElems lengthsArr
-  (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
-  bs <- Storable.intoNewBS_ (sum lengths) $ Storable.recvGatherv comm root enc_msg lengthsArr displArr
-  return $ decodeList lengths bs
+  isInter <- commTestInter comm
+  if isInter then if root == procNull then return []
+                  else if root == theRoot then doRecv isInter
+                       else fail "Process in receiving group of intercommunicator uses unsupported value of root in recvGather"
+    else doRecv isInter
+  where
+    doRecv isInter = do
+      let enc_msg = encode msg
+      numProcs <- if isInter then commRemoteSize comm else commSize comm
+      (lengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (BS.length enc_msg) 
+      -- calculate displacements from sizes
+      lengths <- SA.getElems lengthsArr
+      (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
+      bs <- Storable.intoNewBS_ (sum lengths) $ Storable.recvGatherv comm root enc_msg lengthsArr displArr
+      return $ decodeList lengths bs
 
 decodeList :: (Serialize msg) => [Int] -> BS.ByteString -> [msg]
 decodeList lengths bs = unfoldr decodeNext (lengths,bs)
@@ -190,28 +216,42 @@ recvScatter comm root = do
     Left e -> fail e
     Right val -> return val
     
--- List should have exactly numProcs elements  
+-- XXX: List should have exactly numProcs elements  
 sendScatter :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
 sendScatter comm root msgs = do
-  let enc_msgs = map encode msgs
-      lengths = map BS.length enc_msgs
-      payload = BS.concat enc_msgs
-  numProcs <- commSize comm
-  -- scatter numProcs ints - sizes of payloads to be sent to other processes
-  (lengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) lengths
-  (myLen :: Int) <- Storable.intoNewVal_ $ Storable.sendScatter comm root lengthsArr
-  -- calculate displacements from sizes
-  (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
-  -- scatter payloads
-  bs <- Storable.intoNewBS_ myLen $ Storable.sendScatterv comm root payload lengthsArr displArr
-  case decode bs of
-    Left e -> fail e
-    Right val -> return val
+  isInter <- commTestInter comm
+  numProcs <- if isInter then commRemoteSize comm else commSize comm
+  when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in sendScatter"
+  if isInter then if root == procNull then return $ head msgs 
+                                           -- XXX:
+                                           -- fix this. We really 
+                                           -- should just return ()
+                                           -- here.
+                  else if root == theRoot then doSend
+                       else fail "Process in sending group of intercommunicator uses unsupported value of root in sendScatter"
+    else doSend -- intracommunicator
+  where
+    doSend = do
+      let enc_msgs = map encode msgs
+          lengths = map BS.length enc_msgs
+          payload = BS.concat enc_msgs
+          numProcs = length msgs
+      -- scatter numProcs ints - sizes of payloads to be sent to other processes
+      (lengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) lengths
+      (myLen :: Int) <- Storable.intoNewVal_ $ Storable.sendScatter comm root lengthsArr
+      -- calculate displacements from sizes
+      (displArr :: SA.StorableArray Int Int) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
+      -- scatter payloads
+      bs <- Storable.intoNewBS_ myLen $ Storable.sendScatterv comm root payload lengthsArr displArr
+      case decode bs of
+        Left e -> fail e
+        Right val -> return val
 
 allgather :: (Serialize msg) => Comm -> msg -> IO [msg]
 allgather comm msg = do
   let enc_msg = encode msg
-  numProcs <- commSize comm      
+  isInter <- commTestInter comm
+  numProcs <- if isInter then commRemoteSize comm else commSize comm      
   -- Send length of my message and receive lengths from other ranks
   (lengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (0, numProcs-1) $ Storable.allgather comm (BS.length enc_msg)
   -- calculate displacements from sizes
@@ -226,7 +266,8 @@ alltoall comm msgs = do
   let enc_msgs = map encode msgs
       sendLengths = map BS.length enc_msgs
       sendPayload = BS.concat enc_msgs
-  numProcs <- commSize comm
+  isInter <- commTestInter comm
+  numProcs <- if isInter then commRemoteSize comm else commSize comm      
   -- First, all-to-all payload sizes
   (sendLengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) sendLengths
   (recvLengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr (1*sizeOf(undefined::Int))
