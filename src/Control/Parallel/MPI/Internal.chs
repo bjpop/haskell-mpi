@@ -6,7 +6,8 @@
 #include "init_wrapper.h"
 
 module Control.Parallel.MPI.Internal
-   ( init, initThread, finalize, send, bsend, ssend, rsend, recv,
+   ( init, initThread, queryThread, isThreadMain,
+     finalize, send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
      commCompare, Compare(..),
      isend, ibsend, issend, irecv, bcast, barrier, wait, test,
@@ -26,6 +27,8 @@ import C2HS
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
+queryThread = {# call unsafe Query_thread as queryThread_ #}
+isThreadMain = {# call unsafe Is_thread_main as isThreadMain_ #}
 finalize = {# call unsafe Finalize as finalize_ #}
 commSize = {# call unsafe Comm_size as commSize_ #}
 commRank = {# call unsafe Comm_rank as commRank_ #}
