@@ -36,6 +36,7 @@ import Prelude hiding (init)
 import C2HS
 import Control.Applicative ((<$>))
 import Control.Exception (finally)
+import Control.Parallel.MPI.Internal (Compare)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -107,7 +108,7 @@ commRemoteSize comm =
       sz <- peek ptr
       return $ cIntConv sz
 
-commCompare :: Comm -> Comm -> IO CommCompare
+commCompare :: Comm -> Comm -> IO Compare
 commCompare comm1 comm2 =
    alloca $ \ptr -> do
       checkError $ Internal.commCompare comm1 comm2 ptr

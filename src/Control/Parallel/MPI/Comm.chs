@@ -1,9 +1,8 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
 #include <mpi.h>
-#include "comm.h"
 
-module Control.Parallel.MPI.Comm (Comm, commWorld, CommCompare(..) ) where
+module Control.Parallel.MPI.Comm (Comm, commWorld) where
 
 import C2HS
 
@@ -11,5 +10,3 @@ import C2HS
 
 type Comm = {# type MPI_Comm #}
 foreign import ccall "mpi_comm_world" commWorld :: Comm
-
-{# enum CommCompare {underscoreToCase} deriving (Eq,Ord,Show) #}

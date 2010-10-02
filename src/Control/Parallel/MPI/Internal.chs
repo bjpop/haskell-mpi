@@ -2,12 +2,13 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 #include <mpi.h>
+#include "compare.h"
 #include "init_wrapper.h"
 
 module Control.Parallel.MPI.Internal
    ( init, initThread, finalize, send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
-     commCompare,
+     commCompare, Compare(..),
      isend, ibsend, issend, irecv, bcast, barrier, wait, test,
      cancel, scatter, gather,
      scatterv, gatherv,
@@ -16,10 +17,12 @@ module Control.Parallel.MPI.Internal
      wtime, wtick
    ) where
 
-import Prelude hiding (init, error)
+import Prelude hiding (init)
 import C2HS
 
 {# context prefix = "MPI" #}
+
+{# enum Compare {underscoreToCase} deriving (Eq,Ord,Show) #}
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
