@@ -13,6 +13,8 @@ module Control.Parallel.MPI.Common
    , finalize
    , commSize
    , commRank
+   , commTestInter
+   , commRemoteSize
    , probe
    , barrier
    , wait
@@ -89,6 +91,21 @@ commRank comm =
       checkError $ Internal.commRank comm ptr
       rank <- peek ptr
       return $ toRank rank
+
+commTestInter :: Comm -> IO Bool
+commTestInter comm =    
+   alloca $ \ ptr -> do
+      checkError $ Internal.commTestInter comm ptr
+      res <- peek ptr
+      return $ res /= 0
+    
+commRemoteSize :: Comm -> IO Int
+commRemoteSize comm =    
+   alloca $ \ ptr -> do
+      checkError $ Internal.commRemoteSize comm ptr
+      sz <- peek ptr
+      return $ cIntConv sz
+
 
 probe :: Rank -> Tag -> Comm -> IO Status
 probe rank tag comm = do
