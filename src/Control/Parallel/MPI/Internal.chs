@@ -7,6 +7,7 @@
 module Control.Parallel.MPI.Internal
    ( init, initThread, finalize, send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
+     commCompare,
      isend, ibsend, issend, irecv, bcast, barrier, wait, test,
      cancel, scatter, gather,
      scatterv, gatherv,
@@ -27,6 +28,7 @@ commSize = {# call unsafe Comm_size as commSize_ #}
 commRank = {# call unsafe Comm_rank as commRank_ #}
 commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #}
 commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #}
+commCompare = {# call unsafe Comm_compare as commCompare_ #}
 probe = {# call Probe as probe_ #}
 send = {# call unsafe Send as send_ #}
 bsend = {# call unsafe Bsend as bsend_ #}

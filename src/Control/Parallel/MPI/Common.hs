@@ -15,6 +15,7 @@ module Control.Parallel.MPI.Common
    , commRank
    , commTestInter
    , commRemoteSize
+   , commCompare
    , probe
    , barrier
    , wait
@@ -106,6 +107,12 @@ commRemoteSize comm =
       sz <- peek ptr
       return $ cIntConv sz
 
+commCompare :: Comm -> Comm -> IO CommCompare
+commCompare comm1 comm2 =
+   alloca $ \ptr -> do
+      checkError $ Internal.commCompare comm1 comm2 ptr
+      res <- peek ptr
+      return $ enumFromCInt res
 
 probe :: Rank -> Tag -> Comm -> IO Status
 probe rank tag comm = do
