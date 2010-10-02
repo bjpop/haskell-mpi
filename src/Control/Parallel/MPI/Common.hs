@@ -10,6 +10,8 @@ module Control.Parallel.MPI.Common
    , mpiWorld
    , init
    , initThread
+   , queryThread
+   , isThreadMain
    , finalize
    , commSize
    , commRank
@@ -42,11 +44,11 @@ import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
 import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Status as Status
-import Control.Parallel.MPI.Utils (checkError)
+import Control.Parallel.MPI.Utils (checkError, intoBool, intoInt, intoEnum)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
-import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
+import Control.Parallel.MPI.MarshalUtils (enumToCInt)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
 
@@ -71,21 +73,19 @@ init :: IO ()
 init = checkError Internal.init
 
 initThread :: ThreadSupport -> IO ThreadSupport
-initThread required = 
-  alloca $ \providedPtr -> do
-    checkError (Internal.initThread (enumToCInt required) (castPtr providedPtr))
-    provided <- peek providedPtr
-    return (enumFromCInt provided)
+initThread required = intoEnum $ checkError . Internal.initThread (enumToCInt required)
+
+queryThread :: IO Bool
+queryThread = intoBool $ checkError . Internal.queryThread
+    
+isThreadMain :: IO Bool
+isThreadMain = intoBool $ checkError . Internal.isThreadMain
 
 finalize :: IO ()
 finalize = checkError Internal.finalize
 
 commSize :: Comm -> IO Int
-commSize comm = do
-   alloca $ \ptr -> do
-      checkError $ Internal.commSize comm ptr
-      size <- peek ptr
-      return $ cIntConv size
+commSize comm = intoInt $ checkError . Internal.commSize comm
 
 commRank :: Comm -> IO Rank
 commRank comm =
@@ -95,25 +95,13 @@ commRank comm =
       return $ toRank rank
 
 commTestInter :: Comm -> IO Bool
-commTestInter comm =    
-   alloca $ \ ptr -> do
-      checkError $ Internal.commTestInter comm ptr
-      res <- peek ptr
-      return $ res /= 0
+commTestInter comm = intoBool $ checkError . Internal.commTestInter comm
     
 commRemoteSize :: Comm -> IO Int
-commRemoteSize comm =    
-   alloca $ \ ptr -> do
-      checkError $ Internal.commRemoteSize comm ptr
-      sz <- peek ptr
-      return $ cIntConv sz
+commRemoteSize comm = intoInt $ checkError . Internal.commRemoteSize comm
 
 commCompare :: Comm -> Comm -> IO Compare
-commCompare comm1 comm2 =
-   alloca $ \ptr -> do
-      checkError $ Internal.commCompare comm1 comm2 ptr
-      res <- peek ptr
-      return $ enumFromCInt res
+commCompare comm1 comm2 = intoEnum $ checkError . Internal.commCompare comm1 comm2
 
 probe :: Rank -> Tag -> Comm -> IO Status
 probe rank tag comm = do
