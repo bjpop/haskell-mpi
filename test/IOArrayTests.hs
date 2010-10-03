@@ -6,7 +6,6 @@ import Data.Array.Storable (StorableArray)
 import Control.Parallel.MPI.Storable
 import Data.Array.IO (IOArray, newListArray, getElems)
 
-import Foreign.Storable
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 
@@ -129,8 +128,8 @@ scattervTest myRank = do
     (msg :: ArrMsg) <- newListArray bigRange $ map fromIntegral [low..hi]
 
     let msgRange = (1, numProcs)
-    (packCounts :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::ElementType) *) counts
-    (packDispls :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::ElementType) *) displs
+    (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
+    (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
 
     intoNewArray_ recvRange $ sendScatterv commWorld zeroRank msg packCounts packDispls
     else intoNewArray_ recvRange $ recvScatterv commWorld zeroRank
@@ -172,8 +171,8 @@ gathervTest myRank = do
         counts = [1..numProcs]
         displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
         expected = map fromIntegral $ concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
-    (packCounts :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::ElementType) *) counts
-    (packDispls :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::ElementType) *) displs
+    (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
+    (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
 
     (segment::ArrMsg) <- intoNewArray_ bigRange $ recvGatherv commWorld zeroRank msg packCounts packDispls
     recvMsg <- getElems segment
@@ -205,8 +204,8 @@ allgathervTest myRank = do
       counts = [1..numProcs]
       displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
       expected = map fromIntegral $ concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
-  (packCounts :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::ElementType) *) counts
-  (packDispls :: StorableArray Int Int) <- newListArray msgRange $ map (sizeOf (undefined::ElementType) *) displs
+  (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
+  (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
 
   (result::ArrMsg) <- intoNewArray_ bigRange $ allgatherv commWorld msg packCounts packDispls
   recvMsg <- getElems result
@@ -223,7 +222,7 @@ alltoallTest myRank = do
   let recvRange = sendRange
       expected = map fromIntegral $ [0..numProcs-1]
 
-  (result::ArrMsg) <- intoNewArray_ recvRange $ alltoall commWorld msg (1*sizeOf(undefined::ElementType)) -- sending 1 Int to each process
+  (result::ArrMsg) <- intoNewArray_ recvRange $ alltoall commWorld msg 1
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected
@@ -243,10 +242,10 @@ alltoallvTest myRank = do
       recvDispls = Prelude.init $ scanl1 (+) $ 0:recvCounts
       expected   = map fromIntegral $ concatMap (replicate (myRankNo+1)) (take numProcs [(0::Int)..])
 
-  (packSendCounts :: StorableArray Int Int) <- newListArray (1, length sendCounts) $ map (sizeOf (undefined::ElementType) *) sendCounts
-  (packSendDispls :: StorableArray Int Int) <- newListArray (1, length sendDispls) $ map (sizeOf (undefined::ElementType) *) sendDispls
-  (packRecvCounts :: StorableArray Int Int) <- newListArray (1, length recvCounts) $ map (sizeOf (undefined::ElementType) *) recvCounts
-  (packRecvDispls :: StorableArray Int Int) <- newListArray (1, length recvDispls) $ map (sizeOf (undefined::ElementType) *) recvDispls
+  (packSendCounts :: StorableArray Int Int) <- newListArray (1, length sendCounts) sendCounts
+  (packSendDispls :: StorableArray Int Int) <- newListArray (1, length sendDispls) sendDispls
+  (packRecvCounts :: StorableArray Int Int) <- newListArray (1, length recvCounts) recvCounts
+  (packRecvDispls :: StorableArray Int Int) <- newListArray (1, length recvDispls) recvDispls
   (msg :: ArrMsg) <- newListArray (1, sum sendCounts) $ map fromIntegral $ take (sum sendCounts) $ repeat myRankNo
 
   (result::ArrMsg) <- intoNewArray_ (1, length expected) $ alltoallv commWorld msg packSendCounts packSendDispls

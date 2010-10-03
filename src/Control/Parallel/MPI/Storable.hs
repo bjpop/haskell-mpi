@@ -226,6 +226,7 @@ allgatherv comm segment counts displacements recvVal = do
 -- XXX: when sending arrays, we can not measure the size of the array element with sizeOf here without
 -- breaking the abstraction. Hence for now `sendCount' should be treated as "count of the underlying MPI
 -- representation elements that have to be sent to each process". User is expected to know that type and its size.
+-- XXX: we should probably take representation scale into account here
 alltoall :: forall v1 v2.(SendFrom v1, RecvInto v2) => Comm -> v1 -> Int -> v2 -> IO ()
 alltoall comm sendVal sendCount recvVal = do
   let sendCount_ = cIntConv sendCount
@@ -245,29 +246,31 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
                                               (castPtr recvPtr) (castPtr recvCountsPtr) (castPtr recvDisplPtr) recvType comm
   
 class Repr e where
-  representation :: e -> Datatype
+  -- How many elements of given datatype do we need to represent given
+  -- type in MPI transfers
+  representation :: e -> (Int, Datatype)
   
 instance Repr Int where
-  representation _ = int
+  representation _ = (1,int)
 
 instance Repr CInt where
-  representation _ = int
+  representation _ = (1,int)
 
 instance Repr CChar where
-  representation _ = byte
+  representation _ = (1,byte)
 
-instance Repr (StorableArray i e) where
-  representation _ = byte
+instance Repr Double where
+  representation _ = (1,double)
 
-instance Repr (IOArray i e) where
-  representation _ = byte
+instance Repr e => Repr (StorableArray i e) where
+  representation _ = representation (undefined::e)
+
+instance Repr e => Repr (IOArray i e) where
+  representation _ = representation (undefined::e)
   
-instance Repr (IOUArray i e) where
-  representation _ = byte
+instance Repr e => Repr (IOUArray i e) where
+  representation _ = representation (undefined::e)
   
-instance Repr BS.ByteString where
-  representation _ = byte
-
 -- Note that 'e' is not bound by the typeclass, so all kinds of foul play
 -- are possible. However, since MPI declares all buffers as 'void*' anyway, 
 -- we are not making life all _that_ unsafe with this
@@ -287,20 +290,22 @@ sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -
 sendFromSingleValue v f = do
   alloca $ \ptr -> do
     poke ptr v
-    f (castPtr ptr) (1::CInt) (representation v)
+    let (1, dtype) = representation v
+    f (castPtr ptr) (1::CInt) dtype
   
 -- Sending-receiving arrays of such values
-instance (Storable e, Ix i) => SendFrom (StorableArray i e) where
+instance (Storable e, Repr e, Ix i) => SendFrom (StorableArray i e) where
   sendFrom = withStorableArrayAndSize
 
-instance (Storable e, Ix i) => RecvInto (StorableArray i e) where
+instance (Storable e, Repr e, Ix i) => RecvInto (StorableArray i e) where
   recvInto = withStorableArrayAndSize
 
-withStorableArrayAndSize :: forall a i e z.(Storable e, Ix i) => StorableArray i e -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
+withStorableArrayAndSize :: forall a i e z.(Repr e, Storable e, Ix i) => StorableArray i e -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
 withStorableArrayAndSize arr f = do
    rSize <- rangeSize <$> getBounds arr
-   let numBytes = cIntConv (rSize * sizeOf (undefined :: e))
-   withStorableArray arr $ \ptr -> f (castPtr ptr) numBytes (representation (undefined :: StorableArray i e))
+   let (scale, dtype) = (representation (undefined :: StorableArray i e))
+       numElements = cIntConv (rSize * scale)
+   withStorableArray arr $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- Same, for IOArray
 instance (Storable e, Repr (IOArray i e), Ix i) => SendFrom (IOArray i e) where
@@ -311,22 +316,20 @@ instance (Storable e, Repr (IOArray i e), Ix i) => RecvInto (IOArray i e) where
 recvWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Repr (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
 recvWithMArrayAndSize array f = do
    bounds <- getBounds array
-   let numElements = rangeSize bounds
-   let elementSize = sizeOf (undefined :: e)
-   let numBytes = cIntConv (numElements * elementSize)
-   allocaArray numElements $ \ptr -> do
-      result <- f (castPtr ptr) numBytes (representation (undefined :: a i e))
-      fillArrayFromPtr (range bounds) numElements ptr array
+   let (scale, dtype) = representation (undefined :: a i e)
+       numElements = cIntConv $ rangeSize bounds * scale
+   allocaArray (rangeSize bounds) $ \ptr -> do
+      result <- f (castPtr ptr) numElements dtype
+      fillArrayFromPtr (range bounds) (rangeSize bounds) ptr array
       return result
 
 sendWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Repr (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
 sendWithMArrayAndSize array f = do
    elements <- getElems array
    bounds <- getBounds array
-   let numElements = rangeSize bounds
-   let elementSize = sizeOf (undefined :: e)
-   let numBytes = cIntConv (numElements * elementSize)
-   withArray elements $ \ptr -> f (castPtr ptr) numBytes (representation (undefined :: a i e))
+   let (scale, dtype) = representation (undefined :: a i e)
+       numElements = cIntConv $ rangeSize bounds * scale
+   withArray elements $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- XXX I wonder if this can be written without the intermediate list?
 -- Maybe GHC can elimiate it. We should look at the generated compiled
@@ -348,12 +351,12 @@ sendWithByteStringAndSize bs f = do
 instance (Storable e, Repr e) => RecvInto (Ptr e) where
   recvInto = recvIntoElemPtr (representation (undefined :: e))
     where
-      recvIntoElemPtr datatype p f = f (castPtr p) 1 datatype
+      recvIntoElemPtr (cnt,datatype) p f = f (castPtr p) (cIntConv cnt) datatype
 
 instance (Storable e, Repr e) => RecvInto (Ptr e, Int) where
   recvInto = recvIntoVectorPtr (representation (undefined :: e))
     where
-      recvIntoVectorPtr datatype (p,len) f = f (castPtr p) (cIntConv len :: CInt) datatype
+      recvIntoVectorPtr (scale, datatype) (p,len) f = f (castPtr p) (cIntConv (len * scale) :: CInt) datatype
 
 intoNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
 intoNewVal f = do

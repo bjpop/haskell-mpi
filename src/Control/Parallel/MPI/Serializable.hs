@@ -270,7 +270,7 @@ alltoall comm msgs = do
   numProcs <- if isInter then commRemoteSize comm else commSize comm      
   -- First, all-to-all payload sizes
   (sendLengthsArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) sendLengths
-  (recvLengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr (1*sizeOf(undefined::Int))
+  (recvLengthsArr :: SA.StorableArray Int Int) <- Storable.intoNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr 1
   recvLengths <- SA.getElems recvLengthsArr
   -- calculate displacements from sizes
   (sendDisplArr :: SA.StorableArray Int Int) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:sendLengths)
