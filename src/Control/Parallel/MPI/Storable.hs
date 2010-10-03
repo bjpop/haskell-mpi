@@ -230,14 +230,14 @@ allgatherv comm segment counts displacements recvVal = do
 -- breaking the abstraction. Hence for now `sendCount' should be treated as "count of the underlying MPI
 -- representation elements that have to be sent to each process". User is expected to know that type and its size.
 -- XXX: we should probably take representation scale into account here
-alltoall :: forall v1 v2.(SendFrom v1, RecvInto v2) => Comm -> v1 -> Int -> v2 -> IO ()
+alltoall :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> Int -> v2 -> IO ()
 alltoall comm sendVal sendCount recvVal = do
   let sendCount_ = cIntConv sendCount
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
       checkError $ Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
 
-alltoallv :: forall v1 v2.(SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+alltoallv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ recvType ->
