@@ -116,11 +116,13 @@ measure numProcs myRank = do
     forM_ [1..maxI] $ \i -> do
 
       avgtime_ <- (round.(*10e6).(/(fromIntegral repeats))) <$> readArray avgtime i :: IO Int -- Average micro seconds
-      mintime_ <- round.(*10e6) <$> readArray mintime i :: IO Int -- Min micro seconds
+      mintime_dbl <- (*10e6) <$> readArray mintime i :: IO Double -- Min micro seconds
       maxtime_ <- round.(*10e6) <$> readArray maxtime i :: IO Int -- Max micro seconds
+      let mintime_ = round mintime_dbl :: Int
 
       m <- readArray noelem i
-      writeArray bytes i ((fromIntegral elsize) * m)
+      writeArray bytes   i ((fromIntegral elsize) * m)
+      writeArray mintime i mintime_dbl
 
       putStrLn $ printf "%10d    %10d %10d %10d" ((round $ (fromIntegral elsize) * m)::Int) mintime_ avgtime_ maxtime_
 
