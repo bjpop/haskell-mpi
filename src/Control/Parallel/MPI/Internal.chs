@@ -2,14 +2,13 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 #include <mpi.h>
-#include "compare.h"
 #include "init_wrapper.h"
 
 module Control.Parallel.MPI.Internal
    ( init, initThread, queryThread, isThreadMain,
      finalize, send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
-     commCompare, Compare(..),
+     commCompare,
      isend, ibsend, issend, irecv, bcast, barrier, wait, test,
      cancel, scatter, gather,
      scatterv, gatherv,
@@ -17,15 +16,14 @@ module Control.Parallel.MPI.Internal
      alltoall, alltoallv,
      reduce, allreduce, reduceScatter,
      wtime, wtick,
-     commGroup, groupRank, groupSize, groupUnion, groupIntersection
+     commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
+     groupCompare, groupExcl, groupIncl
    ) where
 
 import Prelude hiding (init)
 import C2HS
 
 {# context prefix = "MPI" #}
-
-{# enum Compare {underscoreToCase} deriving (Eq,Ord,Show) #}
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
@@ -69,4 +67,8 @@ commGroup = {# call unsafe Comm_group as commGroup_ #}
 groupRank = {# call unsafe Group_rank as groupRank_ #}
 groupSize = {# call unsafe Group_size as groupSize_ #}
 groupUnion = {# call unsafe Group_union as groupUnion_ #}
-groupIntersection = {# call unsafe Group_union as groupIntersection_ #}
+groupIntersection = {# call unsafe Group_intersection as groupIntersection_ #}
+groupDifference = {# call unsafe Group_difference as groupDifference_ #}
+groupCompare = {# call unsafe Group_compare as groupCompare_ #}
+groupExcl = {# call unsafe Group_excl as groupExcl_ #}
+groupIncl = {# call unsafe Group_incl as groupIncl_ #}

@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-module Control.Parallel.MPI.Group (Group) where
+module Control.Parallel.MPI.Group (Group, groupEmpty) where
 
 import C2HS
 
@@ -12,4 +12,4 @@ import C2HS
 -- there is a MPI_Group_free function, which we should probably
 -- call when the group is no longer referenced.
 type Group = {# type MPI_Group #}
--- foreign import ccall "mpi_comm_world" commWorld :: Comm
+foreign import ccall "mpi_group_empty" groupEmpty :: Group

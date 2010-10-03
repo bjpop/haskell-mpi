@@ -1,4 +1,4 @@
-module Control.Parallel.MPI.Utils (checkError, intoBool, intoInt, intoEnum) where
+module Control.Parallel.MPI.Utils (checkError, asBool, asInt, asEnum) where
 
 import C2HS
 import Control.Monad (unless)
@@ -12,22 +12,22 @@ checkError comp = do
    errorClass <- enumFromCInt <$> comp
    unless (errorClass == Success) (throwIO errorClass)
 
-intoBool :: (Ptr CInt -> IO ()) -> IO Bool
-intoBool f =
+asBool :: (Ptr CInt -> IO ()) -> IO Bool
+asBool f =
   alloca $ \ptr -> do
     f ptr
     res <- peek ptr
     return $ res /= 0
 
-intoInt :: (Ptr CInt -> IO ()) -> IO Int
-intoInt f =
+asInt :: (Ptr CInt -> IO ()) -> IO Int
+asInt f =
   alloca $ \ptr -> do
     f ptr
     res <- peek ptr
     return $ cIntConv res
     
-intoEnum :: Enum a => (Ptr CInt -> IO ()) -> IO a
-intoEnum f =
+asEnum :: Enum a => (Ptr CInt -> IO ()) -> IO a
+asEnum f =
   alloca $ \ptr -> do
     f ptr
     res <- peek ptr

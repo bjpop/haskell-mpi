@@ -14,6 +14,7 @@ MPI_CONST (int, mpi_any_tag, MPI_ANY_TAG)
 MPI_CONST (int, mpi_any_source, MPI_ANY_SOURCE)
 MPI_CONST (int, mpi_root, MPI_ROOT)
 MPI_CONST (int, mpi_proc_null, MPI_PROC_NULL)
+MPI_CONST (MPI_Group, mpi_group_empty, MPI_GROUP_EMPTY)
 
 /* Operations */
 MPI_CONST (MPI_Op, mpi_max    , MPI_MAX    )

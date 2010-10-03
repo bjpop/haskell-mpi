@@ -36,7 +36,8 @@ Library
       bytestring,
       cereal,
       extensible-exceptions,
-      array
+      array,
+      containers
    exposed-modules:
       Control.Parallel.MPI.Internal,
       Control.Parallel.MPI.Datatype,
@@ -51,7 +52,8 @@ Library
       Control.Parallel.MPI.Op,
       Control.Parallel.MPI.Storable,
       Control.Parallel.MPI.Serializable,
-      Control.Parallel.MPI.Group
+      Control.Parallel.MPI.Group,
+      Control.Parallel.MPI.ComparisonResult
    other-modules:
       C2HS,
       Control.Parallel.MPI.MarshalUtils,
@@ -86,6 +88,7 @@ executable  bindings-mpi-testsuite
     Control.Parallel.MPI.MarshalUtils,
     Control.Parallel.MPI.Utils,
     Control.Parallel.MPI.Group,
+    Control.Parallel.MPI.ComparisonResult,
     C2HS,
     IOArrayTests,
     SerializableTests,
