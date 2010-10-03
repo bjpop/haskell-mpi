@@ -57,11 +57,11 @@ main = mpi $ do
     else measure numProcs myRank
 
 measure numProcs myRank = do
-  barrier commWorld -- Synchronize all before timing
   putStrLn $ printf "I am process %d" ((fromRank myRank) :: Int)
 
   -- Initialize data
   a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::Double))
+  when (myRank == zeroRank) $ do putStrLn $ printf "Generating randoms: %d done" (length a)
   let elsize = sizeOf (undefined::Double)
 
   noelem  <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
@@ -91,6 +91,7 @@ measure numProcs myRank = do
       msg <- newListArray (1,m) $ take m a :: IO (StorableArray Int Double)
       c <- newArray (1,m) 0 :: IO (StorableArray Int Double)
 
+      barrier commWorld -- Synchronize all before timing
       if myRank == zeroRank then do
         t1 <- wtime
         send commWorld (toRank (1::Int)) unitTag msg
