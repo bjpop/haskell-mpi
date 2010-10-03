@@ -140,11 +140,11 @@ First tier:
 +    MPI_Alltoall[v]
 +    MPI_Isend,
 +    MPI_Wait,
-     MPI_Reduce_scatter
+A    MPI_Reduce_scatter
 +    MPI_Test,
 +    MPI_Cancel
-     MPI_Wtime,
-     MPI_Wtick
++    MPI_Wtime,
++    MPI_Wtick
      MPI_Iprobe
 +    MPI_Ssend
      MPI_Probe
