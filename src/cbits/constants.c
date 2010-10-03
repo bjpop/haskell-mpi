@@ -5,6 +5,7 @@
 
 MPI_CONST (MPI_Datatype, mpi_int, MPI_INT)
 MPI_CONST (MPI_Datatype, mpi_byte, MPI_BYTE)
+MPI_CONST (MPI_Datatype, mpi_double, MPI_DOUBLE)
 MPI_CONST (MPI_Comm, mpi_comm_world, MPI_COMM_WORLD)
 MPI_CONST (int, mpi_any_tag, MPI_ANY_TAG)
 MPI_CONST (int, mpi_any_source, MPI_ANY_SOURCE)
