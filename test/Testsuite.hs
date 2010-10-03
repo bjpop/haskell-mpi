@@ -5,6 +5,7 @@ import OtherTests
 import SerializableTests
 import StorableArrayTests
 import IOArrayTests
+import GroupTests
 
 import Control.Monad (when)
 import System.Posix.IO (dupTo, stdError, stdOutput)
@@ -12,13 +13,12 @@ import System.Posix.IO (dupTo, stdError, stdOutput)
 import Trace.Hpc.Tix
 import Trace.Hpc.Reflect
 
-
 main :: IO ()
 main = do
   provided <- initThread Multiple
   size <- commSize commWorld
   rank <- commRank commWorld
-  if (size < 2) 
+  if (size < 2)
     then putStrLn $ unlines [ "Need at least two processes to run the tests."
                             , "Typical command line could look like this:"
                             , "'mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log'" ]
@@ -33,8 +33,9 @@ main = do
   finalize
 
 tests :: Rank -> [(String, TestRunnerTest)]
-tests rank = 
+tests rank =
   otherTests rank
   ++ serializableTests rank
   ++ storableArrayTests rank
   ++ ioArrayTests rank
+  ++ groupTests rank

@@ -6,6 +6,7 @@ module Control.Parallel.MPI.Common
    , module Rank
    , module ThreadSupport
    , module Request
+   , module Group
    , mpi
    , mpiWorld
    , init
@@ -32,6 +33,11 @@ module Control.Parallel.MPI.Common
    , cancelFuture
    , wtime
    , wtick
+   , commGroup
+   , groupRank
+   , groupSize
+   , groupUnion
+   , groupIntersection
    ) where
 
 import Prelude hiding (init)
@@ -47,11 +53,11 @@ import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Utils (checkError, intoBool, intoInt, intoEnum)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
+import Control.Parallel.MPI.Group as Group
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
-
 
 zeroRank :: Rank
 zeroRank = toRank (0::Int)
@@ -172,3 +178,43 @@ pollFuture = tryTakeMVar . futureVal
 -- May want to stop people from waiting on Futures which are killed...
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
+
+commGroup :: Comm -> IO Group
+commGroup comm =
+   alloca $ \ptr -> do
+      checkError $ Internal.commGroup comm ptr
+      peek ptr
+
+groupRank :: Group -> IO Rank
+groupRank = withGroup Internal.groupRank toRank
+
+groupSize :: Group -> IO Int
+groupSize = withGroup Internal.groupSize cIntConv
+
+withGroup :: Storable a => (Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> IO b
+withGroup prim build group =
+   alloca $ \ptr -> do
+      checkError $ prim group ptr
+      r <- peek ptr
+      return $ build r
+
+-- XXX does this need an IO type?
+groupUnion :: Group -> Group -> IO Group
+groupUnion = with2Groups Internal.groupUnion id
+{-
+groupUnion g1 g2 =
+   alloca $ \ptr -> do
+      checkError $ Internal.groupUnion g1 g2 ptr
+      peek ptr
+-}
+
+-- XXX does this need an IO type?
+groupIntersection :: Group -> Group -> IO Group
+groupIntersection = with2Groups Internal.groupIntersection id
+
+with2Groups :: Storable a => (Group -> Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> Group -> IO b
+with2Groups prim build group1 group2 =
+   alloca $ \ptr -> do
+      checkError $ prim group1 group2 ptr
+      r <- peek ptr
+      return $ build r

@@ -15,7 +15,8 @@ module Control.Parallel.MPI.Internal
      scatterv, gatherv,
      allgather, allgatherv,
      alltoall, alltoallv,
-     wtime, wtick
+     wtime, wtick,
+     commGroup, groupRank, groupSize, groupUnion, groupIntersection
    ) where
 
 import Prelude hiding (init)
@@ -60,3 +61,8 @@ alltoall = {# call unsafe Alltoall as alltoall_ #}
 alltoallv = {# call unsafe Alltoallv as alltoallv_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
 wtick = {# call unsafe Wtick as wtick_ #}
+commGroup = {# call unsafe Comm_group as commGroup_ #}
+groupRank = {# call unsafe Group_rank as groupRank_ #}
+groupSize = {# call unsafe Group_size as groupSize_ #}
+groupUnion = {# call unsafe Group_union as groupUnion_ #}
+groupIntersection = {# call unsafe Group_union as groupIntersection_ #}
