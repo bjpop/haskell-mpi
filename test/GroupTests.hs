@@ -8,9 +8,11 @@ groupTests rank =
   , groupTestCase rank "groupSize" groupSizeTest
   , groupTestCase rank "groupUnionSelf" groupUnionSelfTest
   , groupTestCase rank "groupIntersectionSelf" groupIntersectionSelfTest
+  , groupTestCase rank "groupDifferenceSelf" groupDifferenceSelfTest
+  , groupTestCase rank "groupCompareSelf" groupCompareSelfTest
+  , groupTestCase rank "groupCompareEmpty" groupCompareSelfEmptyTest
+  , mpiTestCase rank "groupEmptySize" groupEmptySizeTest
   ]
-
--- mpiTestCase :: Rank -> String -> (Rank -> IO ()) -> (String,TestRunnerTest)
 
 groupTestCase :: Rank -> String -> (Rank -> Group -> IO ()) -> (String,TestRunnerTest)
 groupTestCase rank str test =
@@ -30,7 +32,7 @@ groupRankTest rank group = do
 groupSizeTest :: Rank -> Group -> IO ()
 groupSizeTest _rank group = do
    cSize <- commSize commWorld
-   gSize <- groupSize group
+   let gSize = groupSize group
    gSize > 0 @? ("Group size " ++ show gSize ++ " not greater than zero")
    gSize == cSize @? ("CommWorld size == " ++ show cSize ++ ", but group size == " ++ show gSize)
 
@@ -38,15 +40,35 @@ groupSizeTest _rank group = do
 -- XXX is it enough to just check sizes?
 
 groupUnionSelfTest :: Rank -> Group -> IO ()
-groupUnionSelfTest _rank group = groupIdentitySelfTest group groupUnion "union"
+groupUnionSelfTest _rank group =
+   groupOpSelfTest group groupUnion "union" (==)
 
 groupIntersectionSelfTest :: Rank -> Group -> IO ()
-groupIntersectionSelfTest _rank group = groupIdentitySelfTest group groupIntersection "intersection"
+groupIntersectionSelfTest _rank group =
+   groupOpSelfTest group groupIntersection "intersection" (==)
 
-groupIdentitySelfTest :: Group -> (Group -> Group -> IO Group) -> String -> IO ()
-groupIdentitySelfTest group groupOp opString = do
-   gSize <- groupSize group
-   uGroup <- groupOp group group
-   uSize <- groupSize uGroup
-   gSize == uSize @? ("Group size " ++ show gSize ++ ", " ++ opString ++ "(Group,Group) size == " ++ show uSize)
+groupDifferenceSelfTest :: Rank -> Group -> IO ()
+groupDifferenceSelfTest _rank group =
+   groupOpSelfTest group groupDifference "difference" (\ _gSize uSize -> uSize == 0)
 
+groupOpSelfTest :: Group -> (Group -> Group -> Group) -> String -> (Int -> Int -> Bool) -> IO ()
+groupOpSelfTest group groupOp opString compare = do
+   let gSize = groupSize group
+       uGroup = groupOp group group
+       uSize  = groupSize uGroup
+   gSize `compare` uSize @? ("Group size " ++ show gSize ++ ", " ++ opString ++ "(Group,Group) size == " ++ show uSize)
+
+groupCompareSelfTest :: Rank -> Group -> IO ()
+groupCompareSelfTest _rank group = do
+   let res = groupCompare group group
+   res == Ident @? ("Group compare with self gives non ident result: " ++ show res)
+
+groupCompareSelfEmptyTest :: Rank -> Group -> IO ()
+groupCompareSelfEmptyTest _rank group = do
+   let res = groupCompare group groupEmpty
+   res == Unequal @? ("Group compare with empty group gives non unequal result: " ++ show res)
+
+groupEmptySizeTest :: Rank -> IO ()
+groupEmptySizeTest _rank = do
+   let size = groupSize groupEmpty
+   size == 0 @? ("Empty group has non-zero size: " ++ show size)

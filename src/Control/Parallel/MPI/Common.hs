@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Control.Parallel.MPI.Common
    ( module Datatype
    , module Comm
@@ -7,6 +9,7 @@ module Control.Parallel.MPI.Common
    , module ThreadSupport
    , module Request
    , module Group
+   , module ComparisonResult
    , mpi
    , mpiWorld
    , init
@@ -33,12 +36,17 @@ module Control.Parallel.MPI.Common
    , groupSize
    , groupUnion
    , groupIntersection
+   , groupDifference
+   , groupCompare
+   , groupExcl
+   , groupIncl
    ) where
 
 import Prelude hiding (init)
 import C2HS
 import Control.Applicative ((<$>))
 import Control.Exception (finally)
+import qualified Data.Set as Set
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -49,6 +57,7 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Group as Group
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
+import Control.Parallel.MPI.ComparisonResult as ComparisonResult
 import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
@@ -144,7 +153,6 @@ wtick = do
    res <- Internal.wtick
    return $ realToFrac res
 
-
 -- Futures
 data Future a =
    Future
@@ -172,11 +180,13 @@ commGroup comm =
       checkError $ Internal.commGroup comm ptr
       peek ptr
 
+-- XXX does this need an IO type?
 groupRank :: Group -> IO Rank
 groupRank = withGroup Internal.groupRank toRank
 
-groupSize :: Group -> IO Int
-groupSize = withGroup Internal.groupSize cIntConv
+-- XXX does this need an IO type?
+groupSize :: Group -> Int
+groupSize = unsafePerformIO . withGroup Internal.groupSize cIntConv
 
 withGroup :: Storable a => (Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> IO b
 withGroup prim build group =
@@ -185,19 +195,17 @@ withGroup prim build group =
       r <- peek ptr
       return $ build r
 
--- XXX does this need an IO type?
-groupUnion :: Group -> Group -> IO Group
-groupUnion = with2Groups Internal.groupUnion id
-{-
-groupUnion g1 g2 =
-   alloca $ \ptr -> do
-      checkError $ Internal.groupUnion g1 g2 ptr
-      peek ptr
--}
+groupUnion :: Group -> Group -> Group
+groupUnion g1 g2 = unsafePerformIO $ with2Groups Internal.groupUnion id g1 g2
 
--- XXX does this need an IO type?
-groupIntersection :: Group -> Group -> IO Group
-groupIntersection = with2Groups Internal.groupIntersection id
+groupIntersection :: Group -> Group -> Group
+groupIntersection g1 g2 = unsafePerformIO $ with2Groups Internal.groupIntersection id g1 g2
+
+groupDifference :: Group -> Group -> Group
+groupDifference g1 g2 = unsafePerformIO $ with2Groups Internal.groupDifference id g1 g2
+
+groupCompare :: Group -> Group -> ComparisonResult
+groupCompare g1 g2 = unsafePerformIO $ with2Groups Internal.groupCompare enumFromCInt g1 g2
 
 with2Groups :: Storable a => (Group -> Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> Group -> IO b
 with2Groups prim build group1 group2 =
@@ -205,3 +213,34 @@ with2Groups prim build group1 group2 =
       checkError $ prim group1 group2 ptr
       r <- peek ptr
       return $ build r
+
+groupExcl :: Group -> Set.Set Rank -> Group
+groupExcl group ranks = unsafePerformIO $ groupWithRankSet Internal.groupExcl group ranks
+
+groupIncl :: Group -> Set.Set Rank -> Group
+groupIncl group ranks = unsafePerformIO $ groupWithRankSet Internal.groupIncl group ranks
+{-
+groupExcl :: Group -> Set.Set Rank -> Group
+groupExcl group ranks = unsafePerformIO $ do
+   let (rankIntList :: [Int]) = map fromEnum $ Set.toList ranks
+   alloca $ \groupPtr ->
+      withArrayLen rankIntList $ \size ranksPtr -> do
+         checkError $ Internal.groupExcl group (enumToCInt size) (castPtr ranksPtr) groupPtr
+         peek groupPtr
+
+groupIncl :: Group -> Set.Set Rank -> Group
+groupIncl group ranks = unsafePerformIO $ do
+   let (rankIntList :: [Int]) = map fromEnum $ Set.toList ranks
+   alloca $ \groupPtr ->
+      withArrayLen rankIntList $ \size ranksPtr -> do
+         checkError $ Internal.groupIncl group (enumToCInt size) (castPtr ranksPtr) groupPtr
+         peek groupPtr
+-}
+
+groupWithRankSet :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> Set.Set Rank -> IO Group
+groupWithRankSet prim group ranks = do
+   let (rankIntList :: [Int]) = map fromEnum $ Set.toList ranks
+   alloca $ \groupPtr ->
+      withArrayLen rankIntList $ \size ranksPtr -> do
+         checkError $ prim group (enumToCInt size) (castPtr ranksPtr) groupPtr
+         peek groupPtr

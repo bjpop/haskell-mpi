@@ -13,7 +13,8 @@ module Control.Parallel.MPI.Internal
      allgather, allgatherv,
      alltoall, alltoallv,
      wtime, wtick,
-     commGroup, groupRank, groupSize, groupUnion, groupIntersection
+     commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
+     groupCompare, groupExcl, groupIncl
    ) where
 
 import Prelude hiding (init, error)
@@ -55,4 +56,8 @@ commGroup = {# call unsafe Comm_group as commGroup_ #}
 groupRank = {# call unsafe Group_rank as groupRank_ #}
 groupSize = {# call unsafe Group_size as groupSize_ #}
 groupUnion = {# call unsafe Group_union as groupUnion_ #}
-groupIntersection = {# call unsafe Group_union as groupIntersection_ #}
+groupIntersection = {# call unsafe Group_intersection as groupIntersection_ #}
+groupDifference = {# call unsafe Group_difference as groupDifference_ #}
+groupCompare = {# call unsafe Group_compare as groupCompare_ #}
+groupExcl = {# call unsafe Group_excl as groupExcl_ #}
+groupIncl = {# call unsafe Group_incl as groupIncl_ #}
