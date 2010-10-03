@@ -48,6 +48,7 @@ Library
       Control.Parallel.MPI.Request,
       Control.Parallel.MPI.Tag,
       Control.Parallel.MPI.Rank,
+      Control.Parallel.MPI.Op,
       Control.Parallel.MPI.Storable,
       Control.Parallel.MPI.Serializable,
       Control.Parallel.MPI.Group
@@ -77,6 +78,7 @@ executable  bindings-mpi-testsuite
     Control.Parallel.MPI.ErrorClasses,
     Control.Parallel.MPI.ThreadSupport,
     Control.Parallel.MPI.Request,
+    Control.Parallel.MPI.Op,
     Control.Parallel.MPI.Tag,
     Control.Parallel.MPI.Rank,
     Control.Parallel.MPI.Storable,

@@ -7,6 +7,7 @@ module Control.Parallel.MPI.Common
    , module ThreadSupport
    , module Request
    , module Group
+   , module Op
    , mpi
    , mpiWorld
    , init
@@ -54,6 +55,7 @@ import Control.Parallel.MPI.Utils (checkError, intoBool, intoInt, intoEnum)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Group as Group
+import Control.Parallel.MPI.Op as Op
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
