@@ -219,23 +219,6 @@ groupExcl group ranks = unsafePerformIO $ groupWithRankSet Internal.groupExcl gr
 
 groupIncl :: Group -> Set.Set Rank -> Group
 groupIncl group ranks = unsafePerformIO $ groupWithRankSet Internal.groupIncl group ranks
-{-
-groupExcl :: Group -> Set.Set Rank -> Group
-groupExcl group ranks = unsafePerformIO $ do
-   let (rankIntList :: [Int]) = map fromEnum $ Set.toList ranks
-   alloca $ \groupPtr ->
-      withArrayLen rankIntList $ \size ranksPtr -> do
-         checkError $ Internal.groupExcl group (enumToCInt size) (castPtr ranksPtr) groupPtr
-         peek groupPtr
-
-groupIncl :: Group -> Set.Set Rank -> Group
-groupIncl group ranks = unsafePerformIO $ do
-   let (rankIntList :: [Int]) = map fromEnum $ Set.toList ranks
-   alloca $ \groupPtr ->
-      withArrayLen rankIntList $ \size ranksPtr -> do
-         checkError $ Internal.groupIncl group (enumToCInt size) (castPtr ranksPtr) groupPtr
-         peek groupPtr
--}
 
 groupWithRankSet :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> Set.Set Rank -> IO Group
 groupWithRankSet prim group ranks = do
