@@ -15,6 +15,7 @@ module Control.Parallel.MPI.Internal
      scatterv, gatherv,
      allgather, allgatherv,
      alltoall, alltoallv,
+     reduce,
      wtime, wtick,
      commGroup, groupRank, groupSize, groupUnion, groupIntersection
    ) where
@@ -59,6 +60,7 @@ allgather = {# call unsafe Allgather as allgather_ #}
 allgatherv = {# call unsafe Allgatherv as allgatherv_ #}
 alltoall = {# call unsafe Alltoall as alltoall_ #}
 alltoallv = {# call unsafe Alltoallv as alltoallv_ #}
+reduce = {# call unsafe Reduce as reduce_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
 wtick = {# call unsafe Wtick as wtick_ #}
 commGroup = {# call unsafe Comm_group as commGroup_ #}

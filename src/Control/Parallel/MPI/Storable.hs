@@ -24,6 +24,8 @@ module Control.Parallel.MPI.Storable
    , allgatherv
    , alltoall
    , alltoallv
+   , sendReduce
+   , recvReduce
    , intoNewArray
    , intoNewArray_
    , intoNewVal
@@ -47,6 +49,7 @@ import Control.Parallel.MPI.Utils (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Request as Request
+import Control.Parallel.MPI.Op as Op
 
 -- | if the user wants to call recvScatterv for the first time without
 -- already having allocated the array, then they can call it like so:
@@ -245,6 +248,17 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
               checkError $ Internal.alltoallv (castPtr sendPtr) (castPtr sendCountsPtr) (castPtr sendDisplPtr) sendType
                                               (castPtr recvPtr) (castPtr recvCountsPtr) (castPtr recvDisplPtr) recvType comm
   
+sendReduce :: SendFrom v => Comm -> Rank -> Operation -> v -> IO ()
+sendReduce comm root op sendVal = do
+  sendFrom sendVal $ \sendPtr sendElements sendType ->
+    checkError $ Internal.reduce (castPtr sendPtr) nullPtr sendElements sendType op (fromRank root) comm
+
+recvReduce :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> Operation -> v1 -> v2 -> IO ()
+recvReduce comm root op sendVal recvVal =
+  sendFrom sendVal $ \sendPtr sendElements sendType ->
+    recvInto recvVal $ \recvPtr _ _ ->
+      checkError $ Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op (fromRank root) comm
+
 class Repr e where
   -- How many elements of given datatype do we need to represent given
   -- type in MPI transfers

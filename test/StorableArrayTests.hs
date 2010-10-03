@@ -24,11 +24,12 @@ storableArrayTests rank =
   , mpiTestCase rank "allgatherv storable array"   allgathervTest
   , mpiTestCase rank "alltoall storable array"   alltoallTest
   , mpiTestCase rank "alltoallv storable array"   alltoallvTest
+  , mpiTestCase rank "reduce storable array"   reduceTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> ArrMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> ArrMsg -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
-allgatherTest, allgathervTest, alltoallTest, alltoallvTest :: Rank -> IO ()
+allgatherTest, allgathervTest, alltoallTest, alltoallvTest, reduceTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -249,3 +250,15 @@ alltoallvTest myRank = do
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
+
+-- Reducing arrays [0,1,2....] with SUM should yield [0,numProcs,2*numProcs, ...]
+reduceTest myRank = do
+  numProcs <- commSize commWorld
+  (src :: ArrMsg) <- newListArray (0,99) [0..99]
+  if myRank /= zeroRank
+    then sendReduce commWorld zeroRank sumOp src
+    else do
+    (result :: ArrMsg) <- intoNewArray_ (0,99) $ recvReduce commWorld zeroRank sumOp src
+    recvMsg <- getElems result
+    let expected = map (numProcs*) [0..99]
+    recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
