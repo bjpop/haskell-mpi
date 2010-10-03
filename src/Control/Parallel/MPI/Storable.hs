@@ -26,6 +26,8 @@ module Control.Parallel.MPI.Storable
    , alltoallv
    , sendReduce
    , recvReduce
+   , allreduce
+   , reduceScatter
    , intoNewArray
    , intoNewArray_
    , intoNewVal
@@ -253,11 +255,24 @@ sendReduce comm root op sendVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     checkError $ Internal.reduce (castPtr sendPtr) nullPtr sendElements sendType op (fromRank root) comm
 
-recvReduce :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> Operation -> v1 -> v2 -> IO ()
+recvReduce :: (SendFrom v, RecvInto v) => Comm -> Rank -> Operation -> v -> v -> IO ()
 recvReduce comm root op sendVal recvVal =
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
       checkError $ Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op (fromRank root) comm
+
+allreduce :: (SendFrom v, RecvInto v) => Comm -> Operation -> v -> v -> IO ()
+allreduce comm op sendVal recvVal = 
+  sendFrom sendVal $ \sendPtr sendElements sendType ->
+    recvInto recvVal $ \recvPtr _ _ ->
+      checkError $ Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
+
+reduceScatter :: (SendFrom v, RecvInto v) => Comm -> Operation -> StorableArray Int Int -> v -> v -> IO ()
+reduceScatter comm op counts sendVal recvVal =
+  sendFrom sendVal $ \sendPtr _ sendType ->
+    recvInto recvVal $ \recvPtr _ _ ->
+      withStorableArray counts $ \countsPtr ->
+      checkError $ Internal.reduceScatter (castPtr sendPtr) (castPtr recvPtr) (castPtr countsPtr) sendType op comm
 
 class Repr e where
   -- How many elements of given datatype do we need to represent given

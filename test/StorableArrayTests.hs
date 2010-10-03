@@ -25,11 +25,13 @@ storableArrayTests rank =
   , mpiTestCase rank "alltoall storable array"   alltoallTest
   , mpiTestCase rank "alltoallv storable array"   alltoallvTest
   , mpiTestCase rank "reduce storable array"   reduceTest
+  , mpiTestCase rank "allreduce storable array"   allreduceTest
+  , mpiTestCase rank "reduceScatter storable array"   reduceScatterTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> ArrMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> ArrMsg -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
-allgatherTest, allgathervTest, alltoallTest, alltoallvTest, reduceTest :: Rank -> IO ()
+allgatherTest, allgathervTest, alltoallTest, alltoallvTest, reduceTest, allreduceTest, reduceScatterTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -262,3 +264,25 @@ reduceTest myRank = do
     recvMsg <- getElems result
     let expected = map (numProcs*) [0..99]
     recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
+
+allreduceTest _ = do
+  numProcs <- commSize commWorld
+  (src :: ArrMsg) <- newListArray (0,99) [0..99]
+  (result :: ArrMsg) <- intoNewArray_ (0,99) $ allreduce commWorld sumOp src
+  recvMsg <- getElems result
+  let expected = map (numProcs*) [0..99]
+  recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
+
+-- We reduce [0..] with SUM.
+-- Each process gets (rank+1) elements of the result
+reduceScatterTest myRank = do
+  numProcs <- commSize commWorld
+  let dataSize = sum [1..numProcs]
+      msg = take dataSize [0..]
+      myRankNo = fromRank myRank
+  (src :: ArrMsg) <- newListArray (1,dataSize) msg
+  (counts :: StorableArray Int Int) <- newListArray (1, numProcs) [1..numProcs]
+  (result :: ArrMsg) <- intoNewArray_ (1,myRankNo + 1) $ reduceScatter commWorld sumOp counts src
+  recvMsg <- getElems result
+  let expected = map (numProcs*) $ take (myRankNo+1) $ drop (sum [0..myRankNo]) msg
+  recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
