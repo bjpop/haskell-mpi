@@ -36,8 +36,7 @@ Library
       bytestring,
       cereal,
       extensible-exceptions,
-      array,
-      containers
+      array
    exposed-modules:
       Control.Parallel.MPI.Internal,
       Control.Parallel.MPI.Datatype,
