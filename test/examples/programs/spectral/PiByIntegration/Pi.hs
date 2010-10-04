@@ -15,6 +15,7 @@ import Control.Parallel.MPI.Common
 import Data.Char (isDigit)
 import Control.Applicative
 import Control.Monad
+import Text.Printf
 
 main :: IO ()
 main = mpiWorld $ \size rank -> do
@@ -25,15 +26,12 @@ main = mpiWorld $ \size rank -> do
            else
               bcast commWorld zeroRank undefined
    let part = integrate (fromRank rank + 1) size n (1 / fromIntegral n)
-   send commWorld zeroRank unitTag part
-   when (rank == zeroRank) $
-      print =<< sum <$> gatherAll size
-
--- XXX This should be replaced by a true MPI gather
-gatherAll :: Int -> IO [Double]
-gatherAll size =
-   forM [0..size-1] $ \rank ->
-      fst <$> recv commWorld (toRank rank) unitTag
+   if rank == zeroRank
+      then do
+         parts <- recvGather commWorld zeroRank part
+         printf "%1.8f\n" $ sum parts
+      else
+         sendGather commWorld zeroRank part
 
 integrate :: Int -> Int -> Int -> Double -> Double
 integrate rank size n h =
