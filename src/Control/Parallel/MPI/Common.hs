@@ -52,7 +52,6 @@ import Prelude hiding (init)
 import C2HS
 import Control.Applicative ((<$>))
 import Control.Exception (finally)
-import qualified Data.Set as Set
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
@@ -228,15 +227,18 @@ with2Groups prim build group1 group2 =
       r <- peek ptr
       return $ build r
 
-groupExcl :: Group -> Set.Set Rank -> Group
-groupExcl group ranks = unsafePerformIO $ groupWithRankSet Internal.groupExcl group ranks
+-- Technically it might make better sense to make the second argument a Set rather than a list
+-- but the order is significant in the groupIncl function (the other function, not this one).
+-- For the sake of keeping their types in sync, a list is used instead.
+groupExcl :: Group -> [Rank] -> Group
+groupExcl group ranks = unsafePerformIO $ groupWithRankList Internal.groupExcl group ranks
 
-groupIncl :: Group -> Set.Set Rank -> Group
-groupIncl group ranks = unsafePerformIO $ groupWithRankSet Internal.groupIncl group ranks
+groupIncl :: Group -> [Rank] -> Group
+groupIncl group ranks = unsafePerformIO $ groupWithRankList Internal.groupIncl group ranks
 
-groupWithRankSet :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> Set.Set Rank -> IO Group
-groupWithRankSet prim group ranks = do
-   let (rankIntList :: [Int]) = map fromEnum $ Set.toList ranks
+groupWithRankList :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> [Rank] -> IO Group
+groupWithRankList prim group ranks = do
+   let (rankIntList :: [Int]) = map fromEnum ranks
    alloca $ \groupPtr ->
       withArrayLen rankIntList $ \size ranksPtr -> do
          checkError $ prim group (enumToCInt size) (castPtr ranksPtr) groupPtr
