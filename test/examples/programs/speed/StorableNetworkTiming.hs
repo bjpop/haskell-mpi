@@ -68,8 +68,6 @@ measure numProcs myRank = do
   putStrLn $ printf "I am process %d" myRankNo
   
   -- Initialize data
-  a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
-  when (myRank == zeroRank) $ do putStrLn $ printf "Generating randoms: %d done" (length a)
   let elsize = sizeOf (undefined::Double)
 
   noelem  <- newArray (1, maxI) (0::Double) :: IO Counters
@@ -89,7 +87,11 @@ measure numProcs myRank = do
     else return undefined
 
   let message_sizes = [ block*(i-1)+1 | i <- [1..maxI] ]
-  messages <- sequence [ newListArray (1,m) (take m a) | m <- message_sizes ]
+  messages <- if myRank == zeroRank
+              then do a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
+                      putStrLn $ printf "Generating randoms: %d done" (length a)
+                      sequence [ newListArray (1,m) (take m a) | m <- message_sizes ]
+              else return []
   buffers  <- sequence [ newArray (1,m) 0 | m <- message_sizes ]
   
   forM_ [1..repeats] $ \k -> do
@@ -101,11 +103,11 @@ measure numProcs myRank = do
 
       barrier commWorld
 
-      let (msg :: Msg) = messages!!(i-1)
-          (c :: Msg) = buffers!!(i-1)
+      let (c :: Msg) = buffers!!(i-1)
 
       barrier commWorld -- Synchronize all before timing
       if myRank == zeroRank then do
+        let (msg :: Msg) = messages!!(i-1)
         t1 <- wtime
         send commWorld (toRank (1::Int)) unitTag msg
         recv commWorld (toRank (numProcs-1 :: Int)) unitTag c
