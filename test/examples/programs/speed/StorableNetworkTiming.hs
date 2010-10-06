@@ -124,9 +124,9 @@ measure numProcs myRank = do
 
     forM_ [1..maxI] $ \i -> do
 
-      avgtime_ <- (round.(*10e6).(/(fromIntegral repeats))) <$> readArray avgtime i :: IO Int -- Average micro seconds
-      mintime_dbl <- (*10e6) <$> readArray mintime i :: IO Double -- Min micro seconds
-      maxtime_ <- round.(*10e6) <$> readArray maxtime i :: IO Int -- Max micro seconds
+      avgtime_ <- (round.(*1e6).(/(fromIntegral repeats))) <$> readArray avgtime i :: IO Int -- Average micro seconds
+      mintime_dbl <- (*1e6) <$> readArray mintime i :: IO Double -- Min micro seconds
+      maxtime_ <- round.(*1e6) <$> readArray maxtime i :: IO Int -- Max micro seconds
       let mintime_ = round mintime_dbl :: Int
 
       m <- readArray noelem i
