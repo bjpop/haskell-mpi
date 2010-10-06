@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Main where
 
 import Control.Parallel.MPI.Common
@@ -8,6 +10,9 @@ import Text.Printf
 import System.Random
 import Control.Applicative
 import Foreign (sizeOf)
+
+type El = Double
+type Msg = StorableArray Int El
 
 -- Fit a and b to the model y=ax+b. Return a, b, variance
 linfit :: StorableArray Int Double -> StorableArray Int Double -> IO (Double, Double, Double)
@@ -60,7 +65,7 @@ measure numProcs myRank = do
   putStrLn $ printf "I am process %d" ((fromRank myRank) :: Int)
 
   -- Initialize data
-  a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::Double))
+  a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
   when (myRank == zeroRank) $ do putStrLn $ printf "Generating randoms: %d done" (length a)
   let elsize = sizeOf (undefined::Double)
 
@@ -88,8 +93,8 @@ measure numProcs myRank = do
       writeArray noelem i (fromIntegral m)
 
       barrier commWorld
-      msg <- newListArray (1,m) $ take m a :: IO (StorableArray Int Double)
-      c <- newArray (1,m) 0 :: IO (StorableArray Int Double)
+      (msg :: Msg) <- newListArray (1,m) $ take m a
+      (c :: Msg) <- newArray (1,m) 0
 
       barrier commWorld -- Synchronize all before timing
       if myRank == zeroRank then do
