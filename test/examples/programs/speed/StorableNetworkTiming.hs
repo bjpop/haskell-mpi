@@ -64,8 +64,9 @@ main = mpi $ do
     else measure numProcs myRank
 
 measure numProcs myRank = do
-  putStrLn $ printf "I am process %d" ((fromRank myRank) :: Int)
-
+  let (myRankNo :: Int) = fromRank myRank
+  putStrLn $ printf "I am process %d" myRankNo
+  
   -- Initialize data
   a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
   when (myRank == zeroRank) $ do putStrLn $ printf "Generating randoms: %d done" (length a)
@@ -114,8 +115,8 @@ measure numProcs myRank = do
         when (diff < curr_min) $ writeArray mintime i diff
         when (diff > curr_max) $ writeArray maxtime i diff
         else do -- non-root processes. Get msg and pass it on
-        recv commWorld (toRank $ (fromRank myRank)-1) unitTag c
-        send commWorld (toRank $ ((fromRank myRank)+1) `mod` numProcs) unitTag c
+        recv commWorld (toRank $ myRankNo-1) unitTag c
+        send commWorld (toRank $ (myRankNo+1) `mod` numProcs) unitTag c
 
   when (myRank == zeroRank) $ do
     putStrLn "Bytes transferred   time (micro seconds)"
