@@ -291,6 +291,9 @@ instance Repr CChar where
 instance Repr Double where
   representation _ = (1,double)
 
+instance Repr Float where
+  representation _ = (1,float)
+
 instance Repr e => Repr (StorableArray i e) where
   representation _ = representation (undefined::e)
 
