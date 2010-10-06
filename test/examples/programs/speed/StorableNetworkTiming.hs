@@ -36,7 +36,7 @@ linfit x y = do
       sson = sum $ map (^2) ts
 
       a = (sum $ zipWith (*) ts ys)/sson
-      b = (sy-sx*a)
+      b = (sy-sx*a)/(fromIntegral n)
 
       norm = sum $ map (^2) xs
       res  = zipWith (\x y -> y - a*x - b) xs ys
