@@ -3,14 +3,18 @@ module Main where
 import Control.Parallel.MPI.Common
 import Control.Parallel.MPI.Storable
 import Data.Array.Storable
+import Data.Array.IO
 import Control.Monad (when, forM, forM_)
 import Text.Printf
 import System.Random
 import Control.Applicative
 import Foreign (sizeOf)
 
+type Message = StorableArray Int Double
+type Counters = IOUArray Int Double
+
 -- Fit a and b to the model y=ax+b. Return a, b, variance
-linfit :: StorableArray Int Double -> StorableArray Int Double -> IO (Double, Double, Double)
+linfit :: Counters -> Counters -> IO (Double, Double, Double)
 linfit x y = do
   x_bnds <- getBounds x
   y_bnds <- getBounds y
@@ -64,11 +68,11 @@ measure numProcs myRank = do
   when (myRank == zeroRank) $ do putStrLn $ printf "Generating randoms: %d done" (length a)
   let elsize = sizeOf (undefined::Double)
 
-  noelem  <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
-  bytes   <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
-  mintime <- newArray (1, maxI) (100000::Double) :: IO (StorableArray Int Double)
-  maxtime <- newArray (1, maxI) (-100000::Double) :: IO (StorableArray Int Double)
-  avgtime <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
+  noelem  <- newArray (1, maxI) (0::Double) :: IO Counters
+  bytes   <- newArray (1, maxI) (0::Double) :: IO Counters
+  mintime <- newArray (1, maxI) (100000::Double) :: IO Counters
+  maxtime <- newArray (1, maxI) (-100000::Double) :: IO Counters
+  avgtime <- newArray (1, maxI) (0::Double) :: IO Counters
 
   cpuOH <- if myRank == zeroRank then do
     ohs <- sequence $ replicate repeats $ do
@@ -88,8 +92,8 @@ measure numProcs myRank = do
       writeArray noelem i (fromIntegral m)
 
       barrier commWorld
-      msg <- newListArray (1,m) $ take m a :: IO (StorableArray Int Double)
-      c <- newArray (1,m) 0 :: IO (StorableArray Int Double)
+      msg <- newListArray (1,m) $ take m a :: IO Message
+      c <- newArray (1,m) 0 :: IO Message
 
       barrier commWorld -- Synchronize all before timing
       if myRank == zeroRank then do
