@@ -88,17 +88,21 @@ measure numProcs myRank = do
     return oh
     else return undefined
 
+  let message_sizes = [ block*(i-1)+1 | i <- [1..maxI] ]
+  messages <- sequence [ newListArray (1,m) (take m a) | m <- message_sizes ]
+  buffers  <- sequence [ newArray (1,m) 0 | m <- message_sizes ]
+  
   forM_ [1..repeats] $ \k -> do
     when (myRank == zeroRank) $ putStrLn $ printf "Run %d of %d" k repeats
 
     forM_ [1..maxI] $ \i -> do
-      let m = block*(i-1)+1 :: Int
+      let m = message_sizes!!(i-1)
       writeArray noelem i (fromIntegral m)
 
       barrier commWorld
 
-      (msg :: Msg) <- newListArray (1,m) $ take m a
-      (c :: Msg) <- newArray (1,m) 0
+      let (msg :: Msg) = messages!!(i-1)
+          (c :: Msg) = buffers!!(i-1)
 
       barrier commWorld -- Synchronize all before timing
       if myRank == zeroRank then do
