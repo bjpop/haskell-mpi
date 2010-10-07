@@ -16,6 +16,9 @@ type El = Double
 type Msg = StorableArray Int El
 type Counters = IOUArray Int Double
 
+root :: Rank
+root = 0
+
 -- Fit a and b to the model y=ax+b. Return a, b, variance
 linfit :: Counters -> Counters -> IO (Double, Double, Double)
 linfit x y = do
@@ -55,7 +58,7 @@ main = mpi $ do
   numProcs <- commSize commWorld
   myRank   <- commRank commWorld
 
-  when (myRank == zeroRank) $ do
+  when (myRank == root) $ do
     putStrLn $ printf "MAXM = %d, number of processors = %d" maxM numProcs
     putStrLn $ printf "Measurements are repeated %d times for reliability" repeats
 
@@ -64,9 +67,8 @@ main = mpi $ do
     else measure numProcs myRank
 
 measure numProcs myRank = do
-  let (myRankNo :: Int) = fromRank myRank
-  putStrLn $ printf "I am process %d" myRankNo
-  
+  putStrLn $ printf "I am process %d" $ fromEnum myRank
+
   -- Initialize data
   let elsize = sizeOf (undefined::Double)
 
@@ -76,7 +78,7 @@ measure numProcs myRank = do
   maxtime <- newArray (1, maxI) (-100000::Double) :: IO Counters
   avgtime <- newArray (1, maxI) (0::Double) :: IO Counters
 
-  cpuOH <- if myRank == zeroRank then do
+  cpuOH <- if myRank == root then do
     ohs <- sequence $ replicate repeats $ do
       t1 <- wtime
       t2 <- wtime
@@ -87,15 +89,15 @@ measure numProcs myRank = do
     else return undefined
 
   let message_sizes = [ block*(i-1)+1 | i <- [1..maxI] ]
-  messages <- if myRank == zeroRank
+  messages <- if myRank == root
               then do a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
                       putStrLn $ printf "Generating randoms: %d done" (length a)
                       sequence [ newListArray (1,m) (take m a) | m <- message_sizes ]
               else return []
   buffers  <- sequence [ newArray (1,m) 0 | m <- message_sizes ]
-  
+
   forM_ [1..repeats] $ \k -> do
-    when (myRank == zeroRank) $ putStrLn $ printf "Run %d of %d" k repeats
+    when (myRank == root) $ putStrLn $ printf "Run %d of %d" k repeats
 
     forM_ [1..maxI] $ \i -> do
       let m = message_sizes!!(i-1)
@@ -106,11 +108,11 @@ measure numProcs myRank = do
       let (c :: Msg) = buffers!!(i-1)
 
       barrier commWorld -- Synchronize all before timing
-      if myRank == zeroRank then do
+      if myRank == root then do
         let (msg :: Msg) = messages!!(i-1)
         t1 <- wtime
-        send commWorld (toRank (1::Int)) unitTag msg
-        recv commWorld (toRank (numProcs-1 :: Int)) unitTag c
+        send commWorld 1 unitTag msg
+        recv commWorld (toEnum $ numProcs-1) unitTag c
         t2 <- wtime
         let diff = t2 - t1 - cpuOH
         curr_avg <- readArray avgtime i
@@ -121,10 +123,10 @@ measure numProcs myRank = do
         when (diff < curr_min) $ writeArray mintime i diff
         when (diff > curr_max) $ writeArray maxtime i diff
         else do -- non-root processes. Get msg and pass it on
-        recv commWorld (toRank $ myRankNo-1) unitTag c
-        send commWorld (toRank $ (myRankNo+1) `mod` numProcs) unitTag c
+        recv commWorld (myRank-1) unitTag c
+        send commWorld ((myRank+1) `mod` toEnum numProcs) unitTag c
 
-  when (myRank == zeroRank) $ do
+  when (myRank == root) $ do
     putStrLn "Bytes transferred   time (micro seconds)"
     putStrLn "                    min        avg        max "
     putStrLn "----------------------------------------------"
