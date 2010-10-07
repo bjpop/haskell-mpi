@@ -20,8 +20,8 @@ import Data.Char (isDigit)
 type Msg = Either (Integer, Integer, Integer) Integer
 
 zero, one :: Rank
-zero = toRank 0
-one = toRank 1
+zero = 0
+one = 1
 
 main :: IO ()
 main = mpiWorld $ \size rank -> do
