@@ -28,7 +28,6 @@ module Control.Parallel.MPI.Common
    , wait
    , test
    , cancel
-   , zeroRank
    , unitTag
    , Future(..)
    , waitFuture
@@ -67,9 +66,6 @@ import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.ComparisonResult as ComparisonResult
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
-
-zeroRank :: Rank
-zeroRank = toRank (0::Int)
 
 unitTag :: Tag
 unitTag = toTag ()

@@ -6,6 +6,9 @@ import Control.Parallel.MPI.Serializable
 import Control.Concurrent (threadDelay)
 import Data.Serialize ()
 
+root :: Rank
+root = 0
+
 serializableTests :: Rank -> [(String,TestRunnerTest)]
 serializableTests rank =
   [ mpiTestCase rank "send+recv simple message" $ syncSendRecv send
@@ -135,18 +138,18 @@ broadcast _ = do
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
 
 gatherTest rank
-  | rank == zeroRank = do result <- recvGather commWorld zeroRank [fromRank rank :: Int]
-                          numProcs <- commSize commWorld
-                          let expected = concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
-                              got = concat (result::[[Int]])
-                          got == expected @? "Got " ++ show got ++ " instead of " ++ show expected
-  | otherwise        = sendGather commWorld zeroRank [0..fromRank rank :: Int]
+  | rank == root = do result <- recvGather commWorld root [fromRank rank :: Int]
+                      numProcs <- commSize commWorld
+                      let expected = concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
+                          got = concat (result::[[Int]])
+                      got == expected @? "Got " ++ show got ++ " instead of " ++ show expected
+  | otherwise        = sendGather commWorld root [0..fromRank rank :: Int]
 
 scatterTest rank
-  | rank == zeroRank = do numProcs <- commSize commWorld
-                          result <- sendScatter commWorld zeroRank $ map (^(2::Int)) [1..numProcs]
-                          result == 1 @? "Root got " ++ show result ++ " instead of 1"
-  | otherwise        = do result <- recvScatter commWorld zeroRank
+  | rank == root = do numProcs <- commSize commWorld
+                      result <- sendScatter commWorld root $ map (^(2::Int)) [1..numProcs]
+                      result == 1 @? "Root got " ++ show result ++ " instead of 1"
+  | otherwise        = do result <- recvScatter commWorld root
                           let expected = (fromRank rank + 1::Int)^(2::Int)
                           result == expected @? "Got " ++ show result ++ " instead of " ++ show expected
 

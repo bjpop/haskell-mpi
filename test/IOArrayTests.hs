@@ -9,6 +9,9 @@ import Data.Array.IO (IOArray, newListArray, getElems)
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 
+root :: Rank
+root = 0
+
 ioArrayTests :: Rank -> [(String,TestRunnerTest)]
 ioArrayTests rank =
   [ mpiTestCase rank "send+recv IO array"  $ syncSendRecvTest send
@@ -86,7 +89,7 @@ asyncSendRecvTest isendf rank
 broadcastTest myRank = do
   msg <- arrMsg
   expected <- arrMsg
-  if myRank == zeroRank
+  if myRank == root
      then bcastSend commWorld sender (msg :: ArrMsg)
      else bcastRecv commWorld sender (msg :: ArrMsg)
   elems <- getElems msg
@@ -98,11 +101,11 @@ scatterTest myRank = do
   numProcs <- commSize commWorld
   let segRange = (1, segmentSize)
 
-  (segment::ArrMsg) <- if myRank == zeroRank then do
+  (segment::ArrMsg) <- if myRank == root then do
                let bigRange@(low, hi) = (1, segmentSize * numProcs)
                (msg :: ArrMsg) <- newListArray bigRange $ map fromIntegral [low..hi]
-               intoNewArray_ segRange $ sendScatter commWorld zeroRank msg
-             else intoNewArray_ segRange $ recvScatter commWorld zeroRank
+               intoNewArray_ segRange $ sendScatter commWorld root msg
+             else intoNewArray_ segRange $ recvScatter commWorld root
 
   let myRankNo = fromRank myRank
       expected = take 10 [myRankNo*10+1..]
@@ -127,15 +130,15 @@ scattervTest myRank = do
       counts = [1..numProcs]
       displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
 
-  (segment::ArrMsg) <- if myRank == zeroRank then do
+  (segment::ArrMsg) <- if myRank == root then do
     (msg :: ArrMsg) <- newListArray bigRange $ map fromIntegral [low..hi]
 
     let msgRange = (1, numProcs)
     (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
     (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
 
-    intoNewArray_ recvRange $ sendScatterv commWorld zeroRank msg packCounts packDispls
-    else intoNewArray_ recvRange $ recvScatterv commWorld zeroRank
+    intoNewArray_ recvRange $ sendScatterv commWorld root msg packCounts packDispls
+    else intoNewArray_ recvRange $ recvScatterv commWorld root
 
   recvMsg <- getElems segment
 
@@ -150,12 +153,12 @@ gatherTest myRank = do
   let segRange@(low,hi) = (1, segmentSize)
   (msg :: ArrMsg) <- newListArray segRange $ map fromIntegral [low..hi]
 
-  if myRank /= zeroRank
-    then sendGather commWorld zeroRank msg
+  if myRank /= root
+    then sendGather commWorld root msg
     else do
     let bigRange = (1, segmentSize * numProcs)
         expected = map fromIntegral $ concat $ replicate numProcs [1..segmentSize]
-    (result::ArrMsg) <- intoNewArray_ bigRange $ recvGather commWorld zeroRank msg
+    (result::ArrMsg) <- intoNewArray_ bigRange $ recvGather commWorld root msg
     recvMsg <- getElems result
     recvMsg == expected @? "Rank " ++ show myRank ++ " got " ++ show recvMsg ++ " instead of " ++ show expected
   where segmentSize = 10
@@ -167,8 +170,8 @@ gathervTest myRank = do
   let myRankNo = fromRank myRank
       sendRange = (0, myRankNo)
   (msg :: ArrMsg) <- newListArray sendRange $ map fromIntegral [0..myRankNo]
-  if myRank /= zeroRank
-    then sendGatherv commWorld zeroRank msg
+  if myRank /= root
+    then sendGatherv commWorld root msg
     else do
     let msgRange = (1, numProcs)
         counts = [1..numProcs]
@@ -177,7 +180,7 @@ gathervTest myRank = do
     (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
     (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
 
-    (segment::ArrMsg) <- intoNewArray_ bigRange $ recvGatherv commWorld zeroRank msg packCounts packDispls
+    (segment::ArrMsg) <- intoNewArray_ bigRange $ recvGatherv commWorld root msg packCounts packDispls
     recvMsg <- getElems segment
 
     recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
@@ -261,10 +264,10 @@ alltoallvTest myRank = do
 reduceTest myRank = do
   numProcs <- commSize commWorld
   (src :: ArrMsg) <- newListArray (0,99) [0..99]
-  if myRank /= zeroRank
-    then sendReduce commWorld zeroRank sumOp src
+  if myRank /= root
+    then sendReduce commWorld root sumOp src
     else do
-    (result :: ArrMsg) <- intoNewArray_ (0,99) $ recvReduce commWorld zeroRank sumOp src
+    (result :: ArrMsg) <- intoNewArray_ (0,99) $ recvReduce commWorld root sumOp src
     recvMsg <- getElems result
     let expected = map ((fromIntegral numProcs)*) [0..99::ElementType]
     recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
