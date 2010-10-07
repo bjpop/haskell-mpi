@@ -89,7 +89,7 @@ initThread required = asEnum $ checkError . Internal.initThread (enumToCInt requ
 
 queryThread :: IO Bool
 queryThread = asBool $ checkError . Internal.queryThread
-    
+
 isThreadMain :: IO Bool
 isThreadMain = asBool $ checkError . Internal.isThreadMain
 
@@ -103,12 +103,11 @@ commRank :: Comm -> IO Rank
 commRank comm =
    alloca $ \ptr -> do
       checkError $ Internal.commRank comm ptr
-      rank <- peek ptr
-      return $ toRank rank
+      toRank <$> peek ptr
 
 commTestInter :: Comm -> IO Bool
 commTestInter comm = asBool $ checkError . Internal.commTestInter comm
-    
+
 commRemoteSize :: Comm -> IO Int
 commRemoteSize comm = asInt $ checkError . Internal.commRemoteSize comm
 
@@ -155,13 +154,9 @@ cancel request =
        checkError $ Internal.cancel reqPtr
 
 wtime, wtick :: IO Double
-wtime = do
-   res <- Internal.wtime
-   return $ realToFrac res
+wtime = realToFrac <$> Internal.wtime
 
-wtick = do
-   res <- Internal.wtick
-   return $ realToFrac res
+wtick = realToFrac <$> Internal.wtick
 
 -- Futures
 data Future a =
