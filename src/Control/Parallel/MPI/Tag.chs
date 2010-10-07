@@ -3,7 +3,7 @@
 module Control.Parallel.MPI.Tag (Tag, toTag, fromTag, tagVal, anyTag) where
 
 newtype Tag = Tag { tagVal :: Int }
-   deriving (Eq, Ord, Enum, Num)
+   deriving (Eq, Ord, Enum, Num, Integral, Real)
 
 instance Show Tag where
   show = show . tagVal

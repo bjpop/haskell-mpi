@@ -6,7 +6,7 @@ module Control.Parallel.MPI.Rank ( Rank, rankId,
   theRoot, procNull ) where
 
 newtype Rank = Rank { rankId :: Int }
-   deriving (Eq, Ord, Enum, Num)
+   deriving (Eq, Ord, Enum, Num, Integral, Real)
 
 foreign import ccall "mpi_any_source" anySource_ :: Int
 foreign import ccall "mpi_root" theRoot_ :: Int
