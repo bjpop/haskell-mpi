@@ -13,25 +13,24 @@ module Main where
 import Control.Parallel.MPI.Serializable
 import Control.Parallel.MPI.Common
 import Data.Char (isDigit)
-import Control.Applicative
-import Control.Monad
 import Text.Printf
 
 main :: IO ()
 main = mpiWorld $ \size rank -> do
-   n <- if rank == zeroRank
+   let root = 0
+   n <- if rank == root
            then do
               input <- getNumber
-              bcast commWorld zeroRank input
+              bcast commWorld root input
            else
-              bcast commWorld zeroRank undefined
+              bcast commWorld root undefined
    let part = integrate (fromRank rank + 1) size n (1 / fromIntegral n)
-   if rank == zeroRank
+   if rank == root
       then do
-         parts <- recvGather commWorld zeroRank part
+         parts <- recvGather commWorld root part
          printf "%1.8f\n" $ sum parts
       else
-         sendGather commWorld zeroRank part
+         sendGather commWorld root part
 
 integrate :: Int -> Int -> Int -> Double -> Double
 integrate rank size n h =
