@@ -45,6 +45,7 @@ module Control.Parallel.MPI.Common
    , groupCompare
    , groupExcl
    , groupIncl
+   , groupTranslateRanks
    ) where
 
 import Prelude hiding (init)
@@ -189,53 +190,61 @@ commGroup comm =
       checkError $ Internal.commGroup comm ptr
       peek ptr
 
--- XXX does this need an IO type?
-groupRank :: Group -> IO Rank
+groupRank :: Group -> Rank
 groupRank = withGroup Internal.groupRank toRank
 
--- XXX does this need an IO type?
 groupSize :: Group -> Int
-groupSize = unsafePerformIO . withGroup Internal.groupSize cIntConv
+groupSize = withGroup Internal.groupSize cIntConv
 
-withGroup :: Storable a => (Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> IO b
+withGroup :: Storable a => (Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> b
 withGroup prim build group =
-   alloca $ \ptr -> do
-      checkError $ prim group ptr
-      r <- peek ptr
-      return $ build r
+   unsafePerformIO $
+      alloca $ \ptr -> do
+         checkError $ prim group ptr
+         build <$> peek ptr
 
 groupUnion :: Group -> Group -> Group
-groupUnion g1 g2 = unsafePerformIO $ with2Groups Internal.groupUnion id g1 g2
+groupUnion g1 g2 = with2Groups Internal.groupUnion id g1 g2
 
 groupIntersection :: Group -> Group -> Group
-groupIntersection g1 g2 = unsafePerformIO $ with2Groups Internal.groupIntersection id g1 g2
+groupIntersection g1 g2 = with2Groups Internal.groupIntersection id g1 g2
 
 groupDifference :: Group -> Group -> Group
-groupDifference g1 g2 = unsafePerformIO $ with2Groups Internal.groupDifference id g1 g2
+groupDifference g1 g2 = with2Groups Internal.groupDifference id g1 g2
 
 groupCompare :: Group -> Group -> ComparisonResult
-groupCompare g1 g2 = unsafePerformIO $ with2Groups Internal.groupCompare enumFromCInt g1 g2
+groupCompare g1 g2 = with2Groups Internal.groupCompare enumFromCInt g1 g2
 
-with2Groups :: Storable a => (Group -> Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> Group -> IO b
+with2Groups :: Storable a => (Group -> Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> Group -> b
 with2Groups prim build group1 group2 =
-   alloca $ \ptr -> do
-      checkError $ prim group1 group2 ptr
-      r <- peek ptr
-      return $ build r
+   unsafePerformIO $
+      alloca $ \ptr -> do
+         checkError $ prim group1 group2 ptr
+         build <$> peek ptr
 
 -- Technically it might make better sense to make the second argument a Set rather than a list
 -- but the order is significant in the groupIncl function (the other function, not this one).
 -- For the sake of keeping their types in sync, a list is used instead.
 groupExcl :: Group -> [Rank] -> Group
-groupExcl group ranks = unsafePerformIO $ groupWithRankList Internal.groupExcl group ranks
+groupExcl group ranks = groupWithRankList Internal.groupExcl group ranks
 
 groupIncl :: Group -> [Rank] -> Group
-groupIncl group ranks = unsafePerformIO $ groupWithRankList Internal.groupIncl group ranks
+groupIncl group ranks = groupWithRankList Internal.groupIncl group ranks
 
-groupWithRankList :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> [Rank] -> IO Group
-groupWithRankList prim group ranks = do
-   let (rankIntList :: [Int]) = map fromEnum ranks
-   alloca $ \groupPtr ->
-      withArrayLen rankIntList $ \size ranksPtr -> do
-         checkError $ prim group (enumToCInt size) (castPtr ranksPtr) groupPtr
-         peek groupPtr
+groupWithRankList :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> [Rank] -> Group
+groupWithRankList prim group ranks =
+   unsafePerformIO $ do
+      let (rankIntList :: [Int]) = map fromEnum ranks
+      alloca $ \groupPtr ->
+         withArrayLen rankIntList $ \size ranksPtr -> do
+            checkError $ prim group (enumToCInt size) (castPtr ranksPtr) groupPtr
+            peek groupPtr
+
+groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
+groupTranslateRanks group1 ranks group2 =
+   unsafePerformIO $ do
+      let (rankIntList :: [Int]) = map fromEnum ranks
+      withArrayLen rankIntList $ \size ranksPtr ->
+         allocaArray size $ \resultPtr -> do
+            checkError $ Internal.groupTranslateRanks group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
+            map toRank <$> peekArray size resultPtr

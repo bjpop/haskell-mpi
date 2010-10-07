@@ -24,7 +24,7 @@ groupTestCase rank str test =
 -- from commWorld.
 groupRankTest :: Rank -> Group -> IO ()
 groupRankTest rank group = do
-   gRank <- groupRank group
+   let gRank = groupRank group
    gRank == rank @? "Rank == " ++ show rank ++ ", but group rank == " ++ show gRank
 
 -- Test if the size of commWorld is the same as the size of a group created

@@ -17,7 +17,7 @@ module Control.Parallel.MPI.Internal
      reduce, allreduce, reduceScatter,
      wtime, wtick,
      commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
-     groupCompare, groupExcl, groupIncl
+     groupCompare, groupExcl, groupIncl, groupTranslateRanks
    ) where
 
 import Prelude hiding (init)
@@ -72,3 +72,4 @@ groupDifference = {# call unsafe Group_difference as groupDifference_ #}
 groupCompare = {# call unsafe Group_compare as groupCompare_ #}
 groupExcl = {# call unsafe Group_excl as groupExcl_ #}
 groupIncl = {# call unsafe Group_incl as groupIncl_ #}
+groupTranslateRanks = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #}
