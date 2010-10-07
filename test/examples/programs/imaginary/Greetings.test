@@ -1,6 +1,7 @@
 bindings-mpi-comprunclean -np 10 Greetings.hs
 <<<
 >>>
+Greetings from process 0!
 Greetings from process 1!
 Greetings from process 2!
 Greetings from process 3!
