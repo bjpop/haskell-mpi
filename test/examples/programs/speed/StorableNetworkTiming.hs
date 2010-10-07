@@ -5,6 +5,7 @@ module Main where
 import Control.Parallel.MPI.Common
 import Control.Parallel.MPI.Storable
 import Data.Array.Storable
+import Data.Array.IO
 import Control.Monad (when, forM, forM_)
 import Text.Printf
 import System.Random
@@ -13,9 +14,10 @@ import Foreign (sizeOf)
 
 type El = Double
 type Msg = StorableArray Int El
+type Counters = IOUArray Int Double
 
 -- Fit a and b to the model y=ax+b. Return a, b, variance
-linfit :: StorableArray Int Double -> StorableArray Int Double -> IO (Double, Double, Double)
+linfit :: Counters -> Counters -> IO (Double, Double, Double)
 linfit x y = do
   x_bnds <- getBounds x
   y_bnds <- getBounds y
@@ -34,7 +36,7 @@ linfit x y = do
       sson = sum $ map (^2) ts
 
       a = (sum $ zipWith (*) ts ys)/sson
-      b = (sy-sx*a)
+      b = (sy-sx*a)/(fromIntegral n)
 
       norm = sum $ map (^2) xs
       res  = zipWith (\x y -> y - a*x - b) xs ys
@@ -62,18 +64,17 @@ main = mpi $ do
     else measure numProcs myRank
 
 measure numProcs myRank = do
-  putStrLn $ printf "I am process %d" ((fromRank myRank) :: Int)
-
+  let (myRankNo :: Int) = fromRank myRank
+  putStrLn $ printf "I am process %d" myRankNo
+  
   -- Initialize data
-  a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
-  when (myRank == zeroRank) $ do putStrLn $ printf "Generating randoms: %d done" (length a)
   let elsize = sizeOf (undefined::Double)
 
-  noelem  <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
-  bytes   <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
-  mintime <- newArray (1, maxI) (100000::Double) :: IO (StorableArray Int Double)
-  maxtime <- newArray (1, maxI) (-100000::Double) :: IO (StorableArray Int Double)
-  avgtime <- newArray (1, maxI) (0::Double) :: IO (StorableArray Int Double)
+  noelem  <- newArray (1, maxI) (0::Double) :: IO Counters
+  bytes   <- newArray (1, maxI) (0::Double) :: IO Counters
+  mintime <- newArray (1, maxI) (100000::Double) :: IO Counters
+  maxtime <- newArray (1, maxI) (-100000::Double) :: IO Counters
+  avgtime <- newArray (1, maxI) (0::Double) :: IO Counters
 
   cpuOH <- if myRank == zeroRank then do
     ohs <- sequence $ replicate repeats $ do
@@ -85,19 +86,28 @@ measure numProcs myRank = do
     return oh
     else return undefined
 
+  let message_sizes = [ block*(i-1)+1 | i <- [1..maxI] ]
+  messages <- if myRank == zeroRank
+              then do a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
+                      putStrLn $ printf "Generating randoms: %d done" (length a)
+                      sequence [ newListArray (1,m) (take m a) | m <- message_sizes ]
+              else return []
+  buffers  <- sequence [ newArray (1,m) 0 | m <- message_sizes ]
+  
   forM_ [1..repeats] $ \k -> do
     when (myRank == zeroRank) $ putStrLn $ printf "Run %d of %d" k repeats
 
     forM_ [1..maxI] $ \i -> do
-      let m = block*(i-1)+1 :: Int
+      let m = message_sizes!!(i-1)
       writeArray noelem i (fromIntegral m)
 
       barrier commWorld
-      (msg :: Msg) <- newListArray (1,m) $ take m a
-      (c :: Msg) <- newArray (1,m) 0
+
+      let (c :: Msg) = buffers!!(i-1)
 
       barrier commWorld -- Synchronize all before timing
       if myRank == zeroRank then do
+        let (msg :: Msg) = messages!!(i-1)
         t1 <- wtime
         send commWorld (toRank (1::Int)) unitTag msg
         recv commWorld (toRank (numProcs-1 :: Int)) unitTag c
@@ -111,8 +121,8 @@ measure numProcs myRank = do
         when (diff < curr_min) $ writeArray mintime i diff
         when (diff > curr_max) $ writeArray maxtime i diff
         else do -- non-root processes. Get msg and pass it on
-        recv commWorld (toRank $ (fromRank myRank)-1) unitTag c
-        send commWorld (toRank $ ((fromRank myRank)+1) `mod` numProcs) unitTag c
+        recv commWorld (toRank $ myRankNo-1) unitTag c
+        send commWorld (toRank $ (myRankNo+1) `mod` numProcs) unitTag c
 
   when (myRank == zeroRank) $ do
     putStrLn "Bytes transferred   time (micro seconds)"
@@ -121,9 +131,9 @@ measure numProcs myRank = do
 
     forM_ [1..maxI] $ \i -> do
 
-      avgtime_ <- (round.(*10e6).(/(fromIntegral repeats))) <$> readArray avgtime i :: IO Int -- Average micro seconds
-      mintime_dbl <- (*10e6) <$> readArray mintime i :: IO Double -- Min micro seconds
-      maxtime_ <- round.(*10e6) <$> readArray maxtime i :: IO Int -- Max micro seconds
+      avgtime_ <- (round.(*1e6).(/(fromIntegral repeats))) <$> readArray avgtime i :: IO Int -- Average micro seconds
+      mintime_dbl <- (*1e6) <$> readArray mintime i :: IO Double -- Min micro seconds
+      maxtime_ <- round.(*1e6) <$> readArray maxtime i :: IO Int -- Max micro seconds
       let mintime_ = round mintime_dbl :: Int
 
       m <- readArray noelem i
