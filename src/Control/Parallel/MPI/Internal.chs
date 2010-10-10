@@ -17,6 +17,7 @@ module Control.Parallel.MPI.Internal
      allgather, allgatherv,
      alltoall, alltoallv,
      reduce, allreduce, reduceScatter,
+     opCreate, opFree,
      wtime, wtick,
      commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
      groupCompare, groupExcl, groupIncl, groupTranslateRanks
@@ -63,9 +64,13 @@ allgather = {# call unsafe Allgather as allgather_ #}
 allgatherv = {# call unsafe Allgatherv as allgatherv_ #}
 alltoall = {# call unsafe Alltoall as alltoall_ #}
 alltoallv = {# call unsafe Alltoallv as alltoallv_ #}
-reduce = {# call unsafe Reduce as reduce_ #}
-allreduce = {# call unsafe Allreduce as allreduce_ #}
-reduceScatter = {# call unsafe Reduce_scatter as reduceScatter_ #}
+-- Reduce, allreduce and reduceScatter could call back to Haskell
+-- via user-defined ops, so they should be imported in "safe" mode
+reduce = {# call Reduce as reduce_ #}
+allreduce = {# call Allreduce as allreduce_ #}
+reduceScatter = {# call Reduce_scatter as reduceScatter_ #}
+opCreate = {# call unsafe Op_create as opCreate_ #}
+opFree = {# call unsafe Op_free as opFree_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
 wtick = {# call unsafe Wtick as wtick_ #}
 commGroup = {# call unsafe Comm_group as commGroup_ #}

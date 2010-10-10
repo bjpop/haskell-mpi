@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, ForeignFunctionInterface #-}
 module StorableArrayTests (storableArrayTests) where
 
 import TestHelpers
@@ -7,6 +7,9 @@ import Data.Array.Storable (StorableArray, newListArray, getElems)
 
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
+
+import Foreign
+import Foreign.C.Types
 
 root :: Rank
 root = 0
@@ -30,11 +33,13 @@ storableArrayTests rank =
   , mpiTestCase rank "reduce storable array"   reduceTest
   , mpiTestCase rank "allreduce storable array"   allreduceTest
   , mpiTestCase rank "reduceScatter storable array"   reduceScatterTest
+  , mpiTestCase rank "reduce storable array with user-defined operation"   reduceUserOpTest
   ]
 syncSendRecvTest  :: (Comm -> Rank -> Tag -> ArrMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> ArrMsg -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 allgatherTest, allgathervTest, alltoallTest, alltoallvTest, reduceTest, allreduceTest, reduceScatterTest :: Rank -> IO ()
+reduceUserOpTest :: Rank -> IO ()
 
 -- StorableArray tests
 type ArrMsg = StorableArray Int Int
@@ -289,3 +294,33 @@ reduceScatterTest myRank = do
   recvMsg <- getElems result
   let expected = map (numProcs*) $ take (myRankNo+1) $ drop (sum [0..myRankNo]) msg
   recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
+
+-- Reducing arrays [0,1,2....] with SUM should yield [0,numProcs,2*numProcs, ...]
+foreign import ccall "wrapper" 
+  wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()) 
+          -> IO (FunPtr (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()))
+reduceUserOpTest myRank = do
+  numProcs <- commSize commWorld
+  userSumPtr <- wrap userSum
+  mySumOp <- opCreate True userSumPtr
+  (src :: ArrMsg) <- newListArray (0,99) [0..99]
+  if myRank /= root
+    then sendReduce commWorld root sumOp src
+    else do
+    (result :: ArrMsg) <- intoNewArray_ (0,99) $ recvReduce commWorld root mySumOp src
+    recvMsg <- getElems result
+    let expected = map (numProcs*) [0..99]
+    recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected
+  freeHaskellFunPtr userSumPtr
+  where
+    userSum :: Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()
+    userSum inPtr inoutPtr lenPtr _ = do
+      len <- peek lenPtr
+      let offs = sizeOf ( undefined :: CDouble )
+      let loop 0 _ _ = return ()
+          loop n inPtr inoutPtr = do
+            a <- peek inPtr
+            b <- peek inoutPtr
+            poke inoutPtr (a+b)
+            loop (n-1) (plusPtr inPtr offs) (plusPtr inoutPtr offs)
+      loop len inPtr inoutPtr

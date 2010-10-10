@@ -28,6 +28,7 @@ module Control.Parallel.MPI.Storable
    , recvReduce
    , allreduce
    , reduceScatter
+   , opCreate
    , intoNewArray
    , intoNewArray_
    , intoNewVal
@@ -414,3 +415,9 @@ intoNewBS_ :: Int -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
 intoNewBS_ len f = do
   (bs, _) <- intoNewBS len f
   return bs
+
+opCreate :: Storable t => Bool -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) -> IO Operation
+opCreate commute f = do
+  alloca $ \ptr -> do
+    checkError $ Internal.opCreate (castFunPtr f) (cIntConv $ fromEnum commute) ptr
+    peek ptr
