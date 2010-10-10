@@ -67,7 +67,8 @@ main = mpi $ do
     else measure numProcs myRank
 
 measure numProcs myRank = do
-  putStrLn $ printf "I am process %d" $ fromEnum myRank
+  procName <- getProcessorName
+  putStrLn $ printf "I am process %d on %s" (fromEnum myRank) procName
 
   -- Initialize data
   let elsize = sizeOf (undefined::Double)
