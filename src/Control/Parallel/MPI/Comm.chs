@@ -2,7 +2,7 @@
 
 #include <mpi.h>
 
-module Control.Parallel.MPI.Comm (Comm, commWorld) where
+module Control.Parallel.MPI.Comm (Comm, commWorld, commSelf) where
 
 import C2HS
 
@@ -10,3 +10,4 @@ import C2HS
 
 type Comm = {# type MPI_Comm #}
 foreign import ccall "mpi_comm_world" commWorld :: Comm
+foreign import ccall "mpi_comm_self" commSelf :: Comm
