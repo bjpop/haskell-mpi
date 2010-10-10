@@ -18,6 +18,7 @@ module Control.Parallel.MPI.Common
    , queryThread
    , isThreadMain
    , finalize
+   , getProcessorName
    , commSize
    , commRank
    , commTestInter
@@ -95,6 +96,14 @@ isThreadMain = asBool $ checkError . Internal.isThreadMain
 
 finalize :: IO ()
 finalize = checkError Internal.finalize
+
+getProcessorName :: IO String
+getProcessorName = do
+  allocaBytes Internal.max_processor_name $ \ptr ->
+    alloca $ \lenPtr -> do
+       checkError $ Internal.getProcessorName ptr lenPtr
+       len <- peek lenPtr
+       peekCStringLen (ptr, cIntConv len)
 
 commSize :: Comm -> IO Int
 commSize comm = asInt $ checkError . Internal.commSize comm
