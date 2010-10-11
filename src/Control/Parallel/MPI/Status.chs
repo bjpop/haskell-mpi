@@ -10,13 +10,13 @@ import Control.Applicative ((<$>), (<*>))
 
 {# context prefix = "MPI" #}
 
-data Status = 
-   Status 
-   { status_source :: Int
-   , status_tag :: Int
-   , status_error :: Int
-   , status_count :: Int
-   , status_cancelled :: Int 
+data Status =
+   Status
+   { status_source :: CInt
+   , status_tag :: CInt
+   , status_error :: CInt
+   , status_count :: CInt
+   , status_cancelled :: CInt
    }
    deriving (Eq, Ord, Show)
 

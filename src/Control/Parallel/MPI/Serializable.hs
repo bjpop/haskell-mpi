@@ -70,7 +70,7 @@ recv comm rank tag = do
 recvBS :: Comm -> Rank -> Tag -> IO (BS.ByteString, Status)
 recvBS comm rank tag = do
    probeStatus <- probe rank tag comm
-   let count = status_count probeStatus
+   let count = fromIntegral $ status_count probeStatus
        cSource = fromRank rank
        cTag    = fromTag tag
        cCount  = cIntConv count
