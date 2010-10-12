@@ -4,10 +4,20 @@
 #define MPI_CONST(ty, name, defn) inline ty name () { return ((ty)defn); }
 
 /* Datatypes */
+MPI_CONST (MPI_Datatype, mpi_char, MPI_CHAR)
+MPI_CONST (MPI_Datatype, mpi_short, MPI_SHORT)
 MPI_CONST (MPI_Datatype, mpi_int, MPI_INT)
-MPI_CONST (MPI_Datatype, mpi_byte, MPI_BYTE)
-MPI_CONST (MPI_Datatype, mpi_double, MPI_DOUBLE)
+MPI_CONST (MPI_Datatype, mpi_long, MPI_LONG)
+MPI_CONST (MPI_Datatype, mpi_long_long, MPI_LONG_LONG)
+MPI_CONST (MPI_Datatype, mpi_unsigned_char, MPI_UNSIGNED_CHAR)
+MPI_CONST (MPI_Datatype, mpi_unsigned_short, MPI_UNSIGNED_SHORT)
+MPI_CONST (MPI_Datatype, mpi_unsigned, MPI_UNSIGNED)
+MPI_CONST (MPI_Datatype, mpi_unsigned_long, MPI_UNSIGNED_LONG)
 MPI_CONST (MPI_Datatype, mpi_float, MPI_FLOAT)
+MPI_CONST (MPI_Datatype, mpi_double, MPI_DOUBLE)
+MPI_CONST (MPI_Datatype, mpi_long_double, MPI_LONG_DOUBLE)
+MPI_CONST (MPI_Datatype, mpi_byte, MPI_BYTE)
+MPI_CONST (MPI_Datatype, mpi_packed, MPI_PACKED)
 
 /* Misc */
 MPI_CONST (int, mpi_any_source, MPI_ANY_SOURCE)
