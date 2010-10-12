@@ -6,6 +6,7 @@ import SerializableTests
 import StorableArrayTests
 import IOArrayTests
 import GroupTests
+import PrimTypeTests
 
 import Control.Monad (when)
 import System.Posix.IO (dupTo, stdError, stdOutput)
@@ -34,8 +35,9 @@ main = do
 
 tests :: Rank -> [(String, TestRunnerTest)]
 tests rank =
-  otherTests rank
-  ++ serializableTests rank
-  ++ storableArrayTests rank
-  ++ ioArrayTests rank
-  ++ groupTests rank
+   otherTests rank
+   ++ serializableTests rank
+   ++ storableArrayTests rank
+   ++ ioArrayTests rank
+   ++ groupTests rank
+   ++ primTypeTests rank
