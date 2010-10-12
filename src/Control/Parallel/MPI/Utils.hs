@@ -1,4 +1,4 @@
-module Control.Parallel.MPI.Utils (checkError, asBool, asInt, asEnum) where
+module Control.Parallel.MPI.Utils (checkError, asBool, asInt, asEnum, debugOut) where
 
 import C2HS
 import Control.Monad (unless)
@@ -25,10 +25,15 @@ asInt f =
     f ptr
     res <- peek ptr
     return $ cIntConv res
-    
+
 asEnum :: Enum a => (Ptr CInt -> IO ()) -> IO a
 asEnum f =
   alloca $ \ptr -> do
     f ptr
     res <- peek ptr
     return $ enumFromCInt res
+
+debugOut :: Show a => a -> Bool
+debugOut x = unsafePerformIO $ do
+   print x
+   return False
