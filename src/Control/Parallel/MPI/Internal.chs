@@ -20,7 +20,8 @@ module Control.Parallel.MPI.Internal
      opCreate, opFree,
      wtime, wtick,
      commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
-     groupCompare, groupExcl, groupIncl, groupTranslateRanks
+     groupCompare, groupExcl, groupIncl, groupTranslateRanks,
+     typeSize
    ) where
 
 import Prelude hiding (init)
@@ -83,3 +84,4 @@ groupCompare = {# call unsafe Group_compare as groupCompare_ #}
 groupExcl = {# call unsafe Group_excl as groupExcl_ #}
 groupIncl = {# call unsafe Group_incl as groupIncl_ #}
 groupTranslateRanks = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #}
+typeSize = {# call unsafe Type_size as typeSize_ #}

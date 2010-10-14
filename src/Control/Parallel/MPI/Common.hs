@@ -47,6 +47,7 @@ module Control.Parallel.MPI.Common
    , groupExcl
    , groupIncl
    , groupTranslateRanks
+   , typeSize
    ) where
 
 import Prelude hiding (init)
@@ -252,3 +253,9 @@ groupTranslateRanks group1 ranks group2 =
          allocaArray size $ \resultPtr -> do
             checkError $ Internal.groupTranslateRanks group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
             map toRank <$> peekArray size resultPtr
+
+typeSize :: Datatype -> Int
+typeSize dataType = unsafePerformIO $
+   alloca $ \ptr -> do
+      checkError $ Internal.typeSize dataType ptr
+      fromIntegral <$> peek ptr
