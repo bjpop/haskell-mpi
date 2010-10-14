@@ -190,7 +190,7 @@ recvGather comm root msg = do
     doRecv isInter = do
       let enc_msg = encode msg
       numProcs <- if isInter then commRemoteSize comm else commSize comm
-      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (BS.length enc_msg) 
+      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (cIntConv (BS.length enc_msg) :: CInt) 
       -- calculate displacements from sizes
       lengths <- SA.getElems lengthsArr
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
@@ -253,7 +253,7 @@ allgather comm msg = do
   isInter <- commTestInter comm
   numProcs <- if isInter then commRemoteSize comm else commSize comm      
   -- Send length of my message and receive lengths from other ranks
-  (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0, numProcs-1) $ Storable.allgather comm (BS.length enc_msg)
+  (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0, numProcs-1) $ Storable.allgather comm (cIntConv (BS.length enc_msg) :: CInt)
   -- calculate displacements from sizes
   lengths <- SA.getElems lengthsArr
   (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
