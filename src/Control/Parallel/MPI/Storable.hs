@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, UndecidableInstances, CPP #-}
 
 module Control.Parallel.MPI.Storable
    ( SendFrom (..)
@@ -38,7 +38,10 @@ module Control.Parallel.MPI.Storable
    , intoNewVal_
    , intoNewBS
    , intoNewBS_
+   , module Data.Word
    ) where
+
+#include "MachDeps.h"
 
 import C2HS
 import Data.Array.Base (unsafeNewArray_)
@@ -56,6 +59,8 @@ import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Op as Op
+import Data.Int()
+import Data.Word
 
 -- | if the user wants to call recvScatterv for the first time without
 -- already having allocated the array, then they can call it like so:
@@ -283,11 +288,52 @@ class Repr e where
   -- type in MPI transfers
   representation :: e -> (Int, Datatype)
   
+instance Repr Bool where
+  representation _ = (4,byte)
+
 instance Repr Int where
+#if SIZEOF_HSINT == 4  
   representation _ = (1,int)
+#else
+  representation _ = (1,longLong)
+#endif                     
 
 instance Repr CInt where
   representation _ = (1,int)
+
+instance Repr Int8 where
+  representation _ = (1,byte)
+
+instance Repr Int16 where
+  representation _ = (1,short)
+
+instance Repr Int32 where
+  representation _ = (1,int)
+
+instance Repr Int64 where
+  representation _ = (1,longLong)
+
+instance Repr Word where
+#if SIZEOF_HSINT == 4  
+  representation _ = (1,unsigned)
+#else
+  representation _ = (1,unsignedLongLong)
+#endif                     
+
+instance Repr Word8 where
+  representation _ = (1,byte)
+
+instance Repr Word16 where
+  representation _ = (1,unsignedShort)
+
+instance Repr Word32 where
+  representation _ = (1,unsigned)
+
+instance Repr Word64 where
+  representation _ = (1,unsignedLongLong)
+
+instance Repr Char where
+  representation _ = (4,byte)
 
 instance Repr CChar where
   representation _ = (1,byte)
@@ -321,6 +367,17 @@ instance SendFrom CInt where
   sendFrom = sendFromSingleValue
 instance SendFrom Int where
   sendFrom x = sendFromSingleValue (cIntConv x :: CInt)
+instance SendFrom Int32 where
+  sendFrom x = sendFromSingleValue (cIntConv x :: CInt)
+instance SendFrom Int64 where
+  sendFrom = sendFromSingleValue
+instance SendFrom Word where
+  sendFrom = sendFromSingleValue
+instance SendFrom Word32 where
+  sendFrom = sendFromSingleValue
+instance SendFrom Word64 where
+  sendFrom = sendFromSingleValue
+
 
 sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 sendFromSingleValue v f = do
