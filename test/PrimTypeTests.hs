@@ -31,5 +31,28 @@ sendRecvSingleValTest val rank
     result == val @? "result: " ++ show result ++ " not equal to sent val: " ++ show (val :: a)
   | otherwise = return ()
 
+reprSizeTest :: Rank -> IO ()
 reprSizeTest _ = do
-  sizeOf (undefined :: Int) == (typeSize int) @? "Size of Int differs from size of MPI_INT"
+  check "Bool"   (undefined :: Bool)
+  check "Char"   (undefined :: Char)
+  check "CChar"  (undefined :: CChar)
+  check "Int"    (undefined :: Int)
+  check "CInt"   (undefined :: CInt)
+  check "Int8"  (undefined :: Int8)
+  check "Int16"  (undefined :: Int16)
+  check "Int32"  (undefined :: Int32)
+  check "Int64"  (undefined :: Int64)
+  check "Word"   (undefined :: Word)
+  check "Word8"  (undefined :: Word8)
+  check "Word16" (undefined :: Word16)
+  check "Word32" (undefined :: Word32)
+  check "Word64" (undefined :: Word64)
+  check "Double" (undefined :: Double)
+  check "Float"  (undefined :: Float)
+  where
+    check tName hType = do
+      let hSize = sizeOf hType 
+          (scale, mType) = representation hType
+          mSize = typeSize (mType) * scale
+      
+      hSize == mSize @? tName ++ " has size of " ++ show hSize ++ ", but its MPI representation has size of " ++ show mSize
