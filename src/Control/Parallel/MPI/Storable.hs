@@ -464,14 +464,15 @@ intoNewVal_ f = do
   return val
 
 -- Receiving into new bytestrings
-intoNewBS :: Int -> ((Ptr CChar,Int) -> IO r) -> IO (BS.ByteString, r)
+intoNewBS :: Integral a => a -> ((Ptr CChar,Int) -> IO r) -> IO (BS.ByteString, r)
 intoNewBS len f = do
-  allocaBytes len $ \ptr -> do
-    res <- f (ptr, len)
-    bs <- BS.packCStringLen (ptr, len)
+  let l = fromIntegral len
+  allocaBytes l $ \ptr -> do
+    res <- f (ptr, l)
+    bs <- BS.packCStringLen (ptr, l)
     return (bs, res)
 
-intoNewBS_ :: Int -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
+intoNewBS_ :: Integral a => a -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
 intoNewBS_ len f = do
   (bs, _) <- intoNewBS len f
   return bs
