@@ -19,7 +19,7 @@ primTypeTests rank =
   , mpiTestCase rank "Word32 maxBound" (sendRecvSingleValTest (maxBound :: Word32))
   , mpiTestCase rank "Word32 minBound" (sendRecvSingleValTest (minBound :: Word32))    
   , mpiTestCase rank "Word64 maxBound" (sendRecvSingleValTest (maxBound :: Word64))
-  , mpiTestCase rank "Word64 minBound" (sendRecvSingleValTest (minBound :: Int64))
+  , mpiTestCase rank "Word64 minBound" (sendRecvSingleValTest (minBound :: Word64))
   , mpiTestCase rank "checking sizes of Haskell types vs MPI representations" reprSizeTest
   ]
 
