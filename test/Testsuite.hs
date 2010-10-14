@@ -36,8 +36,8 @@ main = do
 tests :: Rank -> [(String, TestRunnerTest)]
 tests rank =
    otherTests rank
+   ++ primTypeTests rank
    ++ serializableTests rank
    ++ storableArrayTests rank
    ++ ioArrayTests rank
    ++ groupTests rank
-   ++ primTypeTests rank
