@@ -21,7 +21,7 @@ serializableTests rank =
   , mpiTestCase rank "isend+recv two messages"   asyncSendRecv2
   , mpiTestCase rank "isend+recvFuture two messages, out of order" asyncSendRecv2ooo
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
-  , mpiTestCase rank "broadcast message" broadcast
+  , mpiTestCase rank "broadcast message" broadcastTest
   , mpiTestCase rank "scatter message" scatterTest
   , mpiTestCase rank "gather message" gatherTest
   , mpiTestCase rank "allgather message" allgatherTest
@@ -30,7 +30,7 @@ serializableTests rank =
 syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
-crissCrossSendRecv, broadcast, scatterTest, gatherTest, allgatherTest, alltoallTest :: Rank -> IO ()
+crissCrossSendRecv, broadcastTest, scatterTest, gatherTest, allgatherTest, alltoallTest :: Rank -> IO ()
 
 
 -- Serializable tests
@@ -133,7 +133,7 @@ crissCrossSendRecv rank
   | otherwise        = return () -- idling
 
 
-broadcast _ = do
+broadcastTest _ = do
   result <- bcast commWorld sender bigMsg
   (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
 
