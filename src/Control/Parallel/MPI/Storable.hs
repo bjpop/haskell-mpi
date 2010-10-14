@@ -289,58 +289,51 @@ class Repr e where
   representation :: e -> (Int, Datatype)
   
 instance Repr Bool where
-  representation _ = (4,byte)
+  representation _ = (1,unsigned)
 
 instance Repr Int where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,int)
-#else
+#elif SIZEOF_HSINT == 8
   representation _ = (1,longLong)
-#endif                     
-
-instance Repr CInt where
-  representation _ = (1,int)
+#else
+#error Haskell MPI bindings not tested on architecture where size of Haskell Int is not 4 or 8
+#endif
 
 instance Repr Int8 where
-  representation _ = (1,byte)
-
+   representation _ = (1,byte)
 instance Repr Int16 where
-  representation _ = (1,short)
-
+   representation _ = (1,short)
 instance Repr Int32 where
-  representation _ = (1,int)
-
+   representation _ = (1,int)
 instance Repr Int64 where
-  representation _ = (1,longLong)
+   representation _ = (1,longLong)
+instance Repr CInt where
+  representation _ = (1,int)
 
 instance Repr Word where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,unsigned)
 #else
   representation _ = (1,unsignedLongLong)
-#endif                     
+#endif
 
 instance Repr Word8 where
   representation _ = (1,byte)
-
 instance Repr Word16 where
   representation _ = (1,unsignedShort)
-
 instance Repr Word32 where
   representation _ = (1,unsigned)
-
 instance Repr Word64 where
   representation _ = (1,unsignedLongLong)
 
 instance Repr Char where
-  representation _ = (4,byte)
-
+  representation _ = (1,wchar)
 instance Repr CChar where
   representation _ = (1,char)
 
 instance Repr Double where
   representation _ = (1,double)
-
 instance Repr Float where
   representation _ = (1,float)
 
@@ -349,10 +342,10 @@ instance Repr e => Repr (StorableArray i e) where
 
 instance Repr e => Repr (IOArray i e) where
   representation _ = representation (undefined::e)
-  
+
 instance Repr e => Repr (IOUArray i e) where
   representation _ = representation (undefined::e)
-  
+
 -- Note that 'e' is not bound by the typeclass, so all kinds of foul play
 -- are possible. However, since MPI declares all buffers as 'void*' anyway, 
 -- we are not making life all _that_ unsafe with this
@@ -366,18 +359,35 @@ class RecvInto v where
 instance SendFrom CInt where
   sendFrom = sendFromSingleValue
 instance SendFrom Int where
-  sendFrom x = sendFromSingleValue (cIntConv x :: CInt)
+  sendFrom = sendFromSingleValue
+instance SendFrom Int8 where
+  sendFrom = sendFromSingleValue
+instance SendFrom Int16 where
+  sendFrom = sendFromSingleValue
 instance SendFrom Int32 where
-  sendFrom x = sendFromSingleValue (cIntConv x :: CInt)
+  sendFrom = sendFromSingleValue
 instance SendFrom Int64 where
   sendFrom = sendFromSingleValue
 instance SendFrom Word where
+  sendFrom = sendFromSingleValue
+instance SendFrom Word8 where
+  sendFrom = sendFromSingleValue
+instance SendFrom Word16 where
   sendFrom = sendFromSingleValue
 instance SendFrom Word32 where
   sendFrom = sendFromSingleValue
 instance SendFrom Word64 where
   sendFrom = sendFromSingleValue
-
+instance SendFrom Bool where
+  sendFrom = sendFromSingleValue
+instance SendFrom Float where
+  sendFrom = sendFromSingleValue
+instance SendFrom Double where
+  sendFrom = sendFromSingleValue
+instance SendFrom Char where
+  sendFrom = sendFromSingleValue
+instance SendFrom CChar where
+  sendFrom = sendFromSingleValue
 
 sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 sendFromSingleValue v f = do
@@ -385,7 +395,7 @@ sendFromSingleValue v f = do
     poke ptr v
     let (1, dtype) = representation v
     f (castPtr ptr) (1::CInt) dtype
-  
+
 -- Sending-receiving arrays of such values
 instance (Storable e, Repr e, Ix i) => SendFrom (StorableArray i e) where
   sendFrom = withStorableArrayAndSize

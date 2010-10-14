@@ -5,6 +5,7 @@
 
 /* Datatypes */
 MPI_CONST (MPI_Datatype, mpi_char, MPI_CHAR)
+MPI_CONST (MPI_Datatype, mpi_wchar, MPI_WCHAR)
 MPI_CONST (MPI_Datatype, mpi_short, MPI_SHORT)
 MPI_CONST (MPI_Datatype, mpi_int, MPI_INT)
 MPI_CONST (MPI_Datatype, mpi_long, MPI_LONG)

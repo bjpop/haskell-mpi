@@ -3,7 +3,7 @@
 #include <mpi.h>
 
 module Control.Parallel.MPI.Datatype
-   (Datatype, char, short, int, long, longLong, unsignedChar,
+   (Datatype, char, wchar, short, int, long, longLong, unsignedChar,
     unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double,
     longDouble, byte, packed) where
 
@@ -14,6 +14,7 @@ import C2HS
 type Datatype = {# type MPI_Datatype #}
 
 foreign import ccall "mpi_char" char :: Datatype
+foreign import ccall "mpi_wchar" wchar :: Datatype
 foreign import ccall "mpi_short" short :: Datatype
 foreign import ccall "mpi_int" int :: Datatype
 foreign import ccall "mpi_long" long :: Datatype
