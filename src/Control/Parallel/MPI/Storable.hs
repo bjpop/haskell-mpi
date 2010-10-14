@@ -336,7 +336,7 @@ instance Repr Char where
   representation _ = (4,byte)
 
 instance Repr CChar where
-  representation _ = (1,byte)
+  representation _ = (1,char)
 
 instance Repr Double where
   representation _ = (1,double)
