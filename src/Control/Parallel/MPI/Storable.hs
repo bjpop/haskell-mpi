@@ -1,7 +1,10 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, UndecidableInstances #-}
 
 module Control.Parallel.MPI.Storable
-   ( send
+   ( SendFrom (..)
+   , RecvInto (..)
+   , Repr (..)
+   , send
    , ssend
    , bsend
    , rsend
