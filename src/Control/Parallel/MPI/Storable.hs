@@ -163,7 +163,7 @@ recvScatter comm root recvVal = do
 
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
 sendScatterv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
-                 StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+                 StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 sendScatterv comm root sendVal counts displacements recvVal  = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == sendRank ?
@@ -204,7 +204,7 @@ sendGather comm root segment = do
      checkError $ Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte (fromRank root) comm
 
 recvGatherv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
-                StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+                StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 recvGatherv comm root segment counts displacements recvVal = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
@@ -229,7 +229,7 @@ allgather comm sendVal recvVal = do
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent equals amount received
       checkError $ Internal.allgather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
 
-allgatherv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+allgatherv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 allgatherv comm segment counts displacements recvVal = do
    sendFrom segment $ \sendPtr sendElements sendType ->
      withStorableArray counts $ \countsPtr ->  
@@ -248,7 +248,7 @@ alltoall comm sendVal sendCount recvVal = do
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
       checkError $ Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
 
-alltoallv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> StorableArray Int Int -> v2 -> IO ()
+alltoallv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ recvType ->
@@ -276,7 +276,7 @@ allreduce comm op sendVal recvVal =
     recvInto recvVal $ \recvPtr _ _ ->
       checkError $ Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
 
-reduceScatter :: (SendFrom v, RecvInto v) => Comm -> Operation -> StorableArray Int Int -> v -> v -> IO ()
+reduceScatter :: (SendFrom v, RecvInto v) => Comm -> Operation -> StorableArray Int CInt -> v -> v -> IO ()
 reduceScatter comm op counts sendVal recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ ->

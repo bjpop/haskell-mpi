@@ -9,6 +9,9 @@ import Data.Array.IO (IOArray, newListArray, getElems)
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 
+import Foreign.C.Types
+import Data.List
+
 root :: Rank
 root = 0
 
@@ -127,23 +130,23 @@ scattervTest myRank = do
   let bigRange@(low, hi) = (1, sum [1..numProcs])
       recvRange = (0, myRankNo)
       myRankNo = fromRank myRank
-      counts = [1..numProcs]
-      displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
+      counts = [1..fromIntegral numProcs]
+      displs = (0:(Prelude.init $ scanl1 (+) $ [1..fromIntegral numProcs]))
 
   (segment::ArrMsg) <- if myRank == root then do
     (msg :: ArrMsg) <- newListArray bigRange $ map fromIntegral [low..hi]
 
     let msgRange = (1, numProcs)
-    (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
-    (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
+    (packCounts :: StorableArray Int CInt) <- newListArray msgRange counts
+    (packDispls :: StorableArray Int CInt) <- newListArray msgRange displs
 
     intoNewArray_ recvRange $ sendScatterv commWorld root msg packCounts packDispls
     else intoNewArray_ recvRange $ recvScatterv commWorld root
 
   recvMsg <- getElems segment
 
-  let myCount = counts!!myRankNo
-      myDispl = displs!!myRankNo
+  let myCount = fromIntegral $ counts!!myRankNo
+      myDispl = fromIntegral $ displs!!myRankNo
       expected = map fromIntegral $ take myCount $ drop myDispl [low..hi]
   recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
 
@@ -174,11 +177,11 @@ gathervTest myRank = do
     then sendGatherv commWorld root msg
     else do
     let msgRange = (1, numProcs)
-        counts = [1..numProcs]
-        displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
+        counts = [1..fromIntegral numProcs]
+        displs = (0:(Prelude.init $ scanl1 (+) $ [1..fromIntegral numProcs]))
         expected = map fromIntegral $ concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
-    (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
-    (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
+    (packCounts :: StorableArray Int CInt) <- newListArray msgRange counts
+    (packDispls :: StorableArray Int CInt) <- newListArray msgRange displs
 
     (segment::ArrMsg) <- intoNewArray_ bigRange $ recvGatherv commWorld root msg packCounts packDispls
     recvMsg <- getElems segment
@@ -207,11 +210,11 @@ allgathervTest myRank = do
   (msg :: ArrMsg) <- newListArray sendRange $ map fromIntegral [0..myRankNo]
 
   let msgRange = (1, numProcs)
-      counts = [1..numProcs]
-      displs = (0:(Prelude.init $ scanl1 (+) $ [1..numProcs]))
+      counts = [1..fromIntegral numProcs]
+      displs = (0:(Prelude.init $ scanl1 (+) $ [1..fromIntegral numProcs]))
       expected = map fromIntegral $ concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
-  (packCounts :: StorableArray Int Int) <- newListArray msgRange counts
-  (packDispls :: StorableArray Int Int) <- newListArray msgRange displs
+  (packCounts :: StorableArray Int CInt) <- newListArray msgRange counts
+  (packDispls :: StorableArray Int CInt) <- newListArray msgRange displs
 
   (result::ArrMsg) <- intoNewArray_ bigRange $ allgatherv commWorld msg packCounts packDispls
   recvMsg <- getElems result
@@ -241,18 +244,19 @@ alltoallTest myRank = do
 -- etc
 alltoallvTest myRank = do
   numProcs <- commSize commWorld
-  let myRankNo   = fromRank myRank
+  let myRankNo :: CInt = fromRank myRank
       sendCounts = take numProcs [1..]
+      msgLen     = fromIntegral $ sum sendCounts
       sendDispls = Prelude.init $ scanl1 (+) $ 0:sendCounts
       recvCounts = take numProcs (repeat (myRankNo+1))
       recvDispls = Prelude.init $ scanl1 (+) $ 0:recvCounts
-      expected   = map fromIntegral $ concatMap (replicate (myRankNo+1)) (take numProcs [(0::Int)..])
+      expected   = map fromIntegral $ concatMap (genericReplicate (myRankNo+1)) (take numProcs [(0::CInt)..])
 
-  (packSendCounts :: StorableArray Int Int) <- newListArray (1, length sendCounts) sendCounts
-  (packSendDispls :: StorableArray Int Int) <- newListArray (1, length sendDispls) sendDispls
-  (packRecvCounts :: StorableArray Int Int) <- newListArray (1, length recvCounts) recvCounts
-  (packRecvDispls :: StorableArray Int Int) <- newListArray (1, length recvDispls) recvDispls
-  (msg :: ArrMsg) <- newListArray (1, sum sendCounts) $ map fromIntegral $ take (sum sendCounts) $ repeat myRankNo
+  (packSendCounts :: StorableArray Int CInt) <- newListArray (1, length sendCounts) sendCounts
+  (packSendDispls :: StorableArray Int CInt) <- newListArray (1, length sendDispls) sendDispls
+  (packRecvCounts :: StorableArray Int CInt) <- newListArray (1, length recvCounts) recvCounts
+  (packRecvDispls :: StorableArray Int CInt) <- newListArray (1, length recvDispls) recvDispls
+  (msg :: ArrMsg) <- newListArray (1, msgLen) $ map fromIntegral $ take msgLen $ repeat myRankNo
 
   (result::ArrMsg) <- intoNewArray_ (1, length expected) $ alltoallv commWorld msg packSendCounts packSendDispls
                                                                                    packRecvCounts packRecvDispls
@@ -288,7 +292,7 @@ reduceScatterTest myRank = do
       msg = take dataSize [0..]
       myRankNo = fromRank myRank
   (src :: ArrMsg) <- newListArray (1,dataSize) msg
-  (counts :: StorableArray Int Int) <- newListArray (1, numProcs) [1..numProcs]
+  (counts :: StorableArray Int CInt) <- newListArray (1, numProcs) [1..fromIntegral numProcs]
   (result :: ArrMsg) <- intoNewArray_ (1,myRankNo + 1) $ reduceScatter commWorld sumOp counts src
   recvMsg <- getElems result
   let expected = map ((fromIntegral numProcs)*) $ take (myRankNo+1) $ drop (sum [0..myRankNo]) msg
