@@ -1,7 +1,8 @@
 #include <mpi.h>
 
 /* Taken from HMPI */
-#define MPI_CONST(ty, name, defn) inline ty name () { return ((ty)defn); }
+// #define MPI_CONST(ty, name, defn) inline ty name () { return ((ty)defn); }
+#define MPI_CONST(ty, name, defn) ty name = defn;
 
 /* Datatypes */
 MPI_CONST (MPI_Datatype, mpi_char, MPI_CHAR)

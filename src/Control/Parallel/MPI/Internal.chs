@@ -29,7 +29,8 @@ import C2HS
 
 {# context prefix = "MPI" #}
 
-foreign import ccall "mpi_max_processor_name" max_processor_name :: Int
+foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr Int
+max_processor_name = unsafePerformIO $ peek max_processor_name_
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}

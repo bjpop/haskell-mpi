@@ -13,19 +13,40 @@ import C2HS
 
 type Datatype = {# type MPI_Datatype #}
 
-foreign import ccall "mpi_char" char :: Datatype
-foreign import ccall "mpi_wchar" wchar :: Datatype
-foreign import ccall "mpi_short" short :: Datatype
-foreign import ccall "mpi_int" int :: Datatype
-foreign import ccall "mpi_long" long :: Datatype
-foreign import ccall "mpi_long_long" longLong :: Datatype
-foreign import ccall "mpi_unsigned_char" unsignedChar :: Datatype
-foreign import ccall "mpi_unsigned_short" unsignedShort :: Datatype
-foreign import ccall "mpi_unsigned" unsigned :: Datatype
-foreign import ccall "mpi_unsigned_long" unsignedLong :: Datatype
-foreign import ccall "mpi_unsigned_long_long" unsignedLongLong :: Datatype
-foreign import ccall "mpi_float" float :: Datatype
-foreign import ccall "mpi_double" double :: Datatype
-foreign import ccall "mpi_long_double" longDouble :: Datatype
-foreign import ccall "mpi_byte" byte :: Datatype
-foreign import ccall "mpi_packed" packed :: Datatype
+foreign import ccall unsafe "&mpi_char" char_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_wchar" wchar_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_short" short_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_int" int_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_long" long_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_long_long" longLong_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_unsigned_char" unsignedChar_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_unsigned_short" unsignedShort_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_unsigned" unsigned_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_unsigned_long" unsignedLong_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_unsigned_long_long" unsignedLongLong_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_float" float_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_double" double_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_long_double" longDouble_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_byte" byte_ :: Ptr Datatype
+foreign import ccall unsafe "&mpi_packed" packed_ :: Ptr Datatype
+
+char, wchar, short, int, long, longLong, unsignedChar, unsignedShort :: Datatype
+unsigned, unsignedLong, unsignedLongLong, float, double, longDouble :: Datatype
+byte, packed :: Datatype
+
+char = unsafePerformIO $ peek char_
+wchar = unsafePerformIO $ peek wchar_
+short = unsafePerformIO $ peek short_
+int = unsafePerformIO $ peek int_
+long = unsafePerformIO $ peek long_
+longLong = unsafePerformIO $ peek longLong_
+unsignedChar = unsafePerformIO $ peek unsignedChar_
+unsignedShort = unsafePerformIO $ peek unsignedShort_
+unsigned = unsafePerformIO $ peek unsigned_
+unsignedLong = unsafePerformIO $ peek unsignedLong_
+unsignedLongLong = unsafePerformIO $ peek unsignedLongLong_
+float = unsafePerformIO $ peek float_
+double = unsafePerformIO $ peek double_
+longDouble = unsafePerformIO $ peek longDouble_
+byte = unsafePerformIO $ peek byte_
+packed = unsafePerformIO $ peek packed_

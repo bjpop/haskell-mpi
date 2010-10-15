@@ -2,6 +2,8 @@
 
 module Control.Parallel.MPI.Tag (Tag, toTag, fromTag, tagVal, anyTag) where
 
+import Foreign
+
 newtype Tag = Tag { tagVal :: Int }
    deriving (Eq, Ord, Enum, Num, Integral, Real)
 
@@ -14,7 +16,7 @@ toTag x = Tag { tagVal = fromEnum x }
 fromTag :: Enum a => Tag -> a
 fromTag = toEnum . tagVal 
 
-foreign import ccall "mpi_any_tag" anyTag_ :: Int 
+foreign import ccall unsafe "&mpi_any_tag" anyTag_ :: Ptr Int 
 
 anyTag :: Tag
-anyTag = toTag anyTag_
+anyTag = toTag $ unsafePerformIO $ peek anyTag_
