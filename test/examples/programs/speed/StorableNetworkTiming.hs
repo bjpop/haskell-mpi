@@ -4,13 +4,16 @@ module Main where
 
 import Control.Parallel.MPI.Common
 import Control.Parallel.MPI.Storable
+import qualified Control.Parallel.MPI.Internal as Internal
 import Data.Array.Storable
 import Data.Array.IO
 import Control.Monad (when, forM, forM_)
 import Text.Printf
 import System.Random
+import System.Environment (getArgs)
 import Control.Applicative
-import Foreign (sizeOf)
+import Foreign (sizeOf, castPtr, nullPtr)
+import Foreign.C.Types
 
 type El = Double
 type Msg = StorableArray Int El
@@ -54,9 +57,15 @@ block = maxM `div` maxI -- Block size
 
 repeats = 10
 
+data Mode = Prim | API deriving Eq
+
 main = mpi $ do
+  args <- getArgs
   numProcs <- commSize commWorld
   myRank   <- commRank commWorld
+  let mode = case args of
+               ("prim":_) -> Prim
+               _      -> API
 
   when (myRank == root) $ do
     putStrLn $ printf "MAXM = %d, number of processors = %d" maxM numProcs
@@ -64,9 +73,9 @@ main = mpi $ do
 
   if numProcs < 2
     then putStrLn "Program needs at least two processors - aborting"
-    else measure numProcs myRank
+    else measure mode numProcs myRank
 
-measure numProcs myRank = do
+measure mode numProcs myRank = do
   procName <- getProcessorName
   putStrLn $ printf "I am process %d on %s" (fromEnum myRank) procName
 
@@ -111,11 +120,21 @@ measure numProcs myRank = do
       barrier commWorld -- Synchronize all before timing
       if myRank == root then do
         let (msg :: Msg) = messages!!(i-1)
-        t1 <- wtime
-        send commWorld 1 unitTag msg
-        recv commWorld (toEnum $ numProcs-1) unitTag c
-        t2 <- wtime
-        let diff = t2 - t1 - cpuOH
+        diff <- if mode == API then do
+            t1 <- wtime
+            send commWorld 1 unitTag msg
+            recv commWorld (toEnum $ numProcs-1) unitTag c
+            t2 <- wtime
+            return (t2-t1-cpuOH)
+          else do
+            let cnt :: CInt = fromIntegral m      
+            t1 <- wtime
+            withStorableArray msg $ \sendPtr ->
+              Internal.send (castPtr sendPtr) cnt double 1 0 commWorld
+            withStorableArray c $ \recvPtr ->
+              Internal.recv (castPtr recvPtr) cnt double (fromIntegral $ numProcs-1) 0 commWorld nullPtr
+            t2 <- wtime
+            return (t2-t1-cpuOH)               
         curr_avg <- readArray avgtime i
         writeArray avgtime i $ curr_avg + diff/(fromIntegral numProcs)
 
@@ -123,10 +142,15 @@ measure numProcs myRank = do
         curr_max <- readArray maxtime i
         when (diff < curr_min) $ writeArray mintime i diff
         when (diff > curr_max) $ writeArray maxtime i diff
-        else do -- non-root processes. Get msg and pass it on
-        recv commWorld (myRank-1) unitTag c
-        send commWorld ((myRank+1) `mod` toEnum numProcs) unitTag c
-
+        else if mode == API then do -- non-root processes. Get msg and pass it on
+            recv commWorld (myRank-1) unitTag c
+            send commWorld ((myRank+1) `mod` toEnum numProcs) unitTag c
+          else do
+            let cnt :: CInt = fromIntegral m      
+            withStorableArray c $ \recvPtr -> do
+              Internal.recv (castPtr recvPtr) cnt double (fromIntegral $ myRank-1) 0 commWorld nullPtr
+              Internal.send (castPtr recvPtr) cnt double (fromIntegral $ (myRank+1) `mod` toEnum numProcs) 0 commWorld
+            return ()
   when (myRank == root) $ do
     putStrLn "Bytes transferred   time (micro seconds)"
     putStrLn "                    min        avg        max "
