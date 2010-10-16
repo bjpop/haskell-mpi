@@ -66,7 +66,7 @@ main = mpi $ do
         requests <- forM (takeWhile (<window_size) [0..]) $ \j ->
           isend commWorld 1 100 s_buf
 
-        mapM_ wait requests
+        waitall requests
 
         (deadbeef::Int, _) <- recv commWorld 1 101
         return ()
