@@ -11,6 +11,7 @@ module Control.Parallel.MPI.Serializable
    , ibsend
    , issend
    , isendBS
+   , waitall
    , recvFuture
    , bcast
    , sendGather
@@ -101,6 +102,13 @@ isendBSwith send_function comm rank tag bs = do
       unsafeUseAsCString bs $ \cString -> do
           checkError $ send_function (castPtr cString) cCount byte cRank cTag comm requestPtr
           peek requestPtr
+
+waitall :: [Request] -> IO [Status]
+waitall reqs = do
+  withArrayLen reqs $ \len reqPtr ->
+    allocaArray len $ \statPtr -> do
+      checkError $ Internal.waitall (cIntConv len) reqPtr (castPtr statPtr)
+      peekArray len statPtr
 
 recvFuture :: Serialize msg => Comm -> Rank -> Tag -> IO (Future msg)
 recvFuture comm rank tag = do
