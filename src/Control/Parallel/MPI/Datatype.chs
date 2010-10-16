@@ -3,9 +3,9 @@
 #include <mpi.h>
 
 module Control.Parallel.MPI.Datatype
-   (Datatype, char, wchar, short, int, long, longLong, unsignedChar,
-    unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double,
-    longDouble, byte, packed) where
+   (Datatype, charPtr, wcharPtr, shortPtr, intPtr, longPtr, longLongPtr, unsignedCharPtr,
+    unsignedShortPtr, unsignedPtr, unsignedLongPtr, unsignedLongLongPtr, floatPtr, doublePtr,
+    longDoublePtr, bytePtr, packedPtr) where
 
 import C2HS
 
@@ -13,19 +13,19 @@ import C2HS
 
 type Datatype = {# type MPI_Datatype #}
 
-foreign import ccall "mpi_char" char :: Datatype
-foreign import ccall "mpi_wchar" wchar :: Datatype
-foreign import ccall "mpi_short" short :: Datatype
-foreign import ccall "mpi_int" int :: Datatype
-foreign import ccall "mpi_long" long :: Datatype
-foreign import ccall "mpi_long_long" longLong :: Datatype
-foreign import ccall "mpi_unsigned_char" unsignedChar :: Datatype
-foreign import ccall "mpi_unsigned_short" unsignedShort :: Datatype
-foreign import ccall "mpi_unsigned" unsigned :: Datatype
-foreign import ccall "mpi_unsigned_long" unsignedLong :: Datatype
-foreign import ccall "mpi_unsigned_long_long" unsignedLongLong :: Datatype
-foreign import ccall "mpi_float" float :: Datatype
-foreign import ccall "mpi_double" double :: Datatype
-foreign import ccall "mpi_long_double" longDouble :: Datatype
-foreign import ccall "mpi_byte" byte :: Datatype
-foreign import ccall "mpi_packed" packed :: Datatype
+foreign import ccall "&mpi_char" charPtr :: Ptr Datatype
+foreign import ccall "&mpi_wchar" wcharPtr :: Ptr Datatype
+foreign import ccall "&mpi_short" shortPtr :: Ptr Datatype
+foreign import ccall "&mpi_int" intPtr :: Ptr Datatype
+foreign import ccall "&mpi_long" longPtr :: Ptr Datatype
+foreign import ccall "&mpi_long_long" longLongPtr :: Ptr Datatype
+foreign import ccall "&mpi_unsigned_char" unsignedCharPtr :: Ptr Datatype
+foreign import ccall "&mpi_unsigned_short" unsignedShortPtr :: Ptr Datatype
+foreign import ccall "&mpi_unsigned" unsignedPtr :: Ptr Datatype
+foreign import ccall "&mpi_unsigned_long" unsignedLongPtr :: Ptr Datatype
+foreign import ccall "&mpi_unsigned_long_long" unsignedLongLongPtr :: Ptr Datatype
+foreign import ccall "&mpi_float" floatPtr :: Ptr Datatype
+foreign import ccall "&mpi_double" doublePtr :: Ptr Datatype
+foreign import ccall "&mpi_long_double" longDoublePtr :: Ptr Datatype
+foreign import ccall "&mpi_byte" bytePtr :: Ptr Datatype
+foreign import ccall "&mpi_packed" packedPtr :: Ptr Datatype

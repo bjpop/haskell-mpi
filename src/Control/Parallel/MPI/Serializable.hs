@@ -57,6 +57,7 @@ sendBSwith send_function comm rank tag bs = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
+   byte <- peek bytePtr
    unsafeUseAsCString bs $ \cString ->
        checkError $ send_function (castPtr cString) cCount byte cRank cTag comm
 
@@ -74,6 +75,7 @@ recvBS comm rank tag = do
        cSource = fromRank rank
        cTag    = fromTag tag
        cCount  = cIntConv count
+   byte <- peek bytePtr
    allocaBytes count
       (\bufferPtr ->
           alloca $ \statusPtr -> do
@@ -97,6 +99,7 @@ isendBSwith send_function comm rank tag bs = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
+   byte <- peek bytePtr
    alloca $ \requestPtr ->
       unsafeUseAsCString bs $ \cString -> do
           checkError $ send_function (castPtr cString) cCount byte cRank cTag comm requestPtr

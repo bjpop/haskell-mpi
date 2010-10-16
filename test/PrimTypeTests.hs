@@ -61,7 +61,7 @@ sendRecvSingleValTest val rank
 
 sizeSingleValTest :: (Typeable a, Storable a, Show a, Eq a, Repr a) => a -> Rank -> IO ()
 sizeSingleValTest val _rank = do
-   let (scale,mpiType) = representation val
-       mpiTypeSize = (typeSize mpiType) * scale
+   (scale, mpiType) <- representation val
+   let mpiTypeSize = (typeSize mpiType) * scale
        storableSize = sizeOf val
    mpiTypeSize == storableSize @? "MPI repr type size: " ++ show mpiTypeSize ++ " not equal to storable size: " ++ show storableSize ++ " for type " ++ show (typeOf val)

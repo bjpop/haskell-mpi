@@ -158,7 +158,8 @@ sendScatter comm root sendVal recvVal = do
 
 recvScatter :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 recvScatter comm root recvVal = do
-   recvInto recvVal $ \recvPtr recvElements recvType ->
+   recvInto recvVal $ \recvPtr recvElements recvType -> do
+     byte <- peek bytePtr
      checkError $ Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
@@ -178,7 +179,8 @@ recvScatterv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 recvScatterv comm root arr = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
-   recvInto arr $ \recvPtr recvElements recvType ->
+   recvInto arr $ \recvPtr recvElements recvType -> do
+     byte <- peek bytePtr
      checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
 {-
@@ -199,8 +201,9 @@ sendGather :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 sendGather comm root segment = do
    -- myRank <- commRank comm
    -- XXX: assert it is /= root
-   sendFrom segment $ \sendPtr sendElements sendType ->
+   sendFrom segment $ \sendPtr sendElements sendType -> do
      -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
+     byte <- peek bytePtr
      checkError $ Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte (fromRank root) comm
 
 recvGatherv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
@@ -219,7 +222,8 @@ sendGatherv :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 sendGatherv comm root segment = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
-   sendFrom segment $ \sendPtr sendElements sendType ->
+   sendFrom segment $ \sendPtr sendElements sendType -> do
+     byte <- peek bytePtr
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
      checkError $ Internal.gatherv (castPtr sendPtr) sendElements sendType nullPtr nullPtr nullPtr byte (fromRank root) comm
 
@@ -286,56 +290,59 @@ reduceScatter comm op counts sendVal recvVal =
 class Repr e where
   -- How many elements of given datatype do we need to represent given
   -- type in MPI transfers
-  representation :: e -> (Int, Datatype)
-  
+  representation :: e -> IO (Int, Datatype)
+
+stdRep :: Ptr Datatype -> a -> IO (Int, Datatype)
+stdRep ptr _ = (,) 1 <$> peek ptr
+
 instance Repr Bool where
-  representation _ = (1,unsigned)
+  representation = stdRep unsignedPtr
 
 instance Repr Int where
-#if SIZEOF_HSINT == 4  
-  representation _ = (1,int)
+#if SIZEOF_HSINT == 4
+  representation = stdRep intPtr
 #elif SIZEOF_HSINT == 8
-  representation _ = (1,longLong)
+  representation = stdRep longLongPtr
 #else
 #error Haskell MPI bindings not tested on architecture where size of Haskell Int is not 4 or 8
 #endif
 
 instance Repr Int8 where
-   representation _ = (1,byte)
+   representation = stdRep bytePtr
 instance Repr Int16 where
-   representation _ = (1,short)
+   representation = stdRep shortPtr
 instance Repr Int32 where
-   representation _ = (1,int)
+   representation = stdRep intPtr
 instance Repr Int64 where
-   representation _ = (1,longLong)
+   representation = stdRep longLongPtr
 instance Repr CInt where
-  representation _ = (1,int)
+  representation = stdRep intPtr
 
 instance Repr Word where
-#if SIZEOF_HSINT == 4  
-  representation _ = (1,unsigned)
+#if SIZEOF_HSINT == 4
+  representation = stdRep unsignedPtr
 #else
-  representation _ = (1,unsignedLongLong)
+  representation = stdRep unsignedLongLongPtr
 #endif
 
 instance Repr Word8 where
-  representation _ = (1,byte)
+  representation = stdRep bytePtr
 instance Repr Word16 where
-  representation _ = (1,unsignedShort)
+  representation = stdRep unsignedShortPtr
 instance Repr Word32 where
-  representation _ = (1,unsigned)
+  representation = stdRep unsignedPtr
 instance Repr Word64 where
-  representation _ = (1,unsignedLongLong)
+  representation = stdRep unsignedLongLongPtr
 
 instance Repr Char where
-  representation _ = (1,wchar)
+  representation = stdRep wcharPtr
 instance Repr CChar where
-  representation _ = (1,char)
+  representation = stdRep charPtr
 
 instance Repr Double where
-  representation _ = (1,double)
+  representation = stdRep doublePtr
 instance Repr Float where
-  representation _ = (1,float)
+  representation = stdRep floatPtr
 
 instance Repr e => Repr (StorableArray i e) where
   representation _ = representation (undefined::e)
@@ -393,7 +400,7 @@ sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -
 sendFromSingleValue v f = do
   alloca $ \ptr -> do
     poke ptr v
-    let (1, dtype) = representation v
+    (_, dtype) <- representation v
     f (castPtr ptr) (1::CInt) dtype
 
 -- Sending-receiving arrays of such values
@@ -406,8 +413,8 @@ instance (Storable e, Repr e, Ix i) => RecvInto (StorableArray i e) where
 withStorableArrayAndSize :: forall a i e z.(Repr e, Storable e, Ix i) => StorableArray i e -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
 withStorableArrayAndSize arr f = do
    rSize <- rangeSize <$> getBounds arr
-   let (scale, dtype) = (representation (undefined :: StorableArray i e))
-       numElements = cIntConv (rSize * scale)
+   (scale, dtype) <- (representation (undefined :: StorableArray i e))
+   let numElements = cIntConv (rSize * scale)
    withStorableArray arr $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- Same, for IOArray
@@ -419,8 +426,8 @@ instance (Storable e, Repr (IOArray i e), Ix i) => RecvInto (IOArray i e) where
 recvWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Repr (a i e)) => a i e -> (Ptr z -> CInt -> Datatype -> IO r) -> IO r
 recvWithMArrayAndSize array f = do
    bounds <- getBounds array
-   let (scale, dtype) = representation (undefined :: a i e)
-       numElements = cIntConv $ rangeSize bounds * scale
+   (scale, dtype) <- representation (undefined :: a i e)
+   let numElements = cIntConv $ rangeSize bounds * scale
    allocaArray (rangeSize bounds) $ \ptr -> do
       result <- f (castPtr ptr) numElements dtype
       fillArrayFromPtr (range bounds) (rangeSize bounds) ptr array
@@ -430,8 +437,8 @@ sendWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Rep
 sendWithMArrayAndSize array f = do
    elements <- getElems array
    bounds <- getBounds array
-   let (scale, dtype) = representation (undefined :: a i e)
-       numElements = cIntConv $ rangeSize bounds * scale
+   (scale, dtype) <- representation (undefined :: a i e)
+   let numElements = cIntConv $ rangeSize bounds * scale
    withArray elements $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- XXX I wonder if this can be written without the intermediate list?
@@ -448,18 +455,20 @@ instance SendFrom BS.ByteString where
 
 sendWithByteStringAndSize :: BS.ByteString -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
 sendWithByteStringAndSize bs f = do
+  byte <- peek bytePtr
   unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (cIntConv len) byte
 
 -- Pointers to storable with known on-wire representation
 instance (Storable e, Repr e) => RecvInto (Ptr e) where
-  recvInto = recvIntoElemPtr (representation (undefined :: e))
-    where
-      recvIntoElemPtr (cnt,datatype) p f = f (castPtr p) (cIntConv cnt) datatype
+  recvInto p f = do
+     (cnt,dtype) <- representation (undefined :: e)
+     f (castPtr p) (cIntConv cnt) dtype
+
 
 instance (Storable e, Repr e) => RecvInto (Ptr e, Int) where
-  recvInto = recvIntoVectorPtr (representation (undefined :: e))
-    where
-      recvIntoVectorPtr (scale, datatype) (p,len) f = f (castPtr p) (cIntConv (len * scale) :: CInt) datatype
+  recvInto (p,len) f = do
+     (cnt,dtype) <- representation (undefined :: e)
+     f (castPtr p) (cIntConv (len * cnt) :: CInt) dtype
 
 intoNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
 intoNewVal f = do
