@@ -100,8 +100,7 @@ measure mode numProcs myRank = do
 
   let message_sizes = [ block*(i-1)+1 | i <- [1..maxI] ]
   messages <- if myRank == root
-              then do a <- sequence $ replicate maxM $ getStdRandom(randomR(0,2147483647::El))
-                      putStrLn $ printf "Generating randoms: %d done" (length a)
+              then do let a = replicate maxM (666::El) -- Random generation is slow
                       sequence [ newListArray (1,m) (take m a) | m <- message_sizes ]
               else return []
   buffers  <- sequence [ newArray (1,m) 0 | m <- message_sizes ]
