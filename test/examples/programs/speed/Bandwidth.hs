@@ -2,17 +2,17 @@
 module Main where
 
 import Control.Parallel.MPI.Common
-import Control.Parallel.MPI.Storable
-import Data.Array.Storable
+import Control.Parallel.MPI.Serializable
 import System.Exit
 
 import Foreign.C.Types
-import Foreign.Marshal.Array (advancePtr)
+import Data.Int
 import Control.Monad
 import Data.IORef
 import Text.Printf
+import Data.Array.Storable
 
-benchmark = "OSU MPI Bandwidth Test"
+benchmark = "OSU MPI Bandwidth Test (Serializable)"
 
 max_req_num = 1000
 
@@ -48,43 +48,39 @@ main = mpi $ do
     putStrLn $ printf "%-10s%20s\n" "# Size" "Bandwidth (MB/s)"
 
   forM_ (takeWhile (<= max_msg_size) $ iterate (*2) 1) $ \size -> do
-    s_buf :: StorableArray Int CChar <- newArray (1,size) 666
-    r_buf :: StorableArray Int CChar <- newArray (1,size) 999
+    let s_buf = replicate size 111 :: [Int8]
+        r_buf = replicate size 222 :: [Int8]
     
     let (loop, skip, window_size) = if (size > large_message_size) 
                                     then (loop_large, skip_large, window_size_large)
                                     else (loop_normal, skip_normal, window_size_normal)
     
-    request :: StorableArray Int Request <- newArray_ (1,window_size)
-    reqstat :: StorableArray Int Status  <- newArray_ (1,window_size)
+    tref <- newIORef 0
+    if myid == 0 then do
+      forM_ (takeWhile (< loop+skip) [0..]) $ \i -> do
+        when (i == skip) $ do
+          t_start <- wtime
+          writeIORef tref t_start
 
-    withStorableArray request $ \reqPtr -> do
-      tref <- newIORef 0
-      if myid == 0 then do
-        forM_ (takeWhile (< loop+skip) [0..]) $ \i -> do
-          when (i == skip) $ do
-            t_start <- wtime
-            writeIORef tref t_start
+        requests <- forM (takeWhile (<window_size) [0..]) $ \j ->
+          isend commWorld 1 100 s_buf
 
-          forM_ (takeWhile (<window_size) [0..]) $ \j ->
-            isendPtr commWorld 1 100 (advancePtr reqPtr j) s_buf
+        mapM_ wait requests
 
-          waitall request reqstat
+        (deadbeef::Int, _) <- recv commWorld 1 101
+        return ()
 
-          (deadbeef::CInt) <- intoNewVal_ $ recv commWorld 1 101
-          return ()
+      t_end <- wtime
+      t_start <- readIORef tref
+      let t = t_end - t_start
+          total :: Integer = fromIntegral size * fromIntegral loop * fromIntegral window_size
+          tmp = (fromIntegral $ total)/1e6;
+      putStrLn $ printf ("%-10d%" ++ show field_width ++ "." ++ show float_precision ++ "f") size (tmp / t)
+      else do -- myid == 1
+      forM_ (takeWhile (< loop+skip) [0..]) $ \i -> do
 
-        t_end <- wtime
-        t_start <- readIORef tref
-        let t = t_end - t_start
-            total :: Integer = fromIntegral size * fromIntegral loop * fromIntegral window_size
-            tmp = (fromIntegral $ total)/1e6;
-        putStrLn $ printf ("%-10d%" ++ show field_width ++ "." ++ show float_precision ++ "f") size (tmp / t)
-        else do -- myid == 1
-        forM_ (takeWhile (< loop+skip) [0..]) $ \i -> do
+        ( futures :: [Future [Int8]] ) <- forM (takeWhile (<window_size) [0..]) $ \j -> do
+          recvFuture commWorld 0 100 
 
-          forM_ (takeWhile (<window_size) [0..]) $ \j -> do
-            irecvPtr commWorld 0 100 (advancePtr reqPtr j) r_buf
-
-          waitall request reqstat
-          send commWorld 0 101 (0xdeadbeef::CInt)
+        mapM_ waitFuture futures
+        send commWorld 0 101 (0xdeadbeef::Int)
