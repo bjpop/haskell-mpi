@@ -11,7 +11,7 @@ module Control.Parallel.MPI.Internal
      send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
      commCompare,
-     isend, ibsend, issend, irecv, bcast, barrier, wait, test,
+     isend, ibsend, issend, irecv, bcast, barrier, wait, waitall, test,
      cancel, scatter, gather,
      scatterv, gatherv,
      allgather, allgatherv,
@@ -56,6 +56,7 @@ irecv = {# call Irecv as irecv_ #}
 bcast = {# call unsafe Bcast as bcast_ #}
 barrier = {# call unsafe Barrier as barrier_ #}
 wait = {# call unsafe Wait as wait_ #}
+waitall = {# call unsafe Waitall as waitall_ #}
 test = {# call unsafe Test as test_ #}
 cancel = {# call unsafe Cancel as cancel_ #}
 scatter = {# call unsafe Scatter as scatter_ #}
