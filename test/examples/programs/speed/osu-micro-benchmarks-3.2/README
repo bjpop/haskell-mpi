@@ -1,0 +1,188 @@
+OMB (OSU Micro-Benchmarks)
+--------------------------
+The OSU Micro-Benchmarks now use the GNU build system.  Therefore you can
+simply use the following steps if mpicc is in your PATH.
+
+Example:
+	./configure
+	make
+	make install
+
+If your mpicc is not in your path or you would like to use another particular
+version you can tell configure by setting CC.
+
+Example:
+	./configure CC=/path/to/special/mpicc
+	make
+	make install
+
+Configure will detect whether your library supports MPI-2 and compile the
+corresponding benchmarks.  See http://mvapich.cse.ohio-state.edu/benchmarks/ to
+download the latest version of this package.
+
+Note:
+All benchmarks are run using 2 processes with the exception of osu_bcast and
+osu_mbw_mr which can use more than 2.  
+
+
+The Multiple Bandwidth / Message Rate Test (osu_mbw_mr) is intended to be used
+with block assigned ranks.  This means that all processes on the same machine
+are assigned ranks sequentially.
+
+Rank	Block   Cyclic
+----------------------
+0	host1	host1
+1	host1	host2
+2	host1	host1
+3	host1	host2
+4	host2	host1
+5	host2	host2
+6	host2	host1
+7	host2	host2
+
+If you're using mpirun_rsh with mvapich the ranks are assigned in the order they
+are seen in the hostfile or on the command line.  If you're using mpd with
+mvapich2 two you have to specify the number of processes on each host in the
+hostfile otherwise mpd will assign ranks in a cyclic fashion.
+
+Example MPD HOSTFILE:
+host1:4
+host2:4
+
+
+MPI-1
+-----
+osu_bcast	- Broadcast Latency Test
+osu_bibw	- Bidirectional Bandwidth Test
+osu_bw		- Bandwidth Test
+osu_latency	- Latency Test
+osu_mbw_mr	- Multiple Bandwidth / Message Rate Test
+osu_multi_lat   - Multi-pair Latency Test
+
+MPI-2
+-----
+osu_acc_latency	- Accumulate Latency Test
+osu_get_bw	- One-Sided Get Bandwidth Test
+osu_get_latency	- One-Sided Get Latency Test
+osu_latency_mt	- Multi-threaded Latency Test
+osu_put_bibw	- One-Sided Put Biderectional Test
+osu_put_bw	- One-Sided Put Bandwidth Test
+osu_put_latency	- One-Sided Put Latency Test
+
+
+Latency Test
+    * The latency tests were carried out in a ping-pong fashion. The sender
+    * sends a message with a certain data size to the receiver and waits for a
+    * reply from the receiver. The receiver receives the message from the sender
+    * and sends back a reply with the same data size. Many iterations of this
+    * ping-pong test were carried out and average one-way latency numbers were
+    * obtained. Blocking version of MPI functions (MPI_Send and MPI_Recv) were
+    * used in the tests. This test is available here.
+
+Multi-threaded Latency Test (only applicable for MVAPICH2 with threading support enabled)
+    * The multi-threaded latency test performs a ping-pong test with a single
+    * sender process and multiple threads on the receiving process. In this test
+    * the sending process sends a message of a given data size to the receiver
+    * and waits for a reply from the receiver process. The receiving process has
+    * a variable number of receiving threads (set by default to 2), where each
+    * thread calls MPI_Recv and upon receiving a message sends back a response
+    * of equal size. Many iterations are performed and the average one-way
+    * latency numbers are reported. This test is available here.
+
+Bandwidth Test
+    * The bandwidth tests were carried out by having the sender sending out a
+    * fixed number (equal to the window size) of back-to-back messages to the
+    * receiver and then waiting for a reply from the receiver. The receiver
+    * sends the reply only after receiving all these messages. This process is
+    * repeated for several iterations and the bandwidth is calculated based on
+    * the elapsed time (from the time sender sends the first message until the
+    * time it receives the reply back from the receiver) and the number of bytes
+    * sent by the sender. The objective of this bandwidth test is to determine
+    * the maximum sustained date rate that can be achieved at the network level.
+    * Thus, non-blocking version of MPI functions (MPI_Isend and MPI_Irecv) were
+    * used in the test. This test is available here.
+
+Bidirectional Bandwidth Test
+    * The bidirectional bandwidth test is similar to the bandwidth test, except
+    * that both the nodes involved send out a fixed number of back-to-back
+    * messages and wait for the reply. This test measures the maximum
+    * sustainable aggregrate bandwidth by two nodes. This test is available
+    * here.
+
+Multiple Bandwidth / Message Rate test
+    * The multi-pair bandwidth and message rate test evaluates the aggregate
+    * uni-directional bandwidth and message rate between multiple pairs of
+    * processes. Each of the sending processes sends a fixed number of messages
+    * (the window size) back-to-back to the paired receiving process before
+    * waiting for a reply from the receiver. This process is repeated for
+    * several iterations. The objective of this benchmark is to determine the
+    * achieved bandwidth and message rate from one node to another node with a
+    * configurable number of processes running on each node. The test is
+    * available here.
+
+Multi-pair Latency Test
+    * This test is very similar to the latency test. However, at the same 
+    * instant multiple pairs are performing the same test simultaneously.
+    * In order to perform the test across just two nodes the hostnames must
+    * be specified in block fashion.
+
+Broadcast Latency Test
+    * Broadcast Latency Test: The Broadcast latency test was carried out in the
+    * following manner. After doing a MPI_Bcast the root node waits for an ack
+    * from the last receiver. This ack is in the form of a zero byte message
+    * from the receiver to the root. This test is carried out for a large number
+    * (1000) of iterations. The Broadcast latency is obtained by subtracting the
+    * time taken for the ack from the total time. We compute the ack time
+    * initially by doing a ping-pong test. This test is available here.
+
+One-Sided Put Latency Test (only applicable for MVAPICH2)
+    * One-Sided Put Latency Test: The sender (origin process) calls MPI_Put
+    * (ping) to directly place a message of certain data size in the receiver
+    * window. The receiver (target process) calls MPI_Win_wait to make sure the
+    * message has been received. Then the receiver initates a MPI_Put (pong) of
+    * the same data size to the sender which is now waiting on a synchronization
+    * call. Several iterations of this test is carried out and the average put
+    * latency numbers is obtained. This test is available here.
+
+One-Sided Get Latency Test (only applicable for MVAPICH2)
+    * One-Sided Get Latency Test: The origin process calls MPI_Get (ping) to
+    * directly fetch a message of certain data size from the target process
+    * window to its local window.It then waits on a synchronization call
+    * (MPI_Win_complete) for local completion. After the synchronization call
+    * the target and origin process are switched for the pong message. Several
+    * iterations of this test are carried out and the average get latency
+    * numbers is obtained. This test is available here.
+
+One-Sided Put Bandwidth Test (only applicable for MVAPICH2)
+    * One-Sided Put Bandwidth Test: The bandwidth tests were carried out by the
+    * origin process calling a fixed number of back to back Puts and then wait
+    * on a synchronization call (MPI_Win_complete) for completion. This process
+    * is repeated for several iterations and the bandwidth is calculated based
+    * on the elapsed time and the number of bytes sent by the origin process.
+    * This test is available here.
+
+One-Sided Get Bandwidth Test (only applicable for MVAPICH2)
+    * One-Sided Get Bandwidth Test: The bandwidth tests were carried out by
+    * origin process calling a fixed number of back to back Gets and then wait
+    * on a synchronization call (MPI_Win_complete) for completion. This process
+    * is repeated for several iterations and the bandwidth is calculated based
+    * on the elapsed time and the number of bytes sent by the origin process.
+    * This test is available here.
+
+One-Sided Put Bidirectional Bandwidth Test (only applicable for MVAPICH2)
+    * One-Sided Put Bidirectional Bandwidth Test: The bidirectional bandwidth
+    * test is similar to the bandwidth test,except that both the nodes involved
+    * send out a fixed number of back to back put messages and wait for the
+    * completion. This test measures the maximum sustainable aggregrate
+    * bandwidth by two nodes. This test is available here.
+
+Accumulate Latency Test (only applicable for MVAPICH2)
+    * One-Sided Accumulate Latency Test: The origin process calls MPI_Accumulate
+    * to combine the data moved to the target process window with the data that
+    * resides at the remote window. The combining operation used in the test is
+    * MPI_SUM. It then waits on a synchronization call (MPI_Win_complete) for
+    * local completion. After the synchronization call, the target and origin
+    * process are switched for the pong message. Several iterations of this test
+    * are carried out and the average accumulate latency number is obtained.
+    * This test is available here.
+
