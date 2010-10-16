@@ -14,7 +14,12 @@ module Control.Parallel.MPI.Storable
    , isend
    , ibsend
    , issend
+   , isendPtr
+   , ibsendPtr
+   , issendPtr
    , irecv
+   , irecvPtr
+   , waitall
    , sendScatter
    , recvScatter
    , sendScatterv
@@ -119,14 +124,23 @@ isend  = isendWith Internal.isend
 ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
-type ISendPrim = Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt
+type ISendPrim = Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr Request -> IO CInt
 
 isendWith :: (SendFrom v) => ISendPrim -> Comm -> Rank -> Tag -> v -> IO Request
 isendWith send_function comm recvRank tag val = do
+   alloca $ \requestPtr -> do
+      isendWithPtr send_function comm recvRank tag requestPtr val
+      peek requestPtr
+
+isendPtr, ibsendPtr, issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
+isendPtr  = isendWithPtr Internal.isend
+ibsendPtr = isendWithPtr Internal.ibsend
+issendPtr = isendWithPtr Internal.issend
+
+isendWithPtr :: (SendFrom v) => ISendPrim -> Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
+isendWithPtr send_function comm recvRank tag requestPtr val = do
    sendFrom val $ \valPtr numBytes dtype ->
-      alloca $ \requestPtr -> do
-         checkError $ send_function (castPtr valPtr) numBytes dtype (fromRank recvRank) (fromTag tag) comm requestPtr
-         peek requestPtr
+     checkError $ send_function (castPtr valPtr) numBytes dtype (fromRank recvRank) (fromTag tag) comm requestPtr
 
 {-
    At the moment we are limiting this to StorableArrays because they
@@ -143,12 +157,26 @@ isendWith send_function comm recvRank tag val = do
    wait operation, and would allow the user to request the data to be
    copied when the wait was complete.
 -}
+
+-- Pointer to Request is provided by called. Usefull for filling arrays of Requests for further consumption
+-- by waitall
+irecvPtr :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> Ptr Request -> StorableArray i e -> IO ()
+irecvPtr comm sendRank tag requestPtr recvVal = do
+  recvInto recvVal $ \recvPtr recvElements recvType -> do
+    checkError $ Internal.irecv (castPtr recvPtr) recvElements recvType (fromRank sendRank) (fromTag tag) comm requestPtr
+
 irecv :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag recvVal = do
-   alloca $ \requestPtr ->
-      recvInto recvVal $ \recvPtr recvElements recvType -> do
-         checkError $ Internal.irecv (castPtr recvPtr) recvElements recvType (fromRank sendRank) (fromTag tag) comm requestPtr
-         peek requestPtr
+   alloca $ \requestPtr -> do
+     irecvPtr comm sendRank tag requestPtr recvVal
+     peek requestPtr
+
+waitall :: StorableArray Int Request -> StorableArray Int Status -> IO ()
+waitall requests statuses = do
+  cnt <- rangeSize <$> getBounds requests
+  withStorableArray requests $ \reqs ->
+    withStorableArray statuses $ \stats ->
+      checkError $ Internal.waitall (cIntConv cnt) (castPtr reqs) (castPtr stats)
 
 sendScatter :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 sendScatter comm root sendVal recvVal = do
