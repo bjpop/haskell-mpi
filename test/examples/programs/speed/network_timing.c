@@ -141,10 +141,10 @@ main(int argc, char **argv)
          MPI_Send(&A[0],m,MPI_DOUBLE,1,msgid,MPI_COMM_WORLD);
          MPI_Recv(&A[0],m,MPI_DOUBLE,procs-1,msgid,MPI_COMM_WORLD,&stat);
          t2=MPI_Wtime() - t1 - cpuOH;
-         if (t2 < mintime[i]) mintime[i] = t2;
-         if (t2 > maxtime[i]) maxtime[i] = t2;
          t2 = t2/procs;
          avgtime[i] = avgtime[i] + t2;
+         if (t2 < mintime[i]) mintime[i] = t2;
+         if (t2 > maxtime[i]) maxtime[i] = t2;
        } else {
          MPI_Recv(&A[0],m,MPI_DOUBLE,myid-1,msgid,MPI_COMM_WORLD,&stat);
          MPI_Send(&A[0],m,MPI_DOUBLE,(myid+1)%procs,msgid,MPI_COMM_WORLD);

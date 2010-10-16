@@ -124,7 +124,7 @@ measure mode numProcs myRank = do
             send commWorld 1 unitTag msg
             recv commWorld (toEnum $ numProcs-1) unitTag c
             t2 <- wtime
-            return (t2-t1-cpuOH)
+            return $ (t2-t1-cpuOH)/(fromIntegral numProcs)
           else do
             let cnt :: CInt = fromIntegral m      
             t1 <- wtime
@@ -133,9 +133,9 @@ measure mode numProcs myRank = do
             withStorableArray c $ \recvPtr ->
               Internal.recv (castPtr recvPtr) cnt double (fromIntegral $ numProcs-1) 0 commWorld nullPtr
             t2 <- wtime
-            return (t2-t1-cpuOH)               
+            return $ (t2-t1-cpuOH)/(fromIntegral numProcs)
         curr_avg <- readArray avgtime i
-        writeArray avgtime i $ curr_avg + diff/(fromIntegral numProcs)
+        writeArray avgtime i $ curr_avg + diff
 
         curr_min <- readArray mintime i
         curr_max <- readArray maxtime i
