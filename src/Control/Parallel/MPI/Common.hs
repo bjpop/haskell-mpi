@@ -100,10 +100,10 @@ finalize = checkError Internal.finalize
 
 getProcessorName :: IO String
 getProcessorName = do
-  allocaBytes Internal.max_processor_name $ \ptr ->
+  allocaBytes (fromIntegral Internal.maxProcessorName) $ \ptr ->
     alloca $ \lenPtr -> do
        checkError $ Internal.getProcessorName ptr lenPtr
-       len <- peek lenPtr
+       (len :: CInt) <- peek lenPtr
        peekCStringLen (ptr, cIntConv len)
 
 commSize :: Comm -> IO Int

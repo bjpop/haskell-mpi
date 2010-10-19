@@ -5,7 +5,7 @@
 #include "init_wrapper.h"
 
 module Control.Parallel.MPI.Internal
-   ( max_processor_name,
+   ( maxProcessorName,
      init, initThread, queryThread, isThreadMain,
      finalize, getProcessorName,
      send, bsend, ssend, rsend, recv,
@@ -29,8 +29,9 @@ import C2HS
 
 {# context prefix = "MPI" #}
 
-foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr Int
-max_processor_name = unsafePerformIO $ peek max_processor_name_
+foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr CInt
+maxProcessorName :: CInt
+maxProcessorName = unsafePerformIO $ peek max_processor_name_
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}

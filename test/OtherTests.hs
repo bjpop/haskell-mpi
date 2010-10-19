@@ -6,8 +6,8 @@ import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
 
 otherTests :: Rank -> [(String,TestRunnerTest)]
-otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke 
-               , testCase "wtime/wtick" wtimeWtickTest 
+otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke
+               , testCase "wtime/wtick" wtimeWtickTest
                , testCase "commRank, commSize, getProcessor name" rankSizeNameTest ]
 
 statusPeekPoke :: IO ()
