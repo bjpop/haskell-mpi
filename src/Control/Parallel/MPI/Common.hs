@@ -54,12 +54,14 @@ import Prelude hiding (init)
 import C2HS
 import Control.Applicative ((<$>))
 import Control.Exception (finally)
+import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
+import Control.Concurrent (ThreadId, killThread)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
 import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Status as Status
-import Control.Parallel.MPI.Utils (checkError, asBool, asInt, asEnum)
+import Control.Parallel.MPI.Utils (asBool, asInt, asEnum)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Group as Group
@@ -67,8 +69,7 @@ import Control.Parallel.MPI.Op as Op
 import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.ComparisonResult as ComparisonResult
-import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
-import Control.Concurrent (ThreadId, killThread)
+import Control.Parallel.MPI.Exception as Exception
 
 unitTag :: Tag
 unitTag = toTag ()
@@ -86,6 +87,12 @@ mpiWorld action = do
 init :: IO ()
 init = checkError Internal.init
 
+finalize :: IO ()
+-- XXX can't call checkError on finalize, because
+-- checkError calls Internal.errorClass and Internal.errorString.
+-- These cannot be called after finalize (at least on OpenMPI).
+finalize = Internal.finalize >> return ()
+
 initThread :: ThreadSupport -> IO ThreadSupport
 initThread required = asEnum $ checkError . Internal.initThread (enumToCInt required)
 
@@ -94,9 +101,6 @@ queryThread = asBool $ checkError . Internal.queryThread
 
 isThreadMain :: IO Bool
 isThreadMain = asBool $ checkError . Internal.isThreadMain
-
-finalize :: IO ()
-finalize = checkError Internal.finalize
 
 getProcessorName :: IO String
 getProcessorName = do

@@ -52,7 +52,8 @@ Library
       Control.Parallel.MPI.Storable,
       Control.Parallel.MPI.Serializable,
       Control.Parallel.MPI.Group,
-      Control.Parallel.MPI.ComparisonResult
+      Control.Parallel.MPI.ComparisonResult,
+      Control.Parallel.MPI.Exception
    other-modules:
       C2HS,
       Control.Parallel.MPI.MarshalUtils,
@@ -88,6 +89,7 @@ executable  bindings-mpi-testsuite
     Control.Parallel.MPI.Utils,
     Control.Parallel.MPI.Group,
     Control.Parallel.MPI.ComparisonResult,
+    Control.Parallel.MPI.Exception,
     C2HS,
     IOArrayTests,
     SerializableTests,

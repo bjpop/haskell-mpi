@@ -6,6 +6,7 @@
 
 module Control.Parallel.MPI.Internal
    ( maxProcessorName,
+     maxErrorString,
      init, initThread, queryThread, isThreadMain,
      finalize, getProcessorName,
      send, bsend, ssend, rsend, recv,
@@ -21,7 +22,8 @@ module Control.Parallel.MPI.Internal
      wtime, wtick,
      commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
      groupCompare, groupExcl, groupIncl, groupTranslateRanks,
-     typeSize
+     typeSize,
+     errorClass, errorString
    ) where
 
 import Prelude hiding (init)
@@ -30,8 +32,11 @@ import C2HS
 {# context prefix = "MPI" #}
 
 foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr CInt
+foreign import ccall "&mpi_max_error_string" max_error_string_ :: Ptr CInt
 maxProcessorName :: CInt
 maxProcessorName = unsafePerformIO $ peek max_processor_name_
+maxErrorString :: CInt
+maxErrorString = unsafePerformIO $ peek max_error_string_
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
@@ -88,3 +93,5 @@ groupExcl = {# call unsafe Group_excl as groupExcl_ #}
 groupIncl = {# call unsafe Group_incl as groupIncl_ #}
 groupTranslateRanks = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #}
 typeSize = {# call unsafe Type_size as typeSize_ #}
+errorClass = {# call unsafe Error_class as errorClass_ #}
+errorString = {# call unsafe Error_string as errorString_ #}

@@ -1,6 +1,6 @@
 #include <mpi.h>
 
-typedef enum ErrorClass 
+typedef enum ErrorClass
 {
    Success = MPI_SUCCESS,
    Buffer = MPI_ERR_BUFFER,

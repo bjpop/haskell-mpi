@@ -34,7 +34,7 @@ import Control.Parallel.MPI.Datatype as Datatype
 import Control.Parallel.MPI.Comm as Comm
 import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Status as Status
-import Control.Parallel.MPI.Utils (checkError)
+import Control.Parallel.MPI.Exception (checkError)
 import Control.Parallel.MPI.Tag as Tag
 import Control.Parallel.MPI.Rank as Rank
 import Control.Parallel.MPI.Common
