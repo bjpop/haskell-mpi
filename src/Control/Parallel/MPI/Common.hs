@@ -11,6 +11,7 @@ module Control.Parallel.MPI.Common
    , module Group
    , module Op
    , module ComparisonResult
+   , module Errhandler
    , mpi
    , mpiWorld
    , init
@@ -24,6 +25,7 @@ module Control.Parallel.MPI.Common
    , commTestInter
    , commRemoteSize
    , commCompare
+   , commSetErrhandler
    , probe
    , barrier
    , wait
@@ -70,6 +72,7 @@ import Control.Parallel.MPI.ThreadSupport as ThreadSupport
 import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.ComparisonResult as ComparisonResult
 import Control.Parallel.MPI.Exception as Exception
+import Control.Parallel.MPI.Errhandler as Errhandler
 
 unitTag :: Tag
 unitTag = toTag ()
@@ -263,3 +266,6 @@ typeSize dataType = unsafePerformIO $
    alloca $ \ptr -> do
       checkError $ Internal.typeSize dataType ptr
       fromIntegral <$> peek ptr
+
+commSetErrhandler :: Comm -> Errhandler -> IO ()
+commSetErrhandler comm h = checkError $ Internal.commSetErrhandler comm h

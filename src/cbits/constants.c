@@ -53,3 +53,7 @@ MPI_CONST (MPI_Op, mpi_bxor   , MPI_BXOR   )
 MPI_CONST (MPI_Op, mpi_maxloc , MPI_MAXLOC )
 MPI_CONST (MPI_Op, mpi_minloc , MPI_MINLOC )
 MPI_CONST (MPI_Op, mpi_replace, MPI_REPLACE)
+
+/* Error handlers */
+MPI_CONST (MPI_Errhandler, mpi_errors_are_fatal, MPI_ERRORS_ARE_FATAL)
+MPI_CONST (MPI_Errhandler, mpi_errors_return, MPI_ERRORS_RETURN)
