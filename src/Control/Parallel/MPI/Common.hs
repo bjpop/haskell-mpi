@@ -25,8 +25,8 @@
 -- In addition to reading these documents, users may also find it
 -- beneficial to consult the MPI-2 standard documentation provided by the
 -- MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
--- the MPI implementation linked to this library (chosen when the Haskell
--- library is compiled).
+-- the MPI implementation linked to this library (that is, the MPI
+-- implementation which is chosen when this Haskell library is compiled).
 --
 -- Most MPI functions may fail with an error, which, by default, will cause
 -- the program to abort. This can be changed by setting the error
