@@ -1,25 +1,58 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      : Control.Parallel.MPI.Common
+-- Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
+-- License     : BSD-style
+-- Maintainer  : florbitous@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
+--
+-- This module provides common MPI functionality that is independent of
+-- the type of message
+-- being transferred between processes. Many functions in this module bear
+-- a close correspondence with those provided by the C API. Such
+-- correspondences are noted in the documentation of this module where
+-- relevant.
+--
+-- MPI is defined by the Message-Passing Interface Standard,
+-- as specified by the Message Passing Interface Forum. The latest release
+-- of the standard is known as MPI-2. These Haskell
+-- bindings are designed to work with any MPI-2 standards compliant
+-- implementation. Examples are MPICH2 and Open MPI.
+--
+-- In addition to reading these documents, users may also find it
+-- beneficial to consult the MPI-2 standard documentation provided by the
+-- MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
+-- the MPI implementation linked to this library (chosen when the Haskell
+-- library is compiled).
+--
+-----------------------------------------------------------------------------
+
 module Control.Parallel.MPI.Common
-   ( module Datatype
-   , module Comm
-   , module Status
-   , module Tag
-   , module Rank
-   , module ThreadSupport
-   , module Request
-   , module Group
-   , module Op
-   , module ComparisonResult
-   , module Errhandler
+   (
+   -- * Initialization, finalization, termination.
+     init
+   , finalize
+   , initialized
+   , finalized
    , mpi
    , mpiWorld
-   , init
    , initThread
-   , queryThread
-   , isThreadMain
-   , finalize
-   , getProcessorName
+   , abort
+
+   -- * Requests and statuses.
+   , module Request
+   , module Status
+   , probe
+   , test
+   , cancel
+   , wait
+
+   -- * Communicators and error handlers.
+   , module Comm
+   , module Errhandler
    , commSize
    , commRank
    , commTestInter
@@ -27,20 +60,27 @@ module Control.Parallel.MPI.Common
    , commCompare
    , commSetErrhandler
    , commGetErrhandler
-   , probe
-   , barrier
-   , wait
-   , test
-   , cancel
+   , commGroup
+
+   -- * Tags.
+   , module Tag
    , unitTag
+
+   -- Ranks.
+   , module Rank
+
+   -- * Synchronization.
+   , barrier
+
+   -- * Futures.
    , Future(..)
    , waitFuture
    , getFutureStatus
    , pollFuture
    , cancelFuture
-   , wtime
-   , wtick
-   , commGroup
+
+   -- * Groups.
+   , module Group
    , groupRank
    , groupSize
    , groupUnion
@@ -50,8 +90,31 @@ module Control.Parallel.MPI.Common
    , groupExcl
    , groupIncl
    , groupTranslateRanks
+
+   -- * Data types.
+   , module Datatype
    , typeSize
-   , abort
+
+   -- * Operators.
+   , module Op
+
+   -- * Comparisons.
+   , module ComparisonResult
+
+   -- * Threads.
+   , module ThreadSupport
+   , queryThread
+   , isThreadMain
+
+   -- * Timing.
+   , wtime
+   , wtick
+
+   -- * Environment.
+   , getProcessorName
+   , Version (..)
+   , getVersion
+
    ) where
 
 import Prelude hiding (init)
@@ -76,12 +139,22 @@ import Control.Parallel.MPI.ComparisonResult as ComparisonResult
 import Control.Parallel.MPI.Exception as Exception
 import Control.Parallel.MPI.Errhandler as Errhandler
 
+-- | A tag with unit value. Intended to be used as a convenient default.
 unitTag :: Tag
 unitTag = toTag ()
 
+-- | A convenience wrapper which takes an MPI computation as its argument and wraps it
+-- inside calls to 'init' (before the computation) and 'finalize' (after the computation).
+-- It will make sure that 'finalize' is called even if the MPI computation raises
+-- an exception. 
 mpi :: IO () -> IO ()
 mpi action = init >> (action `finally` finalize)
 
+-- | A convenience wrapper (similar to 'mpi') which takes an MPI computation as its argument
+-- and wraps itinside calls to 'init' (before the computation) and 'finalize' (after the computation).
+-- It will make sure that 'finalize' is called even if the MPI computation raises
+-- an exception. The MPI computation is a function which is abstracted over
+-- the communicator size and the process rank, both with respect to 'commWorld'.
 mpiWorld :: (Int -> Rank -> IO ()) -> IO ()
 mpiWorld action = do
    init
@@ -89,15 +162,64 @@ mpiWorld action = do
    rank <- commRank commWorld
    action size rank `finally` finalize
 
+-- | Initialize the MPI environment. The MPI environment must be intialized by each
+-- MPI process before any other MPI function is called. Note that
+-- the environment may also be initialized by the functions 'initThread', 'mpi',
+-- and 'mpiWorld'. It is an error to attempt to initialize the environment more
+-- than once for a given MPI program execution. The only MPI functions that may
+-- be called before the MPI environment is initialized are 'getVersion',
+-- 'initialized' and 'finalized'. Corresponds to @MPI_Init@.
 init :: IO ()
 init = checkError Internal.init
 
+-- | Determine if the MPI environment has been initialized. Returns @True@ if the
+-- environment has been initialized and @False@ otherwise. This function
+-- may be called before the MPI environment has been initialized and after it
+-- has been finalized.
+-- Corresponds to @MPI_Initialized@.
+initialized :: IO Bool
+initialized =
+   alloca $ \flagPtr -> do
+      checkError $ Internal.initialized flagPtr
+      peekBool flagPtr
+
+-- | Determine if the MPI environment has been finalized. Returns @True@ if the
+-- environment has been finalized and @False@ otherwise. This function
+-- may be called before the MPI environment has been initialized and after it
+-- has been finalized.
+-- Corresponds to @MPI_Finalized@.
+finalized :: IO Bool
+finalized =
+   alloca $ \flagPtr -> do
+      checkError $ Internal.finalized flagPtr
+      peekBool flagPtr
+
+-- | Terminate the MPI execution environment.
+-- Once 'finalize' is called no other MPI functions may be called except
+-- 'getVersion', 'initialized' and 'finalized'. Each process must complete
+-- any pending communication that it initiated before calling 'finalize'.
+-- If 'finalize' returns then regular (non-MPI) computations may continue,
+-- but no further MPI computation is possible. Note: the error code returned
+-- by 'finalize' is not checked. Corresponds to @MPI_Finalize@.
 finalize :: IO ()
 -- XXX can't call checkError on finalize, because
 -- checkError calls Internal.errorClass and Internal.errorString.
 -- These cannot be called after finalize (at least on OpenMPI).
 finalize = Internal.finalize >> return ()
 
+-- | Initialize the MPI environment with a /required/ level of thread support.
+-- See the documentation for 'init' for more information about MPI initialization.
+-- The /provided/ level of thread support is returned in the result.
+-- There is no guarantee that provided will be greater than or equal to required.
+-- The level of provided thread support depends on the underlying MPI implementation,
+-- and may also depend on information provided when the program is executed
+-- (for example, by supplying appropriate arguments to mpiexec).
+-- If the required level of support cannot be provided then it will try to
+-- return the least supported level greater than what was required.
+-- If that cannot be satisfied then it will return the highest supported level
+-- provided by the MPI implementation. See the documentation for 'ThreadSupport'
+-- for information about what levels are available and their relative ordering.
+-- Corresponds to @MPI_Init_thread@.
 initThread :: ThreadSupport -> IO ThreadSupport
 initThread required = asEnum $ checkError . Internal.initThread (enumToCInt required)
 
@@ -114,6 +236,22 @@ getProcessorName = do
        checkError $ Internal.getProcessorName ptr lenPtr
        (len :: CInt) <- peek lenPtr
        peekCStringLen (ptr, cIntConv len)
+
+data Version =
+   Version { version :: Int, subversion :: Int }
+   deriving (Eq, Ord)
+
+instance Show Version where
+   show v = show (version v) ++ "." ++ show (subversion v)
+
+getVersion :: IO Version
+getVersion = do
+   alloca $ \versionPtr ->
+      alloca $ \subversionPtr -> do
+         checkError $ Internal.getVersion versionPtr subversionPtr
+         version <- peekIntConv versionPtr
+         subversion <- peekIntConv subversionPtr
+         return $ Version version subversion
 
 commSize :: Comm -> IO Int
 commSize comm = asInt $ checkError . Internal.commSize comm

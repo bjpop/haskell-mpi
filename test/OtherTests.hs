@@ -8,7 +8,9 @@ import Foreign.Marshal (alloca)
 otherTests :: Rank -> [(String,TestRunnerTest)]
 otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke
                , testCase "wtime/wtick" wtimeWtickTest
-               , testCase "commRank, commSize, getProcessor name" rankSizeNameTest ]
+               , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
+               , testCase "initialized" initializedTest
+               , testCase "finalized" finalizedTest ]
 
 statusPeekPoke :: IO ()
 statusPeekPoke = do
@@ -25,9 +27,20 @@ wtimeWtickTest = do
   tick < t @? "Timer resolution is greater than current time"
   putStrLn $ "Current time is " ++ show t ++ ", timer resolution is " ++ show tick
 
-rankSizeNameTest :: IO ()
-rankSizeNameTest = do
+rankSizeNameVersionTest :: IO ()
+rankSizeNameVersionTest = do
   r <- commRank commWorld
   s <- commSize commWorld
   p <- getProcessorName
-  putStrLn $ "I am process " ++ show r ++ " out of " ++ show s ++ ", running on " ++ p
+  v <- getVersion
+  putStrLn $ "I am process " ++ show r ++ " out of " ++ show s ++ ", running on " ++ p ++ ", MPI version " ++ show v
+
+initializedTest :: IO ()
+initializedTest = do
+   isInit <- initialized
+   isInit == True @? "initialized return False, but was expected to return True"
+
+finalizedTest :: IO ()
+finalizedTest = do
+   isFinal <- finalized
+   isFinal == False @? "finalized return True, but was expected to return False"

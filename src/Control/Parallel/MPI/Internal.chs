@@ -7,8 +7,8 @@
 module Control.Parallel.MPI.Internal
    ( maxProcessorName,
      maxErrorString,
-     init, initThread, queryThread, isThreadMain,
-     finalize, getProcessorName,
+     init, initThread, queryThread, isThreadMain, initialized, finalized,
+     finalize, getProcessorName, getVersion,
      send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
      commCompare,
@@ -40,11 +40,14 @@ maxErrorString :: CInt
 maxErrorString = unsafePerformIO $ peek max_error_string_
 
 init = {# call unsafe init_wrapper as init_wrapper_ #}
+initialized = {# call unsafe Initialized as initialized_ #}
+finalized = {# call unsafe Finalized as finalized_ #}
 initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
 queryThread = {# call unsafe Query_thread as queryThread_ #}
 isThreadMain = {# call unsafe Is_thread_main as isThreadMain_ #}
 finalize = {# call unsafe Finalize as finalize_ #}
 getProcessorName = {# call unsafe Get_processor_name as getProcessorName_ #}
+getVersion = {# call unsafe Get_version as getVersion_ #}
 commSize = {# call unsafe Comm_size as commSize_ #}
 commRank = {# call unsafe Comm_rank as commRank_ #}
 commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #}
