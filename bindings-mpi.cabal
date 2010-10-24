@@ -98,6 +98,7 @@ executable  bindings-mpi-testsuite
     StorableArrayTests,
     GroupTests,
     PrimTypeTests,
+    ExceptionTests,
     TestHelpers
   main-is:       Testsuite.hs
   if flag(test)

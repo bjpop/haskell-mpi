@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Control.Parallel.MPI.Exception (checkError, MPIError (..)) where
+module Control.Parallel.MPI.Exception (checkError, MPIError (..), ErrorClass (..)) where
 
 import C2HS
 import Control.Exception

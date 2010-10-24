@@ -26,6 +26,7 @@ module Control.Parallel.MPI.Common
    , commRemoteSize
    , commCompare
    , commSetErrhandler
+   , commGetErrhandler
    , probe
    , barrier
    , wait
@@ -50,6 +51,7 @@ module Control.Parallel.MPI.Common
    , groupIncl
    , groupTranslateRanks
    , typeSize
+   , abort
    ) where
 
 import Prelude hiding (init)
@@ -269,3 +271,13 @@ typeSize dataType = unsafePerformIO $
 
 commSetErrhandler :: Comm -> Errhandler -> IO ()
 commSetErrhandler comm h = checkError $ Internal.commSetErrhandler comm h
+
+commGetErrhandler :: Comm -> IO Errhandler
+commGetErrhandler comm =
+   alloca $ \handlerPtr -> do
+      checkError $ Internal.commGetErrhandler comm handlerPtr
+      peek handlerPtr
+
+abort :: Comm -> CInt -> IO ()
+abort comm code = checkError $ Internal.abort comm code
+

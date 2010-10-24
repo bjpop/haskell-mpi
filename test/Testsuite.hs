@@ -7,6 +7,7 @@ import StorableArrayTests
 import IOArrayTests
 import GroupTests
 import PrimTypeTests
+import ExceptionTests
 
 import Control.Monad (when)
 import System.Posix.IO (dupTo, stdError, stdOutput)
@@ -41,3 +42,4 @@ tests rank =
    ++ storableArrayTests rank
    ++ ioArrayTests rank
    ++ groupTests rank
+   ++ exceptionTests rank

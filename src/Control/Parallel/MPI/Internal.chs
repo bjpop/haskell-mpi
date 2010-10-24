@@ -23,7 +23,8 @@ module Control.Parallel.MPI.Internal
      commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
      groupCompare, groupExcl, groupIncl, groupTranslateRanks,
      typeSize,
-     errorClass, errorString, commSetErrhandler
+     errorClass, errorString, commSetErrhandler, commGetErrhandler,
+     abort
    ) where
 
 import Prelude hiding (init)
@@ -96,3 +97,5 @@ typeSize = {# call unsafe Type_size as typeSize_ #}
 errorClass = {# call unsafe Error_class as errorClass_ #}
 errorString = {# call unsafe Error_string as errorString_ #}
 commSetErrhandler = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #}
+commGetErrhandler = {# call unsafe Comm_get_errhandler as commGetErrhandler_ #}
+abort = {# call unsafe Abort as abort_ #}
