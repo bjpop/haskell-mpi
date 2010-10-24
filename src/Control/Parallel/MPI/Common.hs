@@ -28,6 +28,32 @@
 -- the MPI implementation linked to this library (chosen when the Haskell
 -- library is compiled).
 --
+-- Most MPI functions may fail with an error, which, by default, will cause
+-- the program to abort. This can be changed by setting the error
+-- handler to 'errorsThrowExceptions'. As the name suggests, this will
+-- turn the error into an exception which can be handled using
+-- the facilities provided by the "Control.Exception" module.
+--
+-- Below is a small but complete MPI program. Process 1 sends the message
+-- @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
+-- to standard output. It assumes that there are at least 2 MPI processes
+-- available; a more robust program would check this condition first, before
+-- trying to send messages.
+-- 
+-- >module Main where
+-- >
+-- >import Control.Parallel.MPI.Common (mpi, commRank, commWorld, unitTag)
+-- >import Control.Parallel.MPI.Serializable (send, recv)
+-- >import Control.Monad (when)
+-- >
+-- >main :: IO ()
+-- >main = mpi $ do
+-- >   rank <- commRank commWorld
+-- >   when (rank == 1) $
+-- >      send commWorld 0 unitTag "Hello World"
+-- >   when (rank == 0) $ do
+-- >      (msg, _status) <- recv commWorld 1 unitTag
+-- >      putStrLn msg
 -----------------------------------------------------------------------------
 
 module Control.Parallel.MPI.Common
@@ -61,6 +87,7 @@ module Control.Parallel.MPI.Common
    , commSetErrhandler
    , commGetErrhandler
    , commGroup
+   , errorsThrowExceptions
 
    -- * Tags.
    , module Tag
@@ -146,15 +173,19 @@ unitTag = toTag ()
 -- | A convenience wrapper which takes an MPI computation as its argument and wraps it
 -- inside calls to 'init' (before the computation) and 'finalize' (after the computation).
 -- It will make sure that 'finalize' is called even if the MPI computation raises
--- an exception. 
+-- an exception (assuming the error handler is set to 'errorsThrowExceptions').
 mpi :: IO () -> IO ()
 mpi action = init >> (action `finally` finalize)
 
--- | A convenience wrapper (similar to 'mpi') which takes an MPI computation as its argument
--- and wraps itinside calls to 'init' (before the computation) and 'finalize' (after the computation).
--- It will make sure that 'finalize' is called even if the MPI computation raises
--- an exception. The MPI computation is a function which is abstracted over
+-- | A convenience wrapper with a similar behaviour to 'mpi'.
+-- The difference is that the MPI computation is a function which is abstracted over
 -- the communicator size and the process rank, both with respect to 'commWorld'.
+--
+-- @
+-- main = mpiWorld $ \\size rank -> do
+--    ...
+--    ...
+-- @
 mpiWorld :: (Int -> Rank -> IO ()) -> IO ()
 mpiWorld action = do
    init
@@ -213,7 +244,7 @@ finalize = Internal.finalize >> return ()
 -- There is no guarantee that provided will be greater than or equal to required.
 -- The level of provided thread support depends on the underlying MPI implementation,
 -- and may also depend on information provided when the program is executed
--- (for example, by supplying appropriate arguments to mpiexec).
+-- (for example, by supplying appropriate arguments to @mpiexec@).
 -- If the required level of support cannot be provided then it will try to
 -- return the least supported level greater than what was required.
 -- If that cannot be satisfied then it will return the highest supported level
@@ -416,6 +447,20 @@ commGetErrhandler comm =
       checkError $ Internal.commGetErrhandler comm handlerPtr
       peek handlerPtr
 
-abort :: Comm -> CInt -> IO ()
-abort comm code = checkError $ Internal.abort comm code
+errorsThrowExceptions :: Errhandler
+errorsThrowExceptions = errorsReturn
 
+-- | Tries to terminate all MPI processes in its communicator argument.
+-- The second argument is an error code which /may/ be used as the return status
+-- of the MPI process, but this is not guaranteed. On systems where 'Int' has a larger
+-- range than 'CInt', the error code will be clipped to fit into the range of 'CInt'.
+abort :: Comm -> Int -> IO ()
+abort comm code =
+   checkError $ Internal.abort comm (toErrorCode code)
+   where
+   toErrorCode :: Int -> CInt
+   toErrorCode i
+      -- Assumes Int always has range at least as big as CInt.
+      | i < (fromIntegral (minBound :: CInt)) = minBound
+      | i > (fromIntegral (maxBound :: CInt)) = maxBound
+      | otherwise = cIntConv i
