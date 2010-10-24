@@ -14,4 +14,3 @@ foreign import ccall "&mpi_errors_return" errorsReturn_ :: Ptr Errhandler
 errorsAreFatal, errorsReturn :: Errhandler
 errorsAreFatal = unsafePerformIO $ peek errorsAreFatal_
 errorsReturn = unsafePerformIO $ peek errorsReturn_
-
