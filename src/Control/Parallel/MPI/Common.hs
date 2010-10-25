@@ -100,7 +100,7 @@ module Control.Parallel.MPI.Common
    , barrier
 
    -- * Futures.
-   , Future(..)
+   , Future(..)   -- XXX should this be exported abstractly? Internals needed in Serializable.
    , waitFuture
    , getFutureStatus
    , pollFuture
@@ -199,7 +199,7 @@ mpiWorld action = do
 -- and 'mpiWorld'. It is an error to attempt to initialize the environment more
 -- than once for a given MPI program execution. The only MPI functions that may
 -- be called before the MPI environment is initialized are 'getVersion',
--- 'initialized' and 'finalized'. Corresponds to @MPI_Init@.
+-- 'initialized' and 'finalized'. This function corresponds to @MPI_Init@.
 init :: IO ()
 init = checkError Internal.init
 
@@ -207,7 +207,7 @@ init = checkError Internal.init
 -- environment has been initialized and @False@ otherwise. This function
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
--- Corresponds to @MPI_Initialized@.
+-- This function corresponds to @MPI_Initialized@.
 initialized :: IO Bool
 initialized =
    alloca $ \flagPtr -> do
@@ -218,7 +218,7 @@ initialized =
 -- environment has been finalized and @False@ otherwise. This function
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
--- Corresponds to @MPI_Finalized@.
+-- This function corresponds to @MPI_Finalized@.
 finalized :: IO Bool
 finalized =
    alloca $ \flagPtr -> do
@@ -231,7 +231,7 @@ finalized =
 -- any pending communication that it initiated before calling 'finalize'.
 -- If 'finalize' returns then regular (non-MPI) computations may continue,
 -- but no further MPI computation is possible. Note: the error code returned
--- by 'finalize' is not checked. Corresponds to @MPI_Finalize@.
+-- by 'finalize' is not checked. This function corresponds to @MPI_Finalize@.
 finalize :: IO ()
 -- XXX can't call checkError on finalize, because
 -- checkError calls Internal.errorClass and Internal.errorString.
@@ -250,7 +250,7 @@ finalize = Internal.finalize >> return ()
 -- If that cannot be satisfied then it will return the highest supported level
 -- provided by the MPI implementation. See the documentation for 'ThreadSupport'
 -- for information about what levels are available and their relative ordering.
--- Corresponds to @MPI_Init_thread@.
+-- This function corresponds to @MPI_Init_thread@.
 initThread :: ThreadSupport -> IO ThreadSupport
 initThread required = asEnum $ checkError . Internal.initThread (enumToCInt required)
 
@@ -284,9 +284,15 @@ getVersion = do
          subversion <- peekIntConv subversionPtr
          return $ Version version subversion
 
+-- | Return the number of processes involved in a communicator. For 'commWorld'
+-- it returns the total number of processes available. If the communicator is
+-- and intra-communicator it returns the number of processes in the local group.
+-- This function corresponds to @MPI_Comm_size@.
 commSize :: Comm -> IO Int
 commSize comm = asInt $ checkError . Internal.commSize comm
 
+-- | Return the rank of the calling process for the given communicator.
+-- This function corresponds to @MPI_Comm_rank@.
 commRank :: Comm -> IO Rank
 commRank comm =
    alloca $ \ptr -> do
@@ -302,7 +308,17 @@ commRemoteSize comm = asInt $ checkError . Internal.commRemoteSize comm
 commCompare :: Comm -> Comm -> IO ComparisonResult
 commCompare comm1 comm2 = asEnum $ checkError . Internal.commCompare comm1 comm2
 
-probe :: Rank -> Tag -> Comm -> IO Status
+-- | Test for an incomming message, without actually receiving it.
+-- If a message has been sent from @Rank@ to the current process with @Tag@ on the
+-- communicator @Comm@ then 'probe' will return the 'Status' of the message. Otherwise
+-- it will block the current process until such a matching message is sent.
+-- This allows the current process to check for an incoming message and decide
+-- how to receive it, based on the information in the 'Status'.
+-- This function corresponds to @MPI_Probe@.
+probe :: Rank       -- ^ Rank of the sender.
+      -> Tag        -- ^ Tag of the sent message.
+      -> Comm       -- ^ Communicator.
+      -> IO Status  -- ^ Information about the incoming message (but not the content of the message).
 probe rank tag comm = do
    let cSource = fromRank rank
        cTag    = fromTag tag
@@ -310,9 +326,14 @@ probe rank tag comm = do
       checkError $ Internal.probe cSource cTag comm $ castPtr statusPtr
       peek statusPtr
 
+-- | Blocks until all processes on the communicator call this function.
+-- This function corresponds to @MPI_Barrier@.
 barrier :: Comm -> IO ()
 barrier comm = checkError $ Internal.barrier comm
 
+-- | Blocking test for the completion of a send of receive.
+-- See 'test' for a non-blocking variant. 
+-- This function corresponds to @MPI_Wait@.
 wait :: Request -> IO Status
 wait request =
    alloca $ \statusPtr ->
@@ -321,8 +342,10 @@ wait request =
        checkError $ Internal.wait reqPtr $ castPtr statusPtr
        peek statusPtr
 
--- Returns Nothing if the request is not complete, otherwise
--- it returns (Just status).
+-- | Non-blocking test for the completion of a send or receive.
+-- Returns @Nothing@ if the request is not complete, otherwise
+-- it returns @Just status@. See 'wait' for a blocking variant.
+-- This function corresponds to @MPI_Test@.
 test :: Request -> IO (Maybe Status)
 test request =
     alloca $ \statusPtr ->
@@ -335,6 +358,8 @@ test request =
                  then Just <$> peek statusPtr
                  else return Nothing
 
+-- | Cancel a pending communication request.
+-- This function corresponds to @MPI_Cancel@.
 cancel :: Request -> IO ()
 cancel request =
    alloca $ \reqPtr -> do
@@ -346,7 +371,7 @@ wtime = realToFrac <$> Internal.wtime
 
 wtick = realToFrac <$> Internal.wtick
 
--- Futures
+-- | A value to be computed by some thread in the future.
 data Future a =
    Future
    { futureThread :: ThreadId
@@ -354,19 +379,30 @@ data Future a =
    , futureVal :: MVar a
    }
 
+-- | Obtain the computed value from a 'Future'. If the computation
+-- has not completed, the caller will block, until the value is ready.
+-- See 'pollFuture' for a non-blocking variant.
 waitFuture :: Future a -> IO a
 waitFuture = readMVar . futureVal
 
+-- | Obtain the 'Status' from a 'Future'. If the computation
+-- has not completed, the caller will block, until the value is ready.
 getFutureStatus :: Future a -> IO Status
 getFutureStatus = readMVar . futureStatus
+-- XXX do we need a pollStatus?
 
+-- | Poll for the computed value from a 'Future'. If the computation
+-- has not completed, the function will return @None@, otherwise it
+-- will return @Just value@.
 pollFuture :: Future a -> IO (Maybe a)
 pollFuture = tryTakeMVar . futureVal
 
--- May want to stop people from waiting on Futures which are killed...
+-- | Terminate the computation associated with a 'Future'.
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
+-- XXX May want to stop people from waiting on Futures which are killed...
 
+-- | Return the process group from a communicator.
 commGroup :: Comm -> IO Group
 commGroup comm =
    alloca $ \ptr -> do
@@ -432,21 +468,27 @@ groupTranslateRanks group1 ranks group2 =
             checkError $ Internal.groupTranslateRanks group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
             map toRank <$> peekArray size resultPtr
 
+-- | Return the number of bytes used to store an MPI 'Datatype'.
 typeSize :: Datatype -> Int
 typeSize dataType = unsafePerformIO $
    alloca $ \ptr -> do
       checkError $ Internal.typeSize dataType ptr
       fromIntegral <$> peek ptr
 
+-- | Set the error handler for a communicator.
+-- This function corresponds to MPI_Comm_set_errhandler.
 commSetErrhandler :: Comm -> Errhandler -> IO ()
 commSetErrhandler comm h = checkError $ Internal.commSetErrhandler comm h
 
+-- | Get the error handler for a communicator.
+-- This function corresponds to MPI_Comm_get_errhandler.
 commGetErrhandler :: Comm -> IO Errhandler
 commGetErrhandler comm =
    alloca $ \handlerPtr -> do
       checkError $ Internal.commGetErrhandler comm handlerPtr
       peek handlerPtr
 
+-- | Error handler which causes errors from MPI functions to be raised as exceptions.
 errorsThrowExceptions :: Errhandler
 errorsThrowExceptions = errorsReturn
 
@@ -454,6 +496,7 @@ errorsThrowExceptions = errorsReturn
 -- The second argument is an error code which /may/ be used as the return status
 -- of the MPI process, but this is not guaranteed. On systems where 'Int' has a larger
 -- range than 'CInt', the error code will be clipped to fit into the range of 'CInt'.
+-- This function corresponds to @MPI_Abort@.
 abort :: Comm -> Int -> IO ()
 abort comm code =
    checkError $ Internal.abort comm (toErrorCode code)
