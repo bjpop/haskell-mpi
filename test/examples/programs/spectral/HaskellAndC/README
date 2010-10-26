@@ -1,0 +1,21 @@
+Here we have a test case which checks whether a Haskell MPI program can
+work with a C MPI program.
+
+The test consists of two MPI processes:
+   - Rank 0 sends a message of integers from 1 to 100 to Rank 1.
+   - Rank 1 receives the message and squares every value.
+   - Rank 1 sends the new message back to Rank 0.
+   - Rank 0 receives the new message and prints its contents.
+
+We've implemented both ranks in C and Haskell, so you can mix and match.
+
+For example, to run with Rank 0 compiled from Haskell and Rank 1 compiled from C, try:
+
+   mpirun -n 1 rank0H : -n 1 rank1C
+
+All 4 combinations (of ranks * programming languages) should work.
+
+Note that, at least for OpenMPI, you need to make sure that your Haskell program
+is compiled for the same word size as the C program. If not MPI_Init fails.
+This was observed on OS X. See comments in the Makefile about changing the
+word size.
