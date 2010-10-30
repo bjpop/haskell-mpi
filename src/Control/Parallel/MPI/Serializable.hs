@@ -66,15 +66,17 @@ module Control.Parallel.MPI.Serializable
    , sendBS
    , recvBS
    , isendBS
-     -- | Here is how you can use those functions (`wait' is from Control.Parallel.MPI.Common):
+     -- | Here is how you can use those functions
      --
-     -- > process rank
-     -- >   | rank == 0 = do sendBS commWorld 1 123 (BS.Pack "Hello world!")
-     -- >                    request <- isendBS commWorld 2 123 (BS.Pack "And you too!")
-     -- >                    wait request
-     -- >   | rank `elem` [1,2] = do (msg, status) <- recvBS commWorld 0 123
-     -- >                            print msg
-     -- >   | otherwise = return ()
+     -- @
+     -- process rank
+     --   | rank == 0 = do sendBS 'commWorld' 1 123 (BS.Pack \"Hello world!\")
+     --                    request <- isendBS 'commWorld' 2 123 (BS.Pack \"And you too!\")
+     --                    'wait' request
+     --   | rank \`elem\` [1,2] = do (msg, status) <- recvBS 'commWorld' 0 123
+     --                            print msg
+     --   | otherwise = return ()
+     -- @
 
      -- * Collective operations
      {- | Broadcast and other collective operations are tricky because the receiver doesn't know how much memory to allocate.
@@ -198,8 +200,10 @@ recvBS comm rank tag = do
 --
 -- Example:
 --
--- >do req <- isend commWorld 0 unitTag "Hello world!"
--- >   wait req
+-- @
+-- do req <- isend 'commWorld' 0 'unitTag' \"Hello world!\"
+--    'wait' req
+-- @
 isend  :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
 isend  c r t m = isendBSwith Internal.isend  c r t $ encode m
 
@@ -365,7 +369,7 @@ decodeList lengths bs = unfoldr decodeNext (lengths,bs)
 
 {- | Receives single message from the process that distributes them with `scatterSend'
 
-Example. Scattering "Hello world" to all processes from process with rank 0:
+Example. Scattering @\"Hello world\"@ to all processes from process with rank 0:
 
 >process rank
 >   | rank == 0 = do n <- commSize commWorld
@@ -448,8 +452,8 @@ and receives a list of messages, one from every process in the communicator.
 
 This function handles both inter- and intracommunicators.
 
-Example. Each process sends his own [rank] to process with rank 0, [rank, rank] to process with rank 1, and so on.
-Therefore, process with rank 0 gets [[0],[1],[2]], process with rank 1 gets [[0,0],[1,1],[2,2]] and so on:
+Example. Each process sends his own rank (as a list @[rank]@) to process with rank 0, @[rank, rank]@ to process with rank 1, and so on.
+Therefore, process with rank 0 gets @[[0],[1],[2]]@, process with rank 1 gets @[[0,0],[1,1],[2,2]]@ and so on:
 
 > process rank = do
 >  numProcs <- commSize commWorld
