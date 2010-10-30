@@ -91,13 +91,13 @@ module Control.Parallel.MPI.Serializable
      payload.
      -}
      -- ** One-to-all
-   , sendBcast
-   , recvBcast
-   , sendScatter
-   , recvScatter
+   , bcastSend
+   , bcastRecv
+   , scatterSend
+   , scatterRecv
      -- ** All-to-one
-   , sendGather
-   , recvGather
+   , gatherSend
+   , gatherRecv
    , allgather
      -- ** All-to-all
    , alltoall
@@ -204,25 +204,8 @@ recvFuture comm rank tag = do
       putMVar statusRef status
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
 
-{- Broadcast and other collective operations are tricky because the receiver doesn't know how much memory to allocate.
-   The C interface assumes the sender and receiver agree on the size in advance, but
-   this is not useful for the Haskell interface (where we want to send arbitrary sized
-   values) because the sender is the only process which has the actual data available
-
-   The work around is for the sender to send two messages. The first says how much data
-   is coming. The second message sends the actual data. We rely on the two messages being
-   sent and received in this order. Conversely the receiver gets two messages. The first is
-   the size of memory to allocate and the second in the actual message.
-
-   The obvious downside of this approach is that it requires two broadcasts for one
-   payload. Communication costs can be expensive.
-
-   The idea for this scheme was inspired by the Ocaml bindings. Therefore there is
-   some precedent for doing it this way.
--}
-
-sendBcast :: Serialize msg => Comm -> Rank -> msg -> IO ()
-sendBcast comm rootRank msg = do
+bcastSend :: Serialize msg => Comm -> Rank -> msg -> IO ()
+bcastSend comm rootRank msg = do
    myRank <- commRank comm
    -- Intercommunicators are handled differently.
    -- Basically, if communicator is intercommunicator, it means that
@@ -238,7 +221,7 @@ sendBcast comm rootRank msg = do
    isInter <- commTestInter comm
    if isInter then if rootRank == theRoot then doSend (encode msg)
                    else if rootRank ==  procNull then doSend BS.empty -- do nothing
-                        else fail "sendBcast with intercommunicator accepts either theRoot or procNull as Rank"
+                        else fail "bcastSend with intercommunicator accepts either theRoot or procNull as Rank"
      else -- intra-communicator, i.e. a single homogenous group of processes.
      doSend (encode msg)
   where
@@ -248,8 +231,8 @@ sendBcast comm rootRank msg = do
       -- then broadcast the actual message
       Storable.bcastSend comm rootRank bs
 
-recvBcast :: Serialize msg => Comm -> Rank -> IO msg
-recvBcast comm rootRank = do
+bcastRecv :: Serialize msg => Comm -> Rank -> IO msg
+bcastRecv comm rootRank = do
   -- receive the broadcast of the size
   (count::CInt) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
   -- receive the broadcast of the message
@@ -258,31 +241,33 @@ recvBcast comm rootRank = do
     Left e -> fail e
     Right val -> return val
 
--- List should have exactly numProcs elements
-sendGather :: Serialize msg => Comm -> Rank -> msg -> IO ()
-sendGather comm root msg = do
+{- | List is expected to have exactly numProcs elements, and it is caller's
+     responsibility to ensure this. TODO
+-}
+gatherSend :: Serialize msg => Comm -> Rank -> msg -> IO ()
+gatherSend comm root msg = do
   let enc_msg = encode msg
   -- Send length
-  Storable.sendGather comm root (cIntConv (BS.length enc_msg) :: CInt)
+  Storable.gatherSend comm root (cIntConv (BS.length enc_msg) :: CInt)
   -- Send payload
-  Storable.sendGatherv comm root enc_msg
+  Storable.gathervSend comm root enc_msg
   
-recvGather :: Serialize msg => Comm -> Rank -> msg -> IO [msg]
-recvGather comm root msg = do
+gatherRecv :: Serialize msg => Comm -> Rank -> msg -> IO [msg]
+gatherRecv comm root msg = do
   isInter <- commTestInter comm
   if isInter then if root == procNull then return []
                   else if root == theRoot then doRecv isInter
-                       else fail "Process in receiving group of intercommunicator uses unsupported value of root in recvGather"
+                       else fail "Process in receiving group of intercommunicator uses unsupported value of root in gatherRecv"
     else doRecv isInter
   where
     doRecv isInter = do
       let enc_msg = encode msg
       numProcs <- if isInter then commRemoteSize comm else commSize comm
-      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.recvGather comm root (cIntConv (BS.length enc_msg) :: CInt) 
+      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.gatherRecv comm root (cIntConv (BS.length enc_msg) :: CInt) 
       -- calculate displacements from sizes
       lengths <- SA.getElems lengthsArr
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
-      bs <- Storable.intoNewBS_ (sum lengths) $ Storable.recvGatherv comm root enc_msg lengthsArr displArr
+      bs <- Storable.intoNewBS_ (sum lengths) $ Storable.gathervRecv comm root enc_msg lengthsArr displArr
       return $ decodeList lengths bs
 
 decodeList :: (Serialize msg) => [CInt] -> BS.ByteString -> [msg]
@@ -294,29 +279,29 @@ decodeList lengths bs = unfoldr decodeNext (lengths,bs)
         Left e -> fail e
         Right val -> Just (val, (ls, BS.drop (cIntConv l) bs))
         
-recvScatter :: Serialize msg => Comm -> Rank -> IO msg
-recvScatter comm root = do
+scatterRecv :: Serialize msg => Comm -> Rank -> IO msg
+scatterRecv comm root = do
   -- Recv length
-  (len::CInt) <- Storable.intoNewVal_ $ Storable.recvScatter comm root
+  (len::CInt) <- Storable.intoNewVal_ $ Storable.scatterRecv comm root
   -- Recv payload
-  bs <- Storable.intoNewBS_ len $ Storable.recvScatterv comm root
+  bs <- Storable.intoNewBS_ len $ Storable.scattervRecv comm root
   case decode bs of
     Left e -> fail e
     Right val -> return val
     
 -- XXX: List should have exactly numProcs elements  
-sendScatter :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
-sendScatter comm root msgs = do
+scatterSend :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
+scatterSend comm root msgs = do
   isInter <- commTestInter comm
   numProcs <- if isInter then commRemoteSize comm else commSize comm
-  when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in sendScatter"
+  when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in scatterSend"
   if isInter then if root == procNull then return $ head msgs 
                                            -- XXX:
                                            -- fix this. We really 
                                            -- should just return ()
                                            -- here.
                   else if root == theRoot then doSend
-                       else fail "Process in sending group of intercommunicator uses unsupported value of root in sendScatter"
+                       else fail "Process in sending group of intercommunicator uses unsupported value of root in scatterSend"
     else doSend -- intracommunicator
   where
     doSend = do
@@ -326,11 +311,11 @@ sendScatter comm root msgs = do
           numProcs = length msgs
       -- scatter numProcs ints - sizes of payloads to be sent to other processes
       (lengthsArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) lengths
-      (myLen :: CInt) <- Storable.intoNewVal_ $ Storable.sendScatter comm root lengthsArr
+      (myLen :: CInt) <- Storable.intoNewVal_ $ Storable.scatterSend comm root lengthsArr
       -- calculate displacements from sizes
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
       -- scatter payloads
-      bs <- Storable.intoNewBS_ myLen $ Storable.sendScatterv comm root payload lengthsArr displArr
+      bs <- Storable.intoNewBS_ myLen $ Storable.scattervSend comm root payload lengthsArr displArr
       case decode bs of
         Left e -> fail e
         Right val -> return val

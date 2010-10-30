@@ -134,23 +134,23 @@ crissCrossSendRecv rank
 
 
 broadcastTest rank 
-  | rank == root = sendBcast commWorld sender bigMsg
-  | otherwise    = do result <- recvBcast commWorld sender
+  | rank == root = bcastSend commWorld sender bigMsg
+  | otherwise    = do result <- bcastRecv commWorld sender
                       (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
 
 gatherTest rank
-  | rank == root = do result <- recvGather commWorld root [fromRank rank :: Int]
+  | rank == root = do result <- gatherRecv commWorld root [fromRank rank :: Int]
                       numProcs <- commSize commWorld
                       let expected = concat $ reverse $ take numProcs $ iterate Prelude.init [0..numProcs-1]
                           got = concat (result::[[Int]])
                       got == expected @? "Got " ++ show got ++ " instead of " ++ show expected
-  | otherwise        = sendGather commWorld root [0..fromRank rank :: Int]
+  | otherwise        = gatherSend commWorld root [0..fromRank rank :: Int]
 
 scatterTest rank
   | rank == root = do numProcs <- commSize commWorld
-                      result <- sendScatter commWorld root $ map (^(2::Int)) [1..numProcs]
+                      result <- scatterSend commWorld root $ map (^(2::Int)) [1..numProcs]
                       result == 1 @? "Root got " ++ show result ++ " instead of 1"
-  | otherwise        = do result <- recvScatter commWorld root
+  | otherwise        = do result <- scatterRecv commWorld root
                           let expected = (fromRank rank + 1::Int)^(2::Int)
                           result == expected @? "Got " ++ show result ++ " instead of " ++ show expected
 

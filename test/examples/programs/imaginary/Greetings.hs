@@ -10,8 +10,8 @@ main :: IO ()
 main = mpiWorld $ \_size rank -> do
    let root = 0
    if rank == root
-      then mapM_ putStrLn =<< (recvGather commWorld root $ msg rank)
-      else sendGather commWorld root $ msg rank
+      then mapM_ putStrLn =<< (gatherRecv commWorld root $ msg rank)
+      else gatherSend commWorld root $ msg rank
 
 msg :: Rank -> String
 msg r = "Greetings from process " ++ show r ++ "!"

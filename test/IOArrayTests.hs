@@ -107,8 +107,8 @@ scatterTest myRank = do
   (segment::ArrMsg) <- if myRank == root then do
                let bigRange@(low, hi) = (1, segmentSize * numProcs)
                (msg :: ArrMsg) <- newListArray bigRange $ map fromIntegral [low..hi]
-               intoNewArray_ segRange $ sendScatter commWorld root msg
-             else intoNewArray_ segRange $ recvScatter commWorld root
+               intoNewArray_ segRange $ scatterSend commWorld root msg
+             else intoNewArray_ segRange $ scatterRecv commWorld root
 
   let myRankNo = fromRank myRank
       expected = take 10 [myRankNo*10+1..]
@@ -140,8 +140,8 @@ scattervTest myRank = do
     (packCounts :: StorableArray Int CInt) <- newListArray msgRange counts
     (packDispls :: StorableArray Int CInt) <- newListArray msgRange displs
 
-    intoNewArray_ recvRange $ sendScatterv commWorld root msg packCounts packDispls
-    else intoNewArray_ recvRange $ recvScatterv commWorld root
+    intoNewArray_ recvRange $ scattervSend commWorld root msg packCounts packDispls
+    else intoNewArray_ recvRange $ scattervRecv commWorld root
 
   recvMsg <- getElems segment
 
@@ -157,11 +157,11 @@ gatherTest myRank = do
   (msg :: ArrMsg) <- newListArray segRange $ map fromIntegral [low..hi]
 
   if myRank /= root
-    then sendGather commWorld root msg
+    then gatherSend commWorld root msg
     else do
     let bigRange = (1, segmentSize * numProcs)
         expected = map fromIntegral $ concat $ replicate numProcs [1..segmentSize]
-    (result::ArrMsg) <- intoNewArray_ bigRange $ recvGather commWorld root msg
+    (result::ArrMsg) <- intoNewArray_ bigRange $ gatherRecv commWorld root msg
     recvMsg <- getElems result
     recvMsg == expected @? "Rank " ++ show myRank ++ " got " ++ show recvMsg ++ " instead of " ++ show expected
   where segmentSize = 10
@@ -174,7 +174,7 @@ gathervTest myRank = do
       sendRange = (0, myRankNo)
   (msg :: ArrMsg) <- newListArray sendRange $ map fromIntegral [0..myRankNo]
   if myRank /= root
-    then sendGatherv commWorld root msg
+    then gathervSend commWorld root msg
     else do
     let msgRange = (1, numProcs)
         counts = [1..fromIntegral numProcs]
@@ -183,7 +183,7 @@ gathervTest myRank = do
     (packCounts :: StorableArray Int CInt) <- newListArray msgRange counts
     (packDispls :: StorableArray Int CInt) <- newListArray msgRange displs
 
-    (segment::ArrMsg) <- intoNewArray_ bigRange $ recvGatherv commWorld root msg packCounts packDispls
+    (segment::ArrMsg) <- intoNewArray_ bigRange $ gathervRecv commWorld root msg packCounts packDispls
     recvMsg <- getElems segment
 
     recvMsg == expected @? "Rank = " ++ show myRank ++ " got segment = " ++ show recvMsg ++ " instead of " ++ show expected
