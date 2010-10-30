@@ -15,49 +15,27 @@
 -- a close correspondence with those provided by the C API. Such
 -- correspondences are noted in the documentation of this module where
 -- relevant.
---
--- MPI is defined by the Message-Passing Interface Standard,
--- as specified by the Message Passing Interface Forum. The latest release
--- of the standard is known as MPI-2. These Haskell
--- bindings are designed to work with any MPI-2 standards compliant
--- implementation. Examples are MPICH2 and OpenMPI.
---
--- In addition to reading these documents, users may also find it
--- beneficial to consult the MPI-2 standard documentation provided by the
--- MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
--- the MPI implementation linked to this library (that is, the MPI
--- implementation which is chosen when this Haskell library is compiled).
---
--- Most MPI functions may fail with an error, which, by default, will cause
--- the program to abort. This can be changed by setting the error
--- handler to 'errorsThrowExceptions'. As the name suggests, this will
--- turn the error into an exception which can be handled using
--- the facilities provided by the "Control.Exception" module.
---
--- Below is a small but complete MPI program. Process 1 sends the message
--- @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
--- to standard output. It assumes that there are at least 2 MPI processes
--- available; a more robust program would check this condition first, before
--- trying to send messages.
--- 
--- >module Main where
--- >
--- >import Control.Parallel.MPI.Common (mpi, commRank, commWorld, unitTag)
--- >import Control.Parallel.MPI.Serializable (send, recv)
--- >import Control.Monad (when)
--- >
--- >main :: IO ()
--- >main = mpi $ do
--- >   rank <- commRank commWorld
--- >   when (rank == 1) $
--- >      send commWorld 0 unitTag "Hello World"
--- >   when (rank == 0) $ do
--- >      (msg, _status) <- recv commWorld 1 unitTag
--- >      putStrLn msg
 -----------------------------------------------------------------------------
 
 module Control.Parallel.MPI.Common
    (
+   -- * Notable changes from MPI
+   --
+   -- ** Collective operations are split
+   -- $collectives-split
+
+   -- ** Reversed order of arguments
+   -- $arg-order
+
+   -- ** Rank checking in collective functions
+   -- $rank-checking
+
+   -- ** Error handling
+   -- $err-handling
+
+   -- * Example
+   -- $example
+
    -- * Initialization, finalization, termination.
      init
    , finalize
@@ -332,7 +310,7 @@ barrier :: Comm -> IO ()
 barrier comm = checkError $ Internal.barrier comm
 
 -- | Blocking test for the completion of a send of receive.
--- See 'test' for a non-blocking variant. 
+-- See 'test' for a non-blocking variant.
 -- This function corresponds to @MPI_Wait@.
 wait :: Request -> IO Status
 wait request =
@@ -507,3 +485,86 @@ abort comm code =
       | i < (fromIntegral (minBound :: CInt)) = minBound
       | i > (fromIntegral (maxBound :: CInt)) = maxBound
       | otherwise = cIntConv i
+
+{- $collectives-split
+Collective operations in MPI usually take a large set of arguments
+that include pointers to both input and output buffers. This fits
+nicely in the C programming style:
+
+ 1. Pointers to send and receive buffers are declared
+
+ 2. if (my_rank == root) then (send buffer is allocated and filled)
+
+ 3. Both pointers are passed to collective function, which ignores
+    unallocated send buffer for all non-root processes.
+
+In Haskell there is no simple way to declare pointers to arrays or
+values without allocating them and then do the allocation
+laterr. Plus, authors wanted to
+encourage users to partially apply API calls both for convenience (see
+below) and for simplifying reuse of already-allocated arrays (also see
+below).
+
+Therefore it was decided to split most asymmetric collective calls in
+two parts - sending and receiving. Thus @MPI_Gather@ is represented by
+'gatherSend' and 'gatherRecv', and so on. -}
+
+{- $arg-order 
+Very often MPI programmer would find himself in the situation
+where he wants to send/receive messages between the same processess
+over and over again. This is true for both point-to-point modes of
+communication and for collective operations.
+
+Which is why we've chosen to change the order of arguments in most API
+calls in a way that would make partial application of API calls
+natural. For example, if your rank 0 process often sends single
+message msg1 to rank 1 and various messages to rank 2, you could
+define the following shortcuts:
+
+@
+sendMsg1 = send comm rank1 tag1 msg1
+sendTo2 = send comm rank2
+@
+-}
+
+{- $rank-checking
+Collective operations that are split into separate send/recv parts
+(see above) take "root rank" as an argument. Right now no safeguards
+are in place to ensure that rank supplied to the send function is
+corresponding to the rank of that process. We believe that it does not
+worsen the general go-on-and-shoot-yourself-in-the-foot attitide of
+the MPI API.
+-}
+
+{- $err-handling
+Most MPI functions may fail with an error, which, by default, will cause
+the program to abort. This can be changed by setting the error
+handler to 'errorsThrowExceptions'. As the name suggests, this will
+turn the error into an exception which can be handled using
+the facilities provided by the "Control.Exception" module.
+-}
+
+{-$example
+Below is a small but complete MPI program. Process 1 sends the message
+@\"Hello World\"@ to process 0. Process 0 receives the message and prints it
+to standard output. It assumes that there are at least 2 MPI processes
+available; a more robust program would check this condition first, before
+trying to send messages.
+
+@
+module Main where
+
+import "Control.Parallel.MPI.Common" (mpi, commRank, commWorld, unitTag)
+import "Control.Parallel.MPI.Serializable" (send, recv)
+import Control.Monad (when)
+
+main :: IO ()
+main = 'mpi' $ do
+   rank <- 'commRank' 'commWorld'
+   when (rank == 1) $
+      'send' 'commWorld' 0 'unitTag' \"Hello World\"
+   when (rank == 0) $ do
+      (msg, _status) <- 'recv' 'commWorld' 1 'unitTag'
+      putStrLn msg
+@
+-}

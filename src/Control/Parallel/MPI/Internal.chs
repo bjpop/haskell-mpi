@@ -3,7 +3,28 @@
 
 #include <mpi.h>
 #include "init_wrapper.h"
+-----------------------------------------------------------------------------
+{- |
+Module      : Control.Parallel.MPI.Internal
+Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
+License     : BSD-style
+Maintainer  : florbitous@gmail.com
+Stability   : experimental
+Portability : ghc
 
+This module contains low-level Haskell bindings to core MPI functions.
+All Haskell functions correspond to MPI functions with the similar
+name (i.e. @commRank@ is the binding for @MPI_Comm_rank@)
+
+Actual types of all functions defined here depend on the MPI
+implementation.
+
+Since "Control.Parallel.MPI.Storable" and
+"Control.Parallel.MPI.Serializable" contains many functions of the
+same name as defined here, users would want to import this module
+qualified.
+-}
+-----------------------------------------------------------------------------
 module Control.Parallel.MPI.Internal
    ( maxProcessorName,
      maxErrorString,

@@ -66,6 +66,29 @@ import Control.Parallel.MPI.Request as Request
 import Control.Parallel.MPI.Op as Op
 import Data.Int()
 import Data.Word
+{-
+
+In-place receive vs new array allocation for Storable Array
+-----------------------------------------------------------
+When using StorableArray API in tight numeric loops, it is best to
+reuse existing arrays and avoid penalties incurred by
+allocation/deallocation of memory. Which is why destinations/receive
+buffers in StorableArray API are specified exclusively as
+(StorableArray i e).
+
+If you'd rather allocate new array for a particular operation, you
+could use withNewArray/withNewArray_:
+
+Instead of (recv comm rank tag arr) you would write 
+(arr <- withNewArray bounds $ recv comm rank tag), and new array would
+be allocated, supplied as the target of the (recv) operation and
+returned to you.
+
+You could easily write your own convenience wrappers similar to
+withNewArray. For example, you could create wrapper that would take an
+array size as a simple number instead of range.
+
+-}
 
 -- | if the user wants to call scattervRecv for the first time without
 -- already having allocated the array, then they can call it like so:

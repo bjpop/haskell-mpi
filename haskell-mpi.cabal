@@ -3,6 +3,24 @@ version:             0.0.1
 cabal-version:       >= 1.6
 synopsis:            Haskell bindings to the MPI library.
 description:         Haskell bindings to the MPI library.
+ MPI is defined by the Message-Passing Interface Standard,
+ as specified by the Message Passing Interface Forum. The latest release
+ of the standard is known as MPI-2. These Haskell
+ bindings are designed to work with any MPI-2 standards compliant
+ implementation. Examples are MPICH2 and OpenMPI.
+ .
+ In addition to reading these documents, users may also find it
+ beneficial to consult the MPI-2 standard documentation provided by the
+ MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
+ the MPI implementation linked to this library (that is, the MPI
+ implementation which is chosen when this Haskell library is compiled).
+ .
+ Use "Control.Parallel.MPI.Common" as starting point for browsing the API.
+ .
+ Module "Control.Parallel.MPI.Storable" contains high-performance API for mutable arrays.
+ .
+ Module "Control.Parallel.MPI.Serializable" contains slower API for arbitraty serializable values.
+
 category:            FFI, Distributed Computing
 license:             BSD3
 license-file:        LICENSE
