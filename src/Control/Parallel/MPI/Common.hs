@@ -20,7 +20,7 @@
 -- as specified by the Message Passing Interface Forum. The latest release
 -- of the standard is known as MPI-2. These Haskell
 -- bindings are designed to work with any MPI-2 standards compliant
--- implementation. Examples are MPICH2 and Open MPI.
+-- implementation. Examples are MPICH2 and OpenMPI.
 --
 -- In addition to reading these documents, users may also find it
 -- beneficial to consult the MPI-2 standard documentation provided by the
