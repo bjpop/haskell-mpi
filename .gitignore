@@ -15,3 +15,7 @@ test/regression/programs/imaginary/ISendIRecv
 *~
 /html/*
 /*.tix
+docs/HCAR/Issue19/template.aux
+docs/HCAR/Issue19/template.log
+docs/HCAR/Issue19/template.out
+docs/HCAR/Issue19/template.pdf
