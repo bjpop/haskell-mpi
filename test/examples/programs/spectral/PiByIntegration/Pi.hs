@@ -21,9 +21,10 @@ main = mpiWorld $ \size rank -> do
    n <- if rank == root
            then do
               input <- getNumber
-              bcast commWorld root input
+              sendBcast commWorld root input
+              return input
            else
-              bcast commWorld root undefined
+              recvBcast commWorld root
    let part = integrate (fromRank rank + 1) size n (1 / fromIntegral n)
    if rank == root
       then do

@@ -1,4 +1,4 @@
-bindings-mpi-comprunclean -np 10 Greetings.hs
+haskell-mpi-comprunclean -np 10 Greetings.hs
 <<<
 >>>
 Greetings from process 0!

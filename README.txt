@@ -1,4 +1,4 @@
-Bindings-MPI, Haskell bindings to the MPI library
+Haskell-mpi, Haskell bindings to the MPI library
 ------------------------------------------------
 
 How to build
@@ -29,11 +29,11 @@ Add "-ftest" to cabal install:
 How to run the unit tests
 -------------------------
 
-(Assuming you have build mpi-bindings with -ftest, as described above):
+(Assuming you have built haskell-mpi  with -ftest, as described above):
 
-Run the program "bindings-mpi-testsuite" using "mpirun" like so:
+Run the program "haskell-mpi-testsuite" using "mpirun" like so:
 
-  mpirun -np 2 bindings-mpi-testsuite 1>sender.log 2>receiver.log
+  mpirun -np 2 haskell-mpi-testsuite 1>sender.log 2>receiver.log
 
 Process with rank 0 emits the output to stdout, and every other rank reports
 to the stderr.
@@ -91,11 +91,11 @@ hMPI and tried to get them working with a modern GHC.
 A few things had changed in Haskell since hMPI was written, which suggested
 that it might be worth starting the binding from scratch. In particular
 the FFI had changed in a few ways, the C2HS tool had matured substantially,
-and good quality serialization libraries had emerged. So while bindings-mpi
+and good quality serialization libraries had emerged. So while haskell-mpi
 is highly inspired by hMPI (which was very good code),
 it is almost entirely a rewrite.
 
-bindings-mpi got its first main injection of effort during the inaugural
+Haskell-mpi got its first main injection of effort during the inaugural
 AusHac Australian Haskell Hackathon, hosted at UNSW from the 16th to the
 18th of July 2010. The end result was a proof of concept.
 

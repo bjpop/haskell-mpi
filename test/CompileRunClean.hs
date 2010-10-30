@@ -1,11 +1,11 @@
 {- Compile, Run and Clean.
 
-   A helper program for running standalone tests for bindings-mpi.
+   A helper program for running standalone tests for haskell-mpi.
    Intended to be used in conjunction with shelltestrunner.
 
    Use like so:
 
-   bindings-mpi-comprunclean -np 2 Pi.hs
+   haskell-mpi-comprunclean -np 2 Pi.hs
 
    The last argument is the name of a haskell file to compile
    (should be the Main module). All other arguments are given
