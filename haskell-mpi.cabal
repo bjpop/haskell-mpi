@@ -3,6 +3,7 @@ version:             0.0.1
 cabal-version:       >= 1.6
 synopsis:            Haskell bindings to the MPI library.
 description:         Haskell bindings to the MPI library.
+  Start reading from "Control.Parallel.MPI.Common".
 category:            FFI, Distributed Computing
 license:             BSD3
 license-file:        LICENSE
