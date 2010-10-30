@@ -20,14 +20,14 @@ module Control.Parallel.MPI.Storable
    , irecv
    , irecvPtr
    , waitall
-   , sendScatter
-   , recvScatter
-   , sendScatterv
-   , recvScatterv
-   , sendGather
-   , recvGather
-   , sendGatherv
-   , recvGatherv
+   , scatterSend
+   , scatterRecv
+   , scattervSend
+   , scattervRecv
+   , gatherSend
+   , gatherRecv
+   , gathervSend
+   , gathervRecv
    , allgather
    , allgatherv
    , alltoall
@@ -67,14 +67,14 @@ import Control.Parallel.MPI.Op as Op
 import Data.Int()
 import Data.Word
 
--- | if the user wants to call recvScatterv for the first time without
+-- | if the user wants to call scattervRecv for the first time without
 -- already having allocated the array, then they can call it like so:
 --
--- (array,_) <- intoNewArray range $ recvScatterv root comm
+-- (array,_) <- intoNewArray range $ scattervRecv root comm
 --
 -- and thereafter they can call it like so:
 --
---  recvScatterv root comm array
+--  scattervRecv root comm array
 intoNewArray :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
 intoNewArray range f = do
   arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
@@ -178,21 +178,21 @@ waitall requests statuses = do
     withStorableArray statuses $ \stats ->
       checkError $ Internal.waitall (cIntConv cnt) (castPtr reqs) (castPtr stats)
 
-sendScatter :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
-sendScatter comm root sendVal recvVal = do
+scatterSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
+scatterSend comm root sendVal recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      sendFrom sendVal $ \sendPtr _ _ ->
        checkError $ Internal.scatter (castPtr sendPtr) recvElements recvType (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
-recvScatter :: (RecvInto v) => Comm -> Rank -> v -> IO ()
-recvScatter comm root recvVal = do
+scatterRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
+scatterRecv comm root recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      checkError $ Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
-sendScatterv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
+scattervSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                  StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
-sendScatterv comm root sendVal counts displacements recvVal  = do
+scattervSend comm root sendVal counts displacements recvVal  = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == sendRank ?
    recvInto recvVal $ \recvPtr recvElements recvType ->
@@ -202,8 +202,8 @@ sendScatterv comm root sendVal counts displacements recvVal  = do
            checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) sendType
                         (castPtr recvPtr) recvElements recvType (fromRank root) comm
 
-recvScatterv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
-recvScatterv comm root arr = do
+scattervRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
+scattervRecv comm root arr = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
    recvInto arr $ \recvPtr recvElements recvType ->
@@ -214,8 +214,8 @@ XXX we should check that the recvArray is large enough to store:
 
    segmentSize * commSize
 -}
-recvGather :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
-recvGather comm root segment recvVal = do
+gatherRecv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
+gatherRecv comm root segment recvVal = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
    sendFrom segment $ \sendPtr sendElements sendType ->
@@ -223,17 +223,17 @@ recvGather comm root segment recvVal = do
        checkError $ Internal.gather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType 
                     (fromRank root) comm
 
-sendGather :: (SendFrom v) => Comm -> Rank -> v -> IO ()
-sendGather comm root segment = do
+gatherSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
+gatherSend comm root segment = do
    -- myRank <- commRank comm
    -- XXX: assert it is /= root
    sendFrom segment $ \sendPtr sendElements sendType ->
      -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
      checkError $ Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte (fromRank root) comm
 
-recvGatherv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
+gathervRecv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                 StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
-recvGatherv comm root segment counts displacements recvVal = do
+gathervRecv comm root segment counts displacements recvVal = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
    sendFrom segment $ \sendPtr sendElements sendType ->
@@ -243,8 +243,8 @@ recvGatherv comm root segment counts displacements recvVal = do
             checkError $ Internal.gatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr)
                          (castPtr countsPtr) (castPtr displPtr) recvType (fromRank root) comm
 
-sendGatherv :: (SendFrom v) => Comm -> Rank -> v -> IO ()
-sendGatherv comm root segment = do
+gathervSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
+gathervSend comm root segment = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == root
    sendFrom segment $ \sendPtr sendElements sendType ->

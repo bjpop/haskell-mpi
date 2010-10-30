@@ -21,17 +21,17 @@ main = mpiWorld $ \size rank -> do
    n <- if rank == root
            then do
               input <- getNumber
-              sendBcast commWorld root input
+              bcastSend commWorld root input
               return input
            else
-              recvBcast commWorld root
+              bcastRecv commWorld root
    let part = integrate (fromRank rank + 1) size n (1 / fromIntegral n)
    if rank == root
       then do
-         parts <- recvGather commWorld root part
+         parts <- gatherRecv commWorld root part
          printf "%1.8f\n" $ sum parts
       else
-         sendGather commWorld root part
+         gatherSend commWorld root part
 
 integrate :: Int -> Int -> Int -> Double -> Double
 integrate rank size n h =
