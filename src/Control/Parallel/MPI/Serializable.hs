@@ -11,23 +11,23 @@
 --
 -- This module provides MPI functionality for arbitrary Haskell values that are
 -- instances of Storable typeclass.
--- 
+--
 -- Since low-level MPI calls have to know the size of transmitted message, all
 -- functions in this module internally make one extra call to transfer the size
 -- of encoded message to receiving side prior to transmitting the message itself.
 -- Obviously, this incurs some overhead.
--- 
+--
 -- Full range of point-to-point and collective operation is supported, except for reduce and similar operations.
 -- Low-level MPI reduction operations could not be used on values whose structure is hidden from MPI (which is
--- exactly the case here), and implementation of reduction in Haskell heavily depends on the nature of data being 
--- processed, so there is no need to try and implement some general case in this module. 
+-- exactly the case here), and implementation of reduction in Haskell heavily depends on the nature of data being
+-- processed, so there is no need to try and implement some general case in this module.
 --
 -- Below is a small but complete MPI program utilising this Module. Process 1 sends the message
 -- @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
 -- to standard output. It assumes that there are at least 2 MPI processes
 -- available. Further examples in this module would provide different implementation of
 -- @process@ function.
--- 
+--
 -- >module Main where
 -- >
 -- >import Control.Parallel.MPI.Common (mpi, commRank, commWorld, unitTag)
@@ -47,7 +47,7 @@
 -----------------------------------------------------------------------------
 
 module Control.Parallel.MPI.Serializable
-   ( 
+   (
      -- * Point-to-point communication functions
      -- ** Blocking
      send
@@ -61,13 +61,13 @@ module Control.Parallel.MPI.Serializable
    , issend
    , recvFuture
    , waitall
-     
+
      -- ** Low-level (operating on ByteStrings)
    , sendBS
    , recvBS
    , isendBS
      -- | Here is how you can use those functions (`wait' is from Control.Parallel.MPI.Common):
-     -- 
+     --
      -- > process rank
      -- >   | rank == 0 = do sendBS commWorld 1 123 (BS.Pack "Hello world!")
      -- >                    request <- isendBS commWorld 2 123 (BS.Pack "And you too!")
@@ -75,18 +75,18 @@ module Control.Parallel.MPI.Serializable
      -- >   | rank `elem` [1,2] = do (msg, status) <- recvBS commWorld 0 123
      -- >                            print msg
      -- >   | otherwise = return ()
-     
+
      -- * Collective operations
      {- | Broadcast and other collective operations are tricky because the receiver doesn't know how much memory to allocate.
      The C interface assumes the sender and receiver agree on the size in advance, but
      this is not useful for the Haskell interface (where we want to send arbitrary sized
      values) because the sender is the only process which has the actual data available.
-     
+
      The work around is for the sender to send two messages. The first says how much data
      is coming. The second message sends the actual data. We rely on the two messages being
      sent and received in this order. Conversely the receiver gets two messages. The first is
      the size of memory to allocate and the second in the actual message.
-     
+
      The obvious downside of this approach is that it requires two MPI calls for one
      payload.
      -}
@@ -195,9 +195,9 @@ recvBS comm rank tag = do
 -- returned `Request' object to find out when operation is completed.
 -- In this case it actually means \"data has been copied to the internal MPI buffer\" - no
 -- check for matching `recv' being posted is done.
--- 
+--
 -- Example:
--- 
+--
 -- >do req <- isend commWorld 0 unitTag "Hello world!"
 -- >   wait req
 isend  :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
@@ -231,9 +231,9 @@ isendBSwith send_function comm rank tag bs = do
           peek requestPtr
 
 -- | Blocking test for completion of all specified `Request' objects
--- 
+--
 -- Example. Posting 100 sends and waiting until all of them complete:
--- 
+--
 -- >do requests <- forM ([0..99]) $ \s ->
 -- >     isend commWorld someRank unitTag (take s longMessage)
 -- >   waitall requests
@@ -245,11 +245,11 @@ waitall reqs = do
       peekArray len statPtr
 
 -- | Non-blocking receive of the message. Returns value of type `Future',
--- which could be used to check status of the operation using `getFutureStatus' 
+-- which could be used to check status of the operation using `getFutureStatus'
 -- and extract actual value using either `waitFuture' or `pollFuture':
--- 
+--
 -- Example:
--- 
+--
 -- >do f <- recvFuture commWorld someRank unitTag
 -- >   value <- waitFuture f
 recvFuture :: Serialize msg => Comm -> Rank -> Tag -> IO (Future msg)
@@ -267,7 +267,7 @@ recvFuture comm rank tag = do
 
 -- | Broadcasts message to all members of specified inter- or intra-communicator.
 -- `Rank' of the sending process should be provided, as mandated by MPI.
--- 
+--
 -- This function handles both inter- and intracommunicators, provided that the caller makes proper use of `theRoot' and `procNull'
 --
 -- See `bcastRecv' for complete example.
@@ -298,7 +298,7 @@ bcastSend comm rootRank msg = do
       Storable.bcastSend comm rootRank bs
 
 {- | Receive the message being broadcasted in the communicator from the process with specified `Rank'
- 
+
 Example:
 
 >process rank
@@ -323,7 +323,7 @@ gatherSend comm root msg = do
   Storable.gatherSend comm root (cIntConv (BS.length enc_msg) :: CInt)
   -- Send payload
   Storable.gathervSend comm root enc_msg
-  
+
 {- | Collects the messages sent with `gatherSend' and returns them as list.
 Note that per MPI semantics collecting process is expected to supply the message as well.
 
@@ -347,7 +347,7 @@ gatherRecv comm root msg = do
     doRecv isInter = do
       let enc_msg = encode msg
       numProcs <- if isInter then commRemoteSize comm else commSize comm
-      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.gatherRecv comm root (cIntConv (BS.length enc_msg) :: CInt) 
+      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.gatherRecv comm root (cIntConv (BS.length enc_msg) :: CInt)
       -- calculate displacements from sizes
       lengths <- SA.getElems lengthsArr
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
@@ -358,11 +358,11 @@ decodeList :: (Serialize msg) => [CInt] -> BS.ByteString -> [msg]
 decodeList lengths bs = unfoldr decodeNext (lengths,bs)
   where
     decodeNext ([],_) = Nothing
-    decodeNext ((l:ls),bs) = 
+    decodeNext ((l:ls),bs) =
       case decode bs of
         Left e -> fail e
         Right val -> Just (val, (ls, BS.drop (cIntConv l) bs))
-        
+
 {- | Receives single message from the process that distributes them with `scatterSend'
 
 Example. Scattering "Hello world" to all processes from process with rank 0:
@@ -382,20 +382,20 @@ scatterRecv comm root = do
   case decode bs of
     Left e -> fail e
     Right val -> return val
-    
+
 -- | Distributes a list of messages between processes in the given communicator
 -- so that each process gets exactly one message. It is caller's responsibility
 -- to ensure that list has proper amount of messages (error would be raised otherwise).
--- 
+--
 -- This function handles both inter- and intracommunicators.
 scatterSend :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
 scatterSend comm root msgs = do
   isInter <- commTestInter comm
   numProcs <- if isInter then commRemoteSize comm else commSize comm
   when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in scatterSend"
-  if isInter then if root == procNull then return $ head msgs 
+  if isInter then if root == procNull then return $ head msgs
                                            -- XXX:
-                                           -- fix this. We really 
+                                           -- fix this. We really
                                            -- should just return ()
                                            -- here.
                   else if root == theRoot then doSend
@@ -421,7 +421,7 @@ scatterSend comm root msgs = do
 {- | All processes in the given communicator supply a message. This list of messages is then received
 by every process in the communicator. Value returned from this function would be identical across
 all processes.
- 
+
 This function handles both inter- and intracommunicators.
 
 Example. Each process shares it's rank number, so that all processes have to full list of all participating ranks:
@@ -433,7 +433,7 @@ allgather :: (Serialize msg) => Comm -> msg -> IO [msg]
 allgather comm msg = do
   let enc_msg = encode msg
   isInter <- commTestInter comm
-  numProcs <- if isInter then commRemoteSize comm else commSize comm      
+  numProcs <- if isInter then commRemoteSize comm else commSize comm
   -- Send length of my message and receive lengths from other ranks
   (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0, numProcs-1) $ Storable.allgather comm (cIntConv (BS.length enc_msg) :: CInt)
   -- calculate displacements from sizes
@@ -463,7 +463,7 @@ alltoall comm msgs = do
       sendLengths = map (cIntConv . BS.length) enc_msgs
       sendPayload = BS.concat enc_msgs
   isInter <- commTestInter comm
-  numProcs <- if isInter then commRemoteSize comm else commSize comm      
+  numProcs <- if isInter then commRemoteSize comm else commSize comm
   when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in alltoall"
   -- First, all-to-all payload sizes
   (sendLengthsArr :: SA.StorableArray Int CInt) <- SA.newListArray (1,numProcs) sendLengths
@@ -475,4 +475,4 @@ alltoall comm msgs = do
   -- Receive payloads
   bs <- Storable.intoNewBS_ (sum recvLengths) $ Storable.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
   return $ decodeList recvLengths bs
-  
+
