@@ -55,7 +55,7 @@ Command line tool "hpc" could then be used to combine those into
 single .tix file, which could be used to produce code coverage report.
 Simple script "bin/coverage.sh" does all this automatically. Note:
 script should be run from the toplevel project dir (where
-bindings-mpi.cabal is residing).
+haskell-mpi.cabal is residing).
 
 Collective operations are split
 -------------------------------
