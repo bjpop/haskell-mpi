@@ -1,4 +1,4 @@
-bindings-mpi-comprunclean -np 2 PingPongFactorial.hs
+haskell-mpi-comprunclean -np 2 PingPongFactorial.hs
 <<<
 100
 >>>
