@@ -1,25 +1,105 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      : Control.Parallel.MPI.Serializable
+-- Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
+-- License     : BSD-style
+-- Maintainer  : florbitous@gmail.com
+-- Stability   : experimental
+-- Portability : ghc
+--
+-- This module provides MPI functionality for arbitrary Haskell values that are
+-- instances of Storable typeclass.
+-- 
+-- Since low-level MPI calls have to know the size of transmitted message, all
+-- functions in this module internally make one extra call to transfer the size
+-- of encoded message to receiving side prior to transmitting the message itself.
+-- Obviously, this incurs some overhead.
+-- 
+-- Full range of point-to-point and collective operation is supported, except for reduce and similar operations.
+-- Low-level MPI reduction operations could not be used on values whose structure is hidden from MPI (which is
+-- exactly the case here), and implementation of reduction in Haskell heavily depends on the nature of data being 
+-- processed, so there is no need to try and implement some general case in this module. 
+-- 
+-- Below is a small but complete MPI program utilising this Module. Process 1 sends the message
+-- @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
+-- to standard output. It assumes that there are at least 2 MPI processes
+-- available. Further examples in this module would provide different implementation of
+-- @process@ function.
+-- 
+-- >module Main where
+-- >
+-- >import Control.Parallel.MPI.Common (mpi, commRank, commWorld, unitTag)
+-- >import Control.Parallel.MPI.Serializable (send, recv)
+-- >
+-- >main :: IO ()
+-- >main = mpi $ do
+-- >   rank <- commRank commWorld
+-- >   process rank
+-- >
+-- >process rank
+-- >   | rank == 1 = send commWorld 0 unitTag "Hello World"
+-- >   | rank == 0 = do
+-- >      (msg, _status) <- recv commWorld 1 unitTag
+-- >      putStrLn msg
+-- >   | otherwise = return () -- do nothing
+-----------------------------------------------------------------------------
+
 module Control.Parallel.MPI.Serializable
-   ( send
+   ( 
+     -- * Point-to-point communication functions
+     -- ** Synchronous
+     send
    , bsend
    , ssend
    , rsend
-   , sendBS
    , recv
-   , recvBS
+     -- ** Asynchronous
    , isend
    , ibsend
    , issend
-   , isendBS
-   , waitall
    , recvFuture
+   , waitall
+     
+     -- ** Low-level (operating on ByteStrings)
+   , sendBS
+   , recvBS
+   , isendBS
+     -- | Here is how you can use those functions (`wait' is from Control.Parallel.MPI.Common):
+     -- 
+     -- > process rank
+     -- >   | rank == 0 = do sendBS commWorld 1 123 (BS.Pack "Hello world!")
+     -- >                    request <- isendBS commWorld 2 123 (BS.Pack "And you too!")
+     -- >                    wait request
+     -- >   | rank `elem` [1,2] = do (msg, status) <- recvBS commWorld 0 123
+     -- >                            print msg
+     -- >   | otherwise = return ()
+     
+     -- * Collective operations
+     {- | Broadcast and other collective operations are tricky because the receiver doesn't know how much memory to allocate.
+     The C interface assumes the sender and receiver agree on the size in advance, but
+     this is not useful for the Haskell interface (where we want to send arbitrary sized
+     values) because the sender is the only process which has the actual data available.
+     
+     The work around is for the sender to send two messages. The first says how much data
+     is coming. The second message sends the actual data. We rely on the two messages being
+     sent and received in this order. Conversely the receiver gets two messages. The first is
+     the size of memory to allocate and the second in the actual message.
+     
+     The obvious downside of this approach is that it requires two MPI calls for one
+     payload.
+     -}
+     -- ** One-to-all
    , sendBcast
    , recvBcast
-   , sendGather
-   , recvGather
    , sendScatter
    , recvScatter
+     -- ** All-to-one
+   , sendGather
+   , recvGather
    , allgather
+     -- ** All-to-all
    , alltoall
    ) where
 
