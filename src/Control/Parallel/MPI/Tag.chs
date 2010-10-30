@@ -1,5 +1,17 @@
 {-# LANGUAGE ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
+-----------------------------------------------------------------------------
+{- |
+Module      : Control.Parallel.MPI.Tag
+Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
+License     : BSD-style
+Maintainer  : florbitous@gmail.com
+Stability   : experimental
+Portability : ghc
 
+This module provides Haskell datatype that represents values which
+could be used as MPI tags.
+-}
+-----------------------------------------------------------------------------
 module Control.Parallel.MPI.Tag (Tag, toTag, fromTag, tagVal, anyTag) where
 
 import Foreign
@@ -21,5 +33,7 @@ fromTag = toEnum . tagVal
 
 foreign import ccall unsafe "&mpi_any_tag" anyTag_ :: Ptr Int 
 
+-- | Predefined tag value that allows reception of the messages with
+--   arbitrary tag values. Corresponds to @MPI_ANY_TAG@.
 anyTag :: Tag
 anyTag = toTag $ unsafePerformIO $ peek anyTag_
