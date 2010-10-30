@@ -13,7 +13,8 @@ module Control.Parallel.MPI.Serializable
    , isendBS
    , waitall
    , recvFuture
-   , bcast
+   , sendBcast
+   , recvBcast
    , sendGather
    , recvGather
    , sendScatter
@@ -123,7 +124,7 @@ recvFuture comm rank tag = do
       putMVar statusRef status
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
 
-{- Broadcast is tricky because the receiver doesn't know how much memory to allocate.
+{- Broadcast and other collective operations are tricky because the receiver doesn't know how much memory to allocate.
    The C interface assumes the sender and receiver agree on the size in advance, but
    this is not useful for the Haskell interface (where we want to send arbitrary sized
    values) because the sender is the only process which has the actual data available
@@ -140,8 +141,8 @@ recvFuture comm rank tag = do
    some precedent for doing it this way.
 -}
 
-bcast :: Serialize msg => Comm -> Rank -> msg -> IO msg
-bcast comm rootRank msg = do
+sendBcast :: Serialize msg => Comm -> Rank -> msg -> IO ()
+sendBcast comm rootRank msg = do
    myRank <- commRank comm
    -- Intercommunicators are handled differently.
    -- Basically, if communicator is intercommunicator, it means that
@@ -157,26 +158,25 @@ bcast comm rootRank msg = do
    isInter <- commTestInter comm
    if isInter then if rootRank == theRoot then doSend (encode msg)
                    else if rootRank ==  procNull then doSend BS.empty -- do nothing
-                        else doRecv
+                        else fail "sendBcast with intercommunicator accepts either theRoot or procNull as Rank"
      else -- intra-communicator, i.e. a single homogenous group of processes.
-     if (myRank == rootRank)
-     then doSend (encode msg)
-     else doRecv
+     doSend (encode msg)
   where
     doSend bs = do
       -- broadcast the size of the message first
       Storable.bcastSend comm rootRank (cIntConv (BS.length bs) :: CInt)
       -- then broadcast the actual message
       Storable.bcastSend comm rootRank bs
-      return msg
-    doRecv = do
-      -- receive the broadcast of the size
-      (count::CInt) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
-      -- receive the broadcast of the message
-      bs <- Storable.intoNewBS_ count $ Storable.bcastRecv comm rootRank
-      case decode bs of
-        Left e -> fail e
-        Right val -> return val
+
+recvBcast :: Serialize msg => Comm -> Rank -> IO msg
+recvBcast comm rootRank = do
+  -- receive the broadcast of the size
+  (count::CInt) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
+  -- receive the broadcast of the message
+  bs <- Storable.intoNewBS_ count $ Storable.bcastRecv comm rootRank
+  case decode bs of
+    Left e -> fail e
+    Right val -> return val
 
 -- List should have exactly numProcs elements
 sendGather :: Serialize msg => Comm -> Rank -> msg -> IO ()

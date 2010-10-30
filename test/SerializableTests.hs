@@ -133,9 +133,10 @@ crissCrossSendRecv rank
   | otherwise        = return () -- idling
 
 
-broadcastTest _ = do
-  result <- bcast commWorld sender bigMsg
-  (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
+broadcastTest rank 
+  | rank == root = sendBcast commWorld sender bigMsg
+  | otherwise    = do result <- recvBcast commWorld sender
+                      (result::BigMsg) == bigMsg @? "Got garbled BigMsg"
 
 gatherTest rank
   | rank == root = do result <- recvGather commWorld root [fromRank rank :: Int]
