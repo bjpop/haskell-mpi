@@ -4,6 +4,9 @@ module Control.Parallel.MPI.Tag (Tag, toTag, fromTag, tagVal, anyTag) where
 
 import Foreign
 
+-- TODO: actually, this is a 32-bit int, and even less than that.
+-- See section 8 of MPI report about extracting MPI_TAG_UB
+-- and using it here
 newtype Tag = Tag { tagVal :: Int }
    deriving (Eq, Ord, Enum, Num, Integral, Real)
 
