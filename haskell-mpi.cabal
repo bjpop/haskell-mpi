@@ -15,7 +15,7 @@ description:         Haskell bindings to the MPI library.
  the MPI implementation linked to this library (that is, the MPI
  implementation which is chosen when this Haskell library is compiled).
  .
- Use "Control.Parallel.MPI.Common" as starting point for browsing the API.
+ Use "Control.Parallel.MPI" as starting point for browsing the API.
  .
  Module "Control.Parallel.MPI.Storable" contains high-performance API for mutable arrays.
  .
@@ -56,26 +56,13 @@ Library
       extensible-exceptions,
       array
    exposed-modules:
+      Control.Parallel.MPI,
       Control.Parallel.MPI.Internal,
-      Control.Parallel.MPI.Datatype,
-      Control.Parallel.MPI.Comm,
-      Control.Parallel.MPI.Common,
-      Control.Parallel.MPI.Status,
-      Control.Parallel.MPI.ErrorClasses,
-      Control.Parallel.MPI.ThreadSupport,
-      Control.Parallel.MPI.Request,
-      Control.Parallel.MPI.Tag,
-      Control.Parallel.MPI.Rank,
-      Control.Parallel.MPI.Op,
       Control.Parallel.MPI.Storable,
       Control.Parallel.MPI.Serializable,
-      Control.Parallel.MPI.Group,
-      Control.Parallel.MPI.ComparisonResult,
-      Control.Parallel.MPI.Exception,
-      Control.Parallel.MPI.Errhandler
+      Control.Parallel.MPI.Exception
    other-modules:
       C2HS,
-      Control.Parallel.MPI.MarshalUtils,
       Control.Parallel.MPI.Utils
 
 executable  haskell-mpi-testsuite
@@ -91,25 +78,12 @@ executable  haskell-mpi-testsuite
   include-dirs:
     src/include
   other-modules:
+    Control.Parallel.MPI,
     Control.Parallel.MPI.Internal,
-    Control.Parallel.MPI.Datatype,
-    Control.Parallel.MPI.Comm,
-    Control.Parallel.MPI.Common,
-    Control.Parallel.MPI.Status,
-    Control.Parallel.MPI.ErrorClasses,
-    Control.Parallel.MPI.ThreadSupport,
-    Control.Parallel.MPI.Request,
-    Control.Parallel.MPI.Op,
-    Control.Parallel.MPI.Tag,
-    Control.Parallel.MPI.Rank,
     Control.Parallel.MPI.Storable,
     Control.Parallel.MPI.Serializable
-    Control.Parallel.MPI.MarshalUtils,
     Control.Parallel.MPI.Utils,
-    Control.Parallel.MPI.Group,
-    Control.Parallel.MPI.ComparisonResult,
     Control.Parallel.MPI.Exception,
-    Control.Parallel.MPI.Errhandler
     C2HS,
     IOArrayTests,
     SerializableTests,

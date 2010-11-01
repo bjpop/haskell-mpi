@@ -11,7 +11,7 @@
 module Main where
 
 import Control.Parallel.MPI.Serializable
-import Control.Parallel.MPI.Common
+import Control.Parallel.MPI
 import Data.Char (isDigit)
 import Text.Printf
 

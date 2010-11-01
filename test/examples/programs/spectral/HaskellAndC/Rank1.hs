@@ -2,7 +2,7 @@
 module Main where
 
 import Control.Parallel.MPI.Storable
-import Control.Parallel.MPI.Common
+import Control.Parallel.MPI
 import Data.Array.Storable
 import Foreign.C.Types (CInt)
 import Control.Monad (forM_)

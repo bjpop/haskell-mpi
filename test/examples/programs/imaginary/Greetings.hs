@@ -4,7 +4,7 @@
 module Main where
 
 import Control.Parallel.MPI.Serializable
-import Control.Parallel.MPI.Common
+import Control.Parallel.MPI
 
 main :: IO ()
 main = mpiWorld $ \_size rank -> do

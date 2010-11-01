@@ -13,7 +13,7 @@ module Main where
 
 import Control.Monad (when)
 import Control.Parallel.MPI.Serializable
-import Control.Parallel.MPI.Common
+import Control.Parallel.MPI
 import Control.Applicative ((<$>))
 import Data.Char (isDigit)
 

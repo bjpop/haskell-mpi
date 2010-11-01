@@ -1,7 +1,6 @@
-module Control.Parallel.MPI.Utils (asBool, asInt, asEnum, debugOut) where
+module Control.Parallel.MPI.Utils (asBool, asInt, asEnum, debugOut, enumToCInt, enumFromCInt) where
 
 import C2HS
-import Control.Parallel.MPI.MarshalUtils (enumFromCInt)
 
 asBool :: (Ptr CInt -> IO ()) -> IO Bool
 asBool f =
@@ -28,3 +27,9 @@ debugOut :: Show a => a -> Bool
 debugOut x = unsafePerformIO $ do
    print x
    return False
+
+enumToCInt :: Enum a => a -> CInt
+enumToCInt = cIntConv . fromEnum
+
+enumFromCInt :: Enum a => CInt -> a
+enumFromCInt = toEnum . fromIntegral

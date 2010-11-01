@@ -56,16 +56,11 @@ import Control.Applicative ((<$>))
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Datatype as Datatype
-import Control.Parallel.MPI.Comm as Comm
-import Control.Parallel.MPI.Status as Status
+import Control.Parallel.MPI
 import Control.Parallel.MPI.Exception (checkError)
-import Control.Parallel.MPI.Tag as Tag
-import Control.Parallel.MPI.Rank as Rank
-import Control.Parallel.MPI.Request as Request
-import Control.Parallel.MPI.Op as Op
 import Data.Int()
 import Data.Word
+
 {-
 
 In-place receive vs new array allocation for Storable Array

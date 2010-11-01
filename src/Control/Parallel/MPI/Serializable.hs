@@ -30,7 +30,7 @@
 --
 -- >module Main where
 -- >
--- >import Control.Parallel.MPI.Common (mpi, commRank, commWorld, unitTag)
+-- >import Control.Parallel.MPI (mpi, commRank, commWorld, unitTag)
 -- >import Control.Parallel.MPI.Serializable (send, recv)
 -- >
 -- >main :: IO ()
@@ -114,14 +114,8 @@ import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
 import qualified Control.Parallel.MPI.Storable as Storable
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Datatype as Datatype
-import Control.Parallel.MPI.Comm as Comm
-import Control.Parallel.MPI.Request as Request
-import Control.Parallel.MPI.Status as Status
 import Control.Parallel.MPI.Exception (checkError)
-import Control.Parallel.MPI.Tag as Tag
-import Control.Parallel.MPI.Rank as Rank
-import Control.Parallel.MPI.Common
+import Control.Parallel.MPI
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
 

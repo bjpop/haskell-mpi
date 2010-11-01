@@ -7,9 +7,9 @@ import Control.Exception
 import Control.Applicative ((<$>))
 import Control.Monad (unless)
 import Data.Typeable
-import Control.Parallel.MPI.ErrorClasses (ErrorClass (..))
-import Control.Parallel.MPI.MarshalUtils (enumFromCInt)
+import Control.Parallel.MPI.Utils (enumFromCInt)
 import qualified Control.Parallel.MPI.Internal as Internal (errorClass, errorString, maxErrorString)
+import Control.Parallel.MPI.Internal (ErrorClass (..))
 
 data MPIError
    = MPIError

@@ -1,7 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface, ScopedTypeVariables #-}
 module Main where
 
-import Control.Parallel.MPI.Common
+import Control.Parallel.MPI
 import Control.Parallel.MPI.Storable
 import Foreign (sizeOf)
 import Foreign.C.Types

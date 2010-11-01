@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : Control.Parallel.MPI.Common
+-- Module      : Control.Parallel.MPI
 -- Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
 -- License     : BSD-style
 -- Maintainer  : florbitous@gmail.com
@@ -17,7 +17,7 @@
 -- relevant.
 -----------------------------------------------------------------------------
 
-module Control.Parallel.MPI.Common
+module Control.Parallel.MPI
    (
    -- * Notable changes from MPI
    --
@@ -47,16 +47,18 @@ module Control.Parallel.MPI.Common
    , abort
 
    -- * Requests and statuses.
-   , module Request
-   , module Status
+   , Request
+   , Status (..)
+   , StatusPtr
    , probe
    , test
    , cancel
    , wait
 
    -- * Communicators and error handlers.
-   , module Comm
-   , module Errhandler
+   , Comm
+   , commWorld
+   , commSelf
    , commSize
    , commRank
    , commTestInter
@@ -65,14 +67,27 @@ module Control.Parallel.MPI.Common
    , commSetErrhandler
    , commGetErrhandler
    , commGroup
+   , Errhandler
+   , errorsAreFatal
+   , errorsReturn
    , errorsThrowExceptions
 
    -- * Tags.
-   , module Tag
+   , Tag
+   , toTag
+   , fromTag
+   , tagVal
+   , anyTag
    , unitTag
 
    -- Ranks.
-   , module Rank
+   , Rank
+   , rankId
+   , toRank
+   , fromRank
+   , anySource
+   , theRoot
+   , procNull
 
    -- * Synchronization.
    , barrier
@@ -85,7 +100,8 @@ module Control.Parallel.MPI.Common
    , cancelFuture
 
    -- * Groups.
-   , module Group
+   , Group
+   , groupEmpty
    , groupRank
    , groupSize
    , groupUnion
@@ -97,17 +113,43 @@ module Control.Parallel.MPI.Common
    , groupTranslateRanks
 
    -- * Data types.
-   , module Datatype
+   , Datatype
+   , char
+   , wchar
+   , short
+   , int
+   , long
+   , longLong
+   , unsignedChar
+   , unsignedShort
+   , unsigned
+   , unsignedLong
+   , unsignedLongLong
+   , float
+   , double
+   , longDouble
+   , byte
+   , packed
    , typeSize
 
    -- * Operators.
-   , module Op
+   , Operation
+   , maxOp
+   , minOp
+   , sumOp
+   , prodOp
+   , landOp
+   , bandOp
+   , lorOp
+   , borOp
+   , lxorOp
+   , bxorOp
 
    -- * Comparisons.
-   , module ComparisonResult
+   , ComparisonResult (..)
 
    -- * Threads.
-   , module ThreadSupport
+   , ThreadSupport (..)
    , queryThread
    , isThreadMain
 
@@ -129,20 +171,15 @@ import Control.Exception (finally)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Datatype as Datatype
-import Control.Parallel.MPI.Comm as Comm
-import Control.Parallel.MPI.Request as Request
-import Control.Parallel.MPI.Status as Status
-import Control.Parallel.MPI.Utils (asBool, asInt, asEnum)
-import Control.Parallel.MPI.Tag as Tag
-import Control.Parallel.MPI.Rank as Rank
-import Control.Parallel.MPI.Group as Group
-import Control.Parallel.MPI.Op as Op
-import Control.Parallel.MPI.ThreadSupport as ThreadSupport
-import Control.Parallel.MPI.MarshalUtils (enumToCInt, enumFromCInt)
-import Control.Parallel.MPI.ComparisonResult as ComparisonResult
+import Control.Parallel.MPI.Internal hiding 
+   (commRank, finalize, commSize, init, initialized, finalized, initThread,
+    abort, probe, test, cancel, wait, commTestInter, commRemoteSize,
+    commCompare, commSetErrhandler, commGetErrhandler, commGroup, barrier,
+    groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
+    groupCompare, groupExcl, groupIncl, groupTranslateRanks, typeSize,
+    queryThread, isThreadMain, wtime, wtick, getProcessorName, getVersion)
+import Control.Parallel.MPI.Utils (asBool, asInt, asEnum, enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.Exception as Exception
-import Control.Parallel.MPI.Errhandler as Errhandler
 
 -- | A tag with unit value. Intended to be used as a convenient default.
 unitTag :: Tag
@@ -554,7 +591,7 @@ trying to send messages.
 @
 module Main where
 
-import "Control.Parallel.MPI.Common" (mpi, commRank, commWorld, unitTag)
+import "Control.Parallel.MPI" (mpi, commRank, commWorld, unitTag)
 import "Control.Parallel.MPI.Serializable" (send, recv)
 import Control.Monad (when)
 
