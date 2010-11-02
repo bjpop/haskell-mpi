@@ -51,7 +51,7 @@ module Control.Parallel.MPI.Internal
      abort,
      Comm(), commWorld, commSelf,
      ComparisonResult (..),
-     Datatype, char, wchar, short, int, long, longLong, unsignedChar,
+     Datatype(), char, wchar, short, int, long, longLong, unsignedChar,
      unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double,
      longDouble, byte, packed,
      Errhandler, errorsAreFatal, errorsReturn,
@@ -124,34 +124,34 @@ commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #} <$> fromComm
 commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #} <$> fromComm
 commCompare c1 c2 = {# call unsafe Comm_compare as commCompare_ #} (fromComm c1) (fromComm c2)
 probe s t c = {# call Probe as probe_ #} s t (fromComm c)
-send b cnt d r t c = {# call unsafe Send as send_ #} b cnt d r t (fromComm c)
-bsend b cnt d r t c = {# call unsafe Bsend as bsend_ #} b cnt d r t (fromComm c)
-ssend b cnt d r t c = {# call unsafe Ssend as ssend_ #} b cnt d r t (fromComm c)
-rsend b cnt d r t c = {# call unsafe Rsend as rsend_ #} b cnt d r t (fromComm c)
-recv b cnt d r t c = {# call unsafe Recv as recv_ #} b cnt d r t (fromComm c)
-isend b cnt d r t c = {# call unsafe Isend as isend_ #} b cnt d r t (fromComm c)
-ibsend b cnt d r t c = {# call unsafe Ibsend as ibsend_ #} b cnt d r t (fromComm c)
-issend b cnt d r t c = {# call unsafe Issend as issend_ #} b cnt d r t (fromComm c)
-irecv b cnt d r t c = {# call Irecv as irecv_ #} b cnt d r t (fromComm c)
-bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt d r (fromComm c)
+send b cnt d r t c = {# call unsafe Send as send_ #} b cnt (fromDatatype d) r t (fromComm c)
+bsend b cnt d r t c = {# call unsafe Bsend as bsend_ #} b cnt (fromDatatype d) r t (fromComm c)
+ssend b cnt d r t c = {# call unsafe Ssend as ssend_ #} b cnt (fromDatatype d) r t (fromComm c)
+rsend b cnt d r t c = {# call unsafe Rsend as rsend_ #} b cnt (fromDatatype d) r t (fromComm c)
+recv b cnt d r t c = {# call unsafe Recv as recv_ #} b cnt (fromDatatype d) r t (fromComm c)
+isend b cnt d r t c = {# call unsafe Isend as isend_ #} b cnt (fromDatatype d) r t (fromComm c)
+ibsend b cnt d r t c = {# call unsafe Ibsend as ibsend_ #} b cnt (fromDatatype d) r t (fromComm c)
+issend b cnt d r t c = {# call unsafe Issend as issend_ #} b cnt (fromDatatype d) r t (fromComm c)
+irecv b cnt d r t c = {# call Irecv as irecv_ #} b cnt (fromDatatype d) r t (fromComm c)
+bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt (fromDatatype d) r (fromComm c)
 barrier = {# call unsafe Barrier as barrier_ #} <$> fromComm
 wait = {# call unsafe Wait as wait_ #}
 waitall = {# call unsafe Waitall as waitall_ #}
 test = {# call unsafe Test as test_ #}
 cancel = {# call unsafe Cancel as cancel_ #}
-scatter sb se st rb re rt r c = {# call unsafe Scatter as scatter_ #} sb se st rb re rt r (fromComm c)
-gather sb se st rb re rt r c = {# call unsafe Gather as gather_ #} sb se st rb re rt r (fromComm c)
-scatterv sb sc sd st rb re rt r c = {# call unsafe Scatterv as scatterv_ #} sb sc sd st rb re rt r (fromComm c)
-gatherv sb se st rb rc rd rt r c = {# call unsafe Gatherv as gatherv_ #} sb se st rb rc rd rt r (fromComm c)
-allgather sb se st rb re rt c = {# call unsafe Allgather as allgather_ #} sb se st rb re rt (fromComm c)
-allgatherv sb se st rb rc rd rt c = {# call unsafe Allgatherv as allgatherv_ #} sb se st rb rc rd rt (fromComm c)
-alltoall sb sc st rb rc rt c = {# call unsafe Alltoall as alltoall_ #} sb sc st rb rc rt (fromComm c)
-alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd st rb rc rd rt (fromComm c)
+scatter sb se st rb re rt r c = {# call unsafe Scatter as scatter_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
+gather sb se st rb re rt r c = {# call unsafe Gather as gather_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
+scatterv sb sc sd st rb re rt r c = {# call unsafe Scatterv as scatterv_ #} sb sc sd (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
+gatherv sb se st rb rc rd rt r c = {# call unsafe Gatherv as gatherv_ #} sb se (fromDatatype st) rb rc rd (fromDatatype rt) r (fromComm c)
+allgather sb se st rb re rt c = {# call unsafe Allgather as allgather_ #} sb se (fromDatatype st) rb re (fromDatatype rt) (fromComm c)
+allgatherv sb se st rb rc rd rt c = {# call unsafe Allgatherv as allgatherv_ #} sb se (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
+alltoall sb sc st rb rc rt c = {# call unsafe Alltoall as alltoall_ #} sb sc (fromDatatype st) rb rc (fromDatatype rt) (fromComm c)
+alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode
-reduce sb rb se st o r c  = {# call Reduce as reduce_ #} sb rb se st o r (fromComm c)
-allreduce sb rb se st o c = {# call Allreduce as allreduce_ #} sb rb se st o (fromComm c)
-reduceScatter sb rb cnt t o c = {# call Reduce_scatter as reduceScatter_ #} sb rb cnt t o (fromComm c)
+reduce sb rb se st o r c  = {# call Reduce as reduce_ #} sb rb se (fromDatatype st) o r (fromComm c)
+allreduce sb rb se st o c = {# call Allreduce as allreduce_ #} sb rb se (fromDatatype st) o (fromComm c)
+reduceScatter sb rb cnt t o c = {# call Reduce_scatter as reduceScatter_ #} sb rb cnt (fromDatatype t) o (fromComm c)
 opCreate = {# call unsafe Op_create as opCreate_ #}
 opFree = {# call unsafe Op_free as opFree_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
@@ -166,7 +166,7 @@ groupCompare g1 g2 = {# call unsafe Group_compare as groupCompare_ #} (fromGroup
 groupExcl g = {# call unsafe Group_excl as groupExcl_ #} (fromGroup g)
 groupIncl g = {# call unsafe Group_incl as groupIncl_ #} (fromGroup g)
 groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #} (fromGroup g1) s r (fromGroup g2)
-typeSize = {# call unsafe Type_size as typeSize_ #}
+typeSize = {# call unsafe Type_size as typeSize_ #} <$> fromDatatype
 errorClass = {# call unsafe Error_class as errorClass_ #}
 errorString = {# call unsafe Error_string as errorString_ #}
 commSetErrhandler = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #} <$> fromComm
@@ -174,45 +174,47 @@ commGetErrhandler = {# call unsafe Comm_get_errhandler as commGetErrhandler_ #} 
 abort = {# call unsafe Abort as abort_ #} <$> fromComm
 
 
-type Datatype = {# type MPI_Datatype #}
+type MPIDatatype = {# type MPI_Datatype #}
 
-foreign import ccall unsafe "&mpi_char" char_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_wchar" wchar_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_short" short_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_int" int_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_long" long_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_long_long" longLong_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_unsigned_char" unsignedChar_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_unsigned_short" unsignedShort_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_unsigned" unsigned_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_unsigned_long" unsignedLong_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_unsigned_long_long" unsignedLongLong_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_float" float_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_double" double_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_long_double" longDouble_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_byte" byte_ :: Ptr Datatype
-foreign import ccall unsafe "&mpi_packed" packed_ :: Ptr Datatype
+newtype Datatype = MkDatatype { fromDatatype :: MPIDatatype }
+
+foreign import ccall unsafe "&mpi_char" char_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_wchar" wchar_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_short" short_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_int" int_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_long" long_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_long_long" longLong_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_unsigned_char" unsignedChar_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_unsigned_short" unsignedShort_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_unsigned" unsigned_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_unsigned_long" unsignedLong_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_unsigned_long_long" unsignedLongLong_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_float" float_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_double" double_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_long_double" longDouble_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_byte" byte_ :: Ptr MPIDatatype
+foreign import ccall unsafe "&mpi_packed" packed_ :: Ptr MPIDatatype
 
 char, wchar, short, int, long, longLong, unsignedChar, unsignedShort :: Datatype
 unsigned, unsignedLong, unsignedLongLong, float, double, longDouble :: Datatype
 byte, packed :: Datatype
 
-char = unsafePerformIO $ peek char_
-wchar = unsafePerformIO $ peek wchar_
-short = unsafePerformIO $ peek short_
-int = unsafePerformIO $ peek int_
-long = unsafePerformIO $ peek long_
-longLong = unsafePerformIO $ peek longLong_
-unsignedChar = unsafePerformIO $ peek unsignedChar_
-unsignedShort = unsafePerformIO $ peek unsignedShort_
-unsigned = unsafePerformIO $ peek unsigned_
-unsignedLong = unsafePerformIO $ peek unsignedLong_
-unsignedLongLong = unsafePerformIO $ peek unsignedLongLong_
-float = unsafePerformIO $ peek float_
-double = unsafePerformIO $ peek double_
-longDouble = unsafePerformIO $ peek longDouble_
-byte = unsafePerformIO $ peek byte_
-packed = unsafePerformIO $ peek packed_
+char = MkDatatype <$> unsafePerformIO $ peek char_
+wchar = MkDatatype <$> unsafePerformIO $ peek wchar_
+short = MkDatatype <$> unsafePerformIO $ peek short_
+int = MkDatatype <$> unsafePerformIO $ peek int_
+long = MkDatatype <$> unsafePerformIO $ peek long_
+longLong = MkDatatype <$> unsafePerformIO $ peek longLong_
+unsignedChar = MkDatatype <$> unsafePerformIO $ peek unsignedChar_
+unsignedShort = MkDatatype <$> unsafePerformIO $ peek unsignedShort_
+unsigned = MkDatatype <$> unsafePerformIO $ peek unsigned_
+unsignedLong = MkDatatype <$> unsafePerformIO $ peek unsignedLong_
+unsignedLongLong = MkDatatype <$> unsafePerformIO $ peek unsignedLongLong_
+float = MkDatatype <$> unsafePerformIO $ peek float_
+double = MkDatatype <$> unsafePerformIO $ peek double_
+longDouble = MkDatatype <$> unsafePerformIO $ peek longDouble_
+byte = MkDatatype <$> unsafePerformIO $ peek byte_
+packed = MkDatatype <$> unsafePerformIO $ peek packed_
 
 
 type Errhandler = {# type MPI_Errhandler #}
