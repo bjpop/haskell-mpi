@@ -49,7 +49,7 @@ module Control.Parallel.MPI.Internal
      typeSize,
      errorClass, errorString, commSetErrhandler, commGetErrhandler,
      abort,
-     Comm, commWorld, commSelf,
+     Comm(), commWorld, commSelf,
      ComparisonResult (..),
      Datatype, char, wchar, short, int, long, longLong, unsignedChar,
      unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double,
@@ -87,19 +87,20 @@ process groups (f.e. 'groupCompare').
 -- | Which Haskell type will be used as @Comm@ depends on the MPI
 -- implementation that was selected during compilation. It could be
 -- @CInt@, @Ptr ()@, @Ptr CInt@ or something else.
-type Comm = {# type MPI_Comm #} 
-foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr Comm
-foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr Comm
+type MPIComm = {# type MPI_Comm #} 
+newtype Comm = MkComm { fromComm :: MPIComm }
+foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr MPIComm
+foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr MPIComm
 
 -- | Predefined handle for communicator that includes all running
 -- processes. Similar to @MPI_Comm_world@
 commWorld :: Comm
-commWorld = unsafePerformIO $ peek commWorld_
+commWorld = MkComm <$> unsafePerformIO $ peek commWorld_
 
 -- | Predefined handle for communicator that includes only current
 -- process. Similar to @MPI_Comm_self@
 commSelf :: Comm
-commSelf = unsafePerformIO $ peek commSelf_
+commSelf = MkComm <$> unsafePerformIO $ peek commSelf_
 
 foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr CInt
 foreign import ccall "&mpi_max_error_string" max_error_string_ :: Ptr CInt
@@ -117,45 +118,45 @@ isThreadMain = {# call unsafe Is_thread_main as isThreadMain_ #}
 finalize = {# call unsafe Finalize as finalize_ #}
 getProcessorName = {# call unsafe Get_processor_name as getProcessorName_ #}
 getVersion = {# call unsafe Get_version as getVersion_ #}
-commSize = {# call unsafe Comm_size as commSize_ #}
-commRank = {# call unsafe Comm_rank as commRank_ #}
-commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #}
-commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #}
-commCompare = {# call unsafe Comm_compare as commCompare_ #}
-probe = {# call Probe as probe_ #}
-send = {# call unsafe Send as send_ #}
-bsend = {# call unsafe Bsend as bsend_ #}
-ssend = {# call unsafe Ssend as ssend_ #}
-rsend = {# call unsafe Rsend as rsend_ #}
-recv = {# call unsafe Recv as recv_ #}
-isend = {# call unsafe Isend as isend_ #}
-ibsend = {# call unsafe Ibsend as ibsend_ #}
-issend = {# call unsafe Issend as issend_ #}
-irecv = {# call Irecv as irecv_ #}
-bcast = {# call unsafe Bcast as bcast_ #}
-barrier = {# call unsafe Barrier as barrier_ #}
+commSize = {# call unsafe Comm_size as commSize_ #} <$> fromComm
+commRank = {# call unsafe Comm_rank as commRank_ #} <$> fromComm
+commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #} <$> fromComm
+commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #} <$> fromComm
+commCompare c1 c2 = {# call unsafe Comm_compare as commCompare_ #} (fromComm c1) (fromComm c2)
+probe s t c = {# call Probe as probe_ #} s t (fromComm c)
+send b cnt d r t c = {# call unsafe Send as send_ #} b cnt d r t (fromComm c)
+bsend b cnt d r t c = {# call unsafe Bsend as bsend_ #} b cnt d r t (fromComm c)
+ssend b cnt d r t c = {# call unsafe Ssend as ssend_ #} b cnt d r t (fromComm c)
+rsend b cnt d r t c = {# call unsafe Rsend as rsend_ #} b cnt d r t (fromComm c)
+recv b cnt d r t c = {# call unsafe Recv as recv_ #} b cnt d r t (fromComm c)
+isend b cnt d r t c = {# call unsafe Isend as isend_ #} b cnt d r t (fromComm c)
+ibsend b cnt d r t c = {# call unsafe Ibsend as ibsend_ #} b cnt d r t (fromComm c)
+issend b cnt d r t c = {# call unsafe Issend as issend_ #} b cnt d r t (fromComm c)
+irecv b cnt d r t c = {# call Irecv as irecv_ #} b cnt d r t (fromComm c)
+bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt d r (fromComm c)
+barrier = {# call unsafe Barrier as barrier_ #} <$> fromComm
 wait = {# call unsafe Wait as wait_ #}
 waitall = {# call unsafe Waitall as waitall_ #}
 test = {# call unsafe Test as test_ #}
 cancel = {# call unsafe Cancel as cancel_ #}
-scatter = {# call unsafe Scatter as scatter_ #}
-gather = {# call unsafe Gather as gather_ #}
-scatterv = {# call unsafe Scatterv as scatterv_ #}
-gatherv = {# call unsafe Gatherv as gatherv_ #}
-allgather = {# call unsafe Allgather as allgather_ #}
-allgatherv = {# call unsafe Allgatherv as allgatherv_ #}
-alltoall = {# call unsafe Alltoall as alltoall_ #}
-alltoallv = {# call unsafe Alltoallv as alltoallv_ #}
+scatter sb se st rb re rt r c = {# call unsafe Scatter as scatter_ #} sb se st rb re rt r (fromComm c)
+gather sb se st rb re rt r c = {# call unsafe Gather as gather_ #} sb se st rb re rt r (fromComm c)
+scatterv sb sc sd st rb re rt r c = {# call unsafe Scatterv as scatterv_ #} sb sc sd st rb re rt r (fromComm c)
+gatherv sb se st rb rc rd rt r c = {# call unsafe Gatherv as gatherv_ #} sb se st rb rc rd rt r (fromComm c)
+allgather sb se st rb re rt c = {# call unsafe Allgather as allgather_ #} sb se st rb re rt (fromComm c)
+allgatherv sb se st rb rc rd rt c = {# call unsafe Allgatherv as allgatherv_ #} sb se st rb rc rd rt (fromComm c)
+alltoall sb sc st rb rc rt c = {# call unsafe Alltoall as alltoall_ #} sb sc st rb rc rt (fromComm c)
+alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd st rb rc rd rt (fromComm c)
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode
-reduce = {# call Reduce as reduce_ #}
-allreduce = {# call Allreduce as allreduce_ #}
-reduceScatter = {# call Reduce_scatter as reduceScatter_ #}
+reduce sb rb se st o r c  = {# call Reduce as reduce_ #} sb rb se st o r (fromComm c)
+allreduce sb rb se st o c = {# call Allreduce as allreduce_ #} sb rb se st o (fromComm c)
+reduceScatter sb rb cnt t o c = {# call Reduce_scatter as reduceScatter_ #} sb rb cnt t o (fromComm c)
 opCreate = {# call unsafe Op_create as opCreate_ #}
 opFree = {# call unsafe Op_free as opFree_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
 wtick = {# call unsafe Wtick as wtick_ #}
-commGroup = {# call unsafe Comm_group as commGroup_ #}
+commGroup = {# call unsafe Comm_group as commGroup_ #} <$> fromComm
 groupRank = {# call unsafe Group_rank as groupRank_ #} <$> fromGroup
 groupSize = {# call unsafe Group_size as groupSize_ #} <$> fromGroup
 groupUnion g1 g2 = {# call unsafe Group_union as groupUnion_ #} (fromGroup g1) (fromGroup g2)
@@ -168,9 +169,9 @@ groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTra
 typeSize = {# call unsafe Type_size as typeSize_ #}
 errorClass = {# call unsafe Error_class as errorClass_ #}
 errorString = {# call unsafe Error_string as errorString_ #}
-commSetErrhandler = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #}
-commGetErrhandler = {# call unsafe Comm_get_errhandler as commGetErrhandler_ #}
-abort = {# call unsafe Abort as abort_ #}
+commSetErrhandler = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #} <$> fromComm
+commGetErrhandler = {# call unsafe Comm_get_errhandler as commGetErrhandler_ #} <$> fromComm
+abort = {# call unsafe Abort as abort_ #} <$> fromComm
 
 
 type Datatype = {# type MPI_Datatype #}
