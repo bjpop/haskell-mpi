@@ -422,7 +422,7 @@ commGroup :: Comm -> IO Group
 commGroup comm =
    alloca $ \ptr -> do
       checkError $ Internal.commGroup comm ptr
-      peek ptr
+      MkGroup <$> peek ptr
 
 groupRank :: Group -> Rank
 groupRank = withGroup Internal.groupRank toRank
@@ -438,13 +438,13 @@ withGroup prim build group =
          build <$> peek ptr
 
 groupUnion :: Group -> Group -> Group
-groupUnion g1 g2 = with2Groups Internal.groupUnion id g1 g2
+groupUnion g1 g2 = with2Groups Internal.groupUnion MkGroup g1 g2
 
 groupIntersection :: Group -> Group -> Group
-groupIntersection g1 g2 = with2Groups Internal.groupIntersection id g1 g2
+groupIntersection g1 g2 = with2Groups Internal.groupIntersection MkGroup g1 g2
 
 groupDifference :: Group -> Group -> Group
-groupDifference g1 g2 = with2Groups Internal.groupDifference id g1 g2
+groupDifference g1 g2 = with2Groups Internal.groupDifference MkGroup g1 g2
 
 groupCompare :: Group -> Group -> ComparisonResult
 groupCompare g1 g2 = with2Groups Internal.groupCompare enumFromCInt g1 g2
@@ -465,14 +465,16 @@ groupExcl group ranks = groupWithRankList Internal.groupExcl group ranks
 groupIncl :: Group -> [Rank] -> Group
 groupIncl group ranks = groupWithRankList Internal.groupIncl group ranks
 
-groupWithRankList :: (Group -> CInt -> Ptr CInt -> Ptr Group -> IO CInt) -> Group -> [Rank] -> Group
+-- TODO: this (Ptr a) is really a (Ptr MPI_Group), only we dont want to export MPI_Group from Internal.chs
+-- Should find a way to make typesig cleaner.
+groupWithRankList :: (Group -> CInt -> Ptr CInt -> Ptr a -> IO CInt) -> Group -> [Rank] -> Group
 groupWithRankList prim group ranks =
    unsafePerformIO $ do
       let (rankIntList :: [Int]) = map fromEnum ranks
       alloca $ \groupPtr ->
          withArrayLen rankIntList $ \size ranksPtr -> do
-            checkError $ prim group (enumToCInt size) (castPtr ranksPtr) groupPtr
-            peek groupPtr
+            checkError $ prim group (enumToCInt size) (castPtr ranksPtr) (castPtr groupPtr)
+            MkGroup <$> peek groupPtr
 
 groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
 groupTranslateRanks group1 ranks group2 =

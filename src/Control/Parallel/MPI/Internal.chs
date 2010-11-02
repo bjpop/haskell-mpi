@@ -56,7 +56,7 @@ module Control.Parallel.MPI.Internal
      longDouble, byte, packed,
      Errhandler, errorsAreFatal, errorsReturn,
      ErrorClass (..),
-     Group, groupEmpty,
+     Group(MkGroup), groupEmpty,
      Operation, maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
      borOp, lxorOp, bxorOp,
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
@@ -156,15 +156,15 @@ opFree = {# call unsafe Op_free as opFree_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
 wtick = {# call unsafe Wtick as wtick_ #}
 commGroup = {# call unsafe Comm_group as commGroup_ #}
-groupRank = {# call unsafe Group_rank as groupRank_ #}
-groupSize = {# call unsafe Group_size as groupSize_ #}
-groupUnion = {# call unsafe Group_union as groupUnion_ #}
-groupIntersection = {# call unsafe Group_intersection as groupIntersection_ #}
-groupDifference = {# call unsafe Group_difference as groupDifference_ #}
-groupCompare = {# call unsafe Group_compare as groupCompare_ #}
-groupExcl = {# call unsafe Group_excl as groupExcl_ #}
-groupIncl = {# call unsafe Group_incl as groupIncl_ #}
-groupTranslateRanks = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #}
+groupRank = {# call unsafe Group_rank as groupRank_ #} <$> fromGroup
+groupSize = {# call unsafe Group_size as groupSize_ #} <$> fromGroup
+groupUnion g1 g2 = {# call unsafe Group_union as groupUnion_ #} (fromGroup g1) (fromGroup g2)
+groupIntersection g1 g2 = {# call unsafe Group_intersection as groupIntersection_ #} (fromGroup g1) (fromGroup g2)
+groupDifference g1 g2 = {# call unsafe Group_difference as groupDifference_ #} (fromGroup g1) (fromGroup g2)
+groupCompare g1 g2 = {# call unsafe Group_compare as groupCompare_ #} (fromGroup g1) (fromGroup g2)
+groupExcl g = {# call unsafe Group_excl as groupExcl_ #} (fromGroup g)
+groupIncl g = {# call unsafe Group_incl as groupIncl_ #} (fromGroup g)
+groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #} (fromGroup g1) s r (fromGroup g2)
 typeSize = {# call unsafe Type_size as typeSize_ #}
 errorClass = {# call unsafe Error_class as errorClass_ #}
 errorString = {# call unsafe Error_string as errorString_ #}
@@ -228,12 +228,14 @@ errorsReturn = unsafePerformIO $ peek errorsReturn_
 -- call when the group is no longer referenced.
 
 -- | Actual Haskell type used depends on the MPI implementation.
-type Group = {# type MPI_Group #}
+type MPIGroup = {# type MPI_Group #}
 
-foreign import ccall "&mpi_group_empty" groupEmpty_ :: Ptr Group
+newtype Group = MkGroup { fromGroup :: MPIGroup }
+
+foreign import ccall "&mpi_group_empty" groupEmpty_ :: Ptr MPIGroup
 -- | Predefined handle for group without any members. Corresponds to @MPI_GROUP_EMPTY@
 groupEmpty :: Group
-groupEmpty = unsafePerformIO $ peek groupEmpty_
+groupEmpty = MkGroup <$> unsafePerformIO $ peek groupEmpty_
 
 
 {-
