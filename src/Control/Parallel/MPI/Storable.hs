@@ -537,4 +537,4 @@ opCreate :: Storable t => Bool -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Dat
 opCreate commute f = do
   alloca $ \ptr -> do
     checkError $ Internal.opCreate (castFunPtr f) (cIntConv $ fromEnum commute) ptr
-    Internal.MkOperation <$> peek ptr
+    peek (castPtr ptr)

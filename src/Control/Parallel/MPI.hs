@@ -421,7 +421,7 @@ commGroup :: Comm -> IO Group
 commGroup comm =
    alloca $ \ptr -> do
       checkError $ Internal.commGroup comm ptr
-      MkGroup <$> peek ptr
+      peek (castPtr ptr)
 
 groupRank :: Group -> Rank
 groupRank = withGroup Internal.groupRank toRank
@@ -437,23 +437,23 @@ withGroup prim build group =
          build <$> peek ptr
 
 groupUnion :: Group -> Group -> Group
-groupUnion g1 g2 = with2Groups Internal.groupUnion MkGroup g1 g2
+groupUnion g1 g2 = with2Groups Internal.groupUnion g1 g2
 
 groupIntersection :: Group -> Group -> Group
-groupIntersection g1 g2 = with2Groups Internal.groupIntersection MkGroup g1 g2
+groupIntersection g1 g2 = with2Groups Internal.groupIntersection g1 g2
 
 groupDifference :: Group -> Group -> Group
-groupDifference g1 g2 = with2Groups Internal.groupDifference MkGroup g1 g2
+groupDifference g1 g2 = with2Groups Internal.groupDifference g1 g2
 
 groupCompare :: Group -> Group -> ComparisonResult
-groupCompare g1 g2 = with2Groups Internal.groupCompare enumFromCInt g1 g2
+groupCompare g1 g2 = enumFromCInt $ with2Groups Internal.groupCompare g1 g2
 
-with2Groups :: Storable a => (Group -> Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> Group -> b
-with2Groups prim build group1 group2 =
+with2Groups :: (Storable a, Storable b) => (Group -> Group -> Ptr a -> IO CInt) -> Group -> Group -> b
+with2Groups prim group1 group2 =
    unsafePerformIO $
       alloca $ \ptr -> do
          checkError $ prim group1 group2 ptr
-         build <$> peek ptr
+         peek (castPtr ptr)
 
 -- Technically it might make better sense to make the second argument a Set rather than a list
 -- but the order is significant in the groupIncl function (the other function, not this one).
@@ -473,7 +473,7 @@ groupWithRankList prim group ranks =
       alloca $ \groupPtr ->
          withArrayLen rankIntList $ \size ranksPtr -> do
             checkError $ prim group (enumToCInt size) (castPtr ranksPtr) (castPtr groupPtr)
-            MkGroup <$> peek groupPtr
+            peek groupPtr
 
 groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
 groupTranslateRanks group1 ranks group2 =

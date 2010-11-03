@@ -56,8 +56,8 @@ module Control.Parallel.MPI.Internal
      longDouble, byte, packed,
      Errhandler, errorsAreFatal, errorsReturn,
      ErrorClass (..),
-     Group(MkGroup), groupEmpty,
-     Operation(MkOperation), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
+     Group(), groupEmpty,
+     Operation(), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
      borOp, lxorOp, bxorOp,
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
      Request,
@@ -233,7 +233,7 @@ errorsReturn = unsafePerformIO $ peek errorsReturn_
 -- | Actual Haskell type used depends on the MPI implementation.
 type MPIGroup = {# type MPI_Group #}
 
-newtype Group = MkGroup { fromGroup :: MPIGroup }
+newtype Group = MkGroup { fromGroup :: MPIGroup } deriving Storable
 
 foreign import ccall "&mpi_group_empty" groupEmpty_ :: Ptr MPIGroup
 -- | Predefined handle for group without any members. Corresponds to @MPI_GROUP_EMPTY@
@@ -250,7 +250,7 @@ defined in the MPI Report.
 -- | Actual Haskell type used depends on the MPI implementation.
 type MPIOperation = {# type MPI_Op #}
 
-newtype Operation = MkOperation { fromOperation :: MPIOperation }
+newtype Operation = MkOperation { fromOperation :: MPIOperation } deriving Storable
 
 foreign import ccall unsafe "&mpi_max" maxOp_ :: Ptr MPIOperation
 foreign import ccall unsafe "&mpi_min" minOp_ :: Ptr MPIOperation
