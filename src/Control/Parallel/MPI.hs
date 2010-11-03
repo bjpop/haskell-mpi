@@ -172,7 +172,7 @@ import Control.Concurrent (ThreadId, killThread)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Internal hiding
    (finalize,
-    abort, test,
+    abort,
     groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
     groupCompare, groupExcl, groupIncl, groupTranslateRanks,
     wtime, wtick)
@@ -219,17 +219,6 @@ finalize :: IO ()
 -- These cannot be called after finalize (at least on OpenMPI).
 finalize = Internal.finalize >> return ()
 
-
--- | Non-blocking test for the completion of a send or receive.
--- Returns @Nothing@ if the request is not complete, otherwise
--- it returns @Just status@. See 'wait' for a blocking variant.
--- This function corresponds to @MPI_Test@.
-test :: Request -> IO (Maybe Status)
-test request = do
-  (flag, status) <- Internal.test request
-  if flag
-     then return $ Just status
-     else return Nothing
 
 wtime, wtick :: IO Double
 wtime = realToFrac <$> Internal.wtime

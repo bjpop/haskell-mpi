@@ -264,8 +264,19 @@ waitall = {# fun unsafe Waitall as waitall_
 -- Returns @Nothing@ if the request is not complete, otherwise
 -- it returns @Just status@. See 'wait' for a blocking variant.
 -- This function corresponds to @MPI_Test@.
-test = {# fun unsafe Test as test_
-          {withRequest* `Request', alloca- `Bool' peekBool*, allocaCast- `Status' peekCast*} -> `()' checkError*- #}
+-- | Non-blocking test for the completion of a send or receive.
+-- Returns @Nothing@ if the request is not complete, otherwise
+-- it returns @Just status@. See 'wait' for a blocking variant.
+-- This function corresponds to @MPI_Test@.
+test :: Request -> IO (Maybe Status)
+test request = do
+  (flag, status) <- test' request
+  if flag
+     then return $ Just status
+     else return Nothing
+  where
+    test' = {# fun unsafe Test as test_
+              {withRequest* `Request', alloca- `Bool' peekBool*, allocaCast- `Status' peekCast*} -> `()' checkError*- #}
 
 -- | Cancel a pending communication request.
 -- This function corresponds to @MPI_Cancel@.
