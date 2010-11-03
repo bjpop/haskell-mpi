@@ -352,7 +352,7 @@ wait :: Request -> IO Status
 wait request =
    alloca $ \statusPtr ->
      alloca $ \reqPtr -> do
-       poke reqPtr request
+       poke (castPtr reqPtr) request
        checkError $ Internal.wait reqPtr $ castPtr statusPtr
        peek statusPtr
 
@@ -365,7 +365,7 @@ test request =
     alloca $ \statusPtr ->
        alloca $ \reqPtr ->
           alloca $ \flagPtr -> do
-              poke reqPtr request
+              poke (castPtr reqPtr) request
               checkError $ Internal.test reqPtr (castPtr flagPtr) (castPtr statusPtr)
               flag <- peek flagPtr
               if flag
@@ -375,10 +375,7 @@ test request =
 -- | Cancel a pending communication request.
 -- This function corresponds to @MPI_Cancel@.
 cancel :: Request -> IO ()
-cancel request =
-   alloca $ \reqPtr -> do
-       poke reqPtr request
-       checkError $ Internal.cancel reqPtr
+cancel request = checkError $ Internal.cancel request
 
 wtime, wtick :: IO Double
 wtime = realToFrac <$> Internal.wtime

@@ -36,7 +36,7 @@ module Control.Parallel.MPI.Internal
      send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
      commCompare,
-     isend, ibsend, issend, irecv, bcast, barrier, wait, waitall, test,
+     isend, ibsend, issend, isendPtr, ibsendPtr, issendPtr, irecv, irecvPtr, bcast, barrier, wait, waitall, test,
      cancel, scatter, gather,
      scatterv, gatherv,
      allgather, allgatherv,
@@ -60,7 +60,7 @@ module Control.Parallel.MPI.Internal
      Operation(), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
      borOp, lxorOp, bxorOp,
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
-     Request,
+     Request(),
      Status (..),
      Tag, toTag, fromTag, tagVal, anyTag,
      ThreadSupport (..)
@@ -74,6 +74,9 @@ import Control.Applicative ((<$>), (<*>))
 
 {# context prefix = "MPI" #}
 
+type BufferPtr = Ptr ()
+type Count = CInt
+type ErrCode = CInt
 
 {-
 This module provides Haskell enum that comprises of MPI constants
@@ -124,21 +127,42 @@ commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #} <$> fromComm
 commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #} <$> fromComm
 commCompare c1 c2 = {# call unsafe Comm_compare as commCompare_ #} (fromComm c1) (fromComm c2)
 probe s t c = {# call Probe as probe_ #} s t (fromComm c)
-send b cnt d r t c = {# call unsafe Send as send_ #} b cnt (fromDatatype d) r t (fromComm c)
-bsend b cnt d r t c = {# call unsafe Bsend as bsend_ #} b cnt (fromDatatype d) r t (fromComm c)
-ssend b cnt d r t c = {# call unsafe Ssend as ssend_ #} b cnt (fromDatatype d) r t (fromComm c)
-rsend b cnt d r t c = {# call unsafe Rsend as rsend_ #} b cnt (fromDatatype d) r t (fromComm c)
+
+send = {# fun unsafe Send as send_
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+bsend = {# fun unsafe Bsend as bsend_
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+ssend = {# fun unsafe Ssend as ssend_
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+rsend = {# fun unsafe Rsend as rsend_
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
 recv b cnt d r t c = {# call unsafe Recv as recv_ #} b cnt (fromDatatype d) r t (fromComm c)
-isend b cnt d r t c = {# call unsafe Isend as isend_ #} b cnt (fromDatatype d) r t (fromComm c)
-ibsend b cnt d r t c = {# call unsafe Ibsend as ibsend_ #} b cnt (fromDatatype d) r t (fromComm c)
-issend b cnt d r t c = {# call unsafe Issend as issend_ #} b cnt (fromDatatype d) r t (fromComm c)
-irecv b cnt d r t c = {# call Irecv as irecv_ #} b cnt (fromDatatype d) r t (fromComm c)
+isend = {# fun unsafe Isend as isend_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+ibsend = {# fun unsafe Ibsend as ibsend_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+issend = {# fun unsafe Issend as issend_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+isendPtr = {# fun unsafe Isend as isendPtr_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+ibsendPtr = {# fun unsafe Ibsend as ibsendPtr_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+issendPtr = {# fun unsafe Issend as issendPtr_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+irecv = {# fun Irecv as irecv_ 
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+irecvPtr = {# fun Irecv as irecvPtr_
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
 bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt (fromDatatype d) r (fromComm c)
 barrier = {# call unsafe Barrier as barrier_ #} <$> fromComm
 wait = {# call unsafe Wait as wait_ #}
-waitall = {# call unsafe Waitall as waitall_ #}
+waitall = {# fun unsafe Waitall as waitall_ 
+            { id `Count', castPtr `Ptr Request', castPtr `Ptr Status'} -> `ErrCode' cIntConv #}
 test = {# call unsafe Test as test_ #}
-cancel = {# call unsafe Cancel as cancel_ #}
+cancel = {# fun unsafe Cancel as cancel_ 
+            {withRequest* `Request'} -> `ErrCode' cIntConv #}
+withRequest req f = do alloca $ \ptr -> do poke ptr req
+                                           f (castPtr ptr)
 scatter sb se st rb re rt r c = {# call unsafe Scatter as scatter_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
 gather sb se st rb re rt r c = {# call unsafe Gather as gather_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
 scatterv sb sc sd st rb re rt r c = {# call unsafe Scatterv as scatterv_ #} sb sc sd (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
@@ -320,7 +344,9 @@ fromRank :: Enum a => Rank -> a
 fromRank = toEnum . rankId
 
 {- This module provides Haskell representation of the @MPI_Request@ type. -}
-type Request = {# type MPI_Request #}
+type MPIRequest = {# type MPI_Request #}
+newtype Request = MkRequest MPIRequest deriving Storable
+peekRequest ptr = MkRequest <$> peek ptr
 
 {-
 This module provides Haskell representation of the @MPI_Status@ type

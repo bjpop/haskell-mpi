@@ -113,7 +113,7 @@ bsend = sendWith Internal.bsend
 ssend = sendWith Internal.ssend
 rsend = sendWith Internal.rsend
 
-type SendPrim = Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt
+type SendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO CInt
 
 sendWith :: (SendFrom v) => SendPrim -> Comm -> Rank -> Tag -> v -> IO ()
 sendWith send_function comm rank tag val = do
@@ -142,20 +142,23 @@ isend  = isendWith Internal.isend
 ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
-type ISendPrim = Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr Request -> IO CInt
+type ISendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO (CInt, Request)
 
 isendWith :: (SendFrom v) => ISendPrim -> Comm -> Rank -> Tag -> v -> IO Request
 isendWith send_function comm recvRank tag val = do
-   alloca $ \requestPtr -> do
-      isendWithPtr send_function comm recvRank tag requestPtr val
-      peek requestPtr
+  sendFrom val $ \valPtr numBytes dtype -> do
+    (err, req) <- send_function valPtr numBytes dtype recvRank tag comm
+    checkError $ return err
+    return req
+
 
 isendPtr, ibsendPtr, issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
-isendPtr  = isendWithPtr Internal.isend
-ibsendPtr = isendWithPtr Internal.ibsend
-issendPtr = isendWithPtr Internal.issend
+isendPtr  = isendWithPtr Internal.isendPtr
+ibsendPtr = isendWithPtr Internal.ibsendPtr
+issendPtr = isendWithPtr Internal.issendPtr
 
-isendWithPtr :: (SendFrom v) => ISendPrim -> Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
+type ISendPtrPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> Ptr Request -> IO CInt
+isendWithPtr :: (SendFrom v) => ISendPtrPrim -> Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
 isendWithPtr send_function comm recvRank tag requestPtr val = do
    sendFrom val $ \valPtr numBytes dtype ->
      checkError $ send_function (castPtr valPtr) numBytes dtype (fromRank recvRank) (fromTag tag) comm requestPtr
@@ -181,7 +184,7 @@ isendWithPtr send_function comm recvRank tag requestPtr val = do
 irecvPtr :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> Ptr Request -> StorableArray i e -> IO ()
 irecvPtr comm sendRank tag requestPtr recvVal = do
   recvInto recvVal $ \recvPtr recvElements recvType -> do
-    checkError $ Internal.irecv (castPtr recvPtr) recvElements recvType (fromRank sendRank) (fromTag tag) comm requestPtr
+    checkError $ Internal.irecvPtr (castPtr recvPtr) recvElements recvType (fromRank sendRank) (fromTag tag) comm requestPtr
 
 irecv :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag recvVal = do

@@ -149,7 +149,7 @@ sendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO ()
 sendBS = sendBSwith Internal.send
 
 sendBSwith ::
-  (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> IO CInt) ->
+  (Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO CInt) ->
   Comm -> Rank -> Tag -> BS.ByteString -> IO ()
 sendBSwith send_function comm rank tag bs = do
    let cRank = fromRank rank
@@ -217,16 +217,16 @@ isendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO Request
 isendBS = isendBSwith Internal.isend
 
 isendBSwith ::
-  (Ptr () -> CInt -> Datatype -> CInt -> CInt -> Comm -> Ptr (Request) -> IO CInt) ->
+  (Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO (CInt, Request)) ->
   Comm -> Rank -> Tag -> BS.ByteString -> IO Request
 isendBSwith send_function comm rank tag bs = do
    let cRank = fromRank rank
        cTag  = fromTag tag
        cCount = cIntConv $ BS.length bs
-   alloca $ \requestPtr ->
-      unsafeUseAsCString bs $ \cString -> do
-          checkError $ send_function (castPtr cString) cCount byte cRank cTag comm requestPtr
-          peek requestPtr
+   unsafeUseAsCString bs $ \cString -> do
+       (err, req) <- send_function (castPtr cString) cCount byte cRank cTag comm
+       checkError $ return err
+       return req
 
 -- | Blocking test for completion of all specified `Request' objects
 --
