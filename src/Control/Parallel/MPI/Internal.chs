@@ -57,7 +57,7 @@ module Control.Parallel.MPI.Internal
      Errhandler, errorsAreFatal, errorsReturn,
      ErrorClass (..),
      Group(MkGroup), groupEmpty,
-     Operation, maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
+     Operation(MkOperation), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
      borOp, lxorOp, bxorOp,
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
      Request,
@@ -149,9 +149,9 @@ alltoall sb sc st rb rc rt c = {# call unsafe Alltoall as alltoall_ #} sb sc (fr
 alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode
-reduce sb rb se st o r c  = {# call Reduce as reduce_ #} sb rb se (fromDatatype st) o r (fromComm c)
-allreduce sb rb se st o c = {# call Allreduce as allreduce_ #} sb rb se (fromDatatype st) o (fromComm c)
-reduceScatter sb rb cnt t o c = {# call Reduce_scatter as reduceScatter_ #} sb rb cnt (fromDatatype t) o (fromComm c)
+reduce sb rb se st o r c  = {# call Reduce as reduce_ #} sb rb se (fromDatatype st) (fromOperation o) r (fromComm c)
+allreduce sb rb se st o c = {# call Allreduce as allreduce_ #} sb rb se (fromDatatype st) (fromOperation o) (fromComm c)
+reduceScatter sb rb cnt t o c = {# call Reduce_scatter as reduceScatter_ #} sb rb cnt (fromDatatype t) (fromOperation o) (fromComm c)
 opCreate = {# call unsafe Op_create as opCreate_ #}
 opFree = {# call unsafe Op_free as opFree_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
@@ -248,34 +248,36 @@ defined in the MPI Report.
 -}
 
 -- | Actual Haskell type used depends on the MPI implementation.
-type Operation = {# type MPI_Op #}
+type MPIOperation = {# type MPI_Op #}
 
-foreign import ccall unsafe "&mpi_max" maxOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_min" minOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_sum" sumOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_prod" prodOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_land" landOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_band" bandOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_lor" lorOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_bor" borOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_lxor" lxorOp_ :: Ptr Operation
-foreign import ccall unsafe "&mpi_bxor" bxorOp_ :: Ptr Operation
--- foreign import ccall "mpi_maxloc" maxlocOp :: Operation
--- foreign import ccall "mpi_minloc" minlocOp :: Operation
--- foreign import ccall "mpi_replace" replaceOp :: Operation
+newtype Operation = MkOperation { fromOperation :: MPIOperation }
+
+foreign import ccall unsafe "&mpi_max" maxOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_min" minOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_sum" sumOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_prod" prodOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_land" landOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_band" bandOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_lor" lorOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_bor" borOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_lxor" lxorOp_ :: Ptr MPIOperation
+foreign import ccall unsafe "&mpi_bxor" bxorOp_ :: Ptr MPIOperation
+-- foreign import ccall "mpi_maxloc" maxlocOp :: MPIOperation
+-- foreign import ccall "mpi_minloc" minlocOp :: MPIOperation
+-- foreign import ccall "mpi_replace" replaceOp :: MPIOperation
 -- TODO: support for those requires better support for pair datatypes
 
 maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp, borOp, lxorOp, bxorOp :: Operation
-maxOp = unsafePerformIO $ peek maxOp_
-minOp = unsafePerformIO $ peek minOp_
-sumOp = unsafePerformIO $ peek sumOp_
-prodOp = unsafePerformIO $ peek prodOp_
-landOp = unsafePerformIO $ peek landOp_
-bandOp = unsafePerformIO $ peek bandOp_
-lorOp = unsafePerformIO $ peek lorOp_
-borOp = unsafePerformIO $ peek borOp_
-lxorOp = unsafePerformIO $ peek lxorOp_
-bxorOp = unsafePerformIO $ peek bxorOp_
+maxOp = MkOperation <$> unsafePerformIO $ peek maxOp_
+minOp = MkOperation <$> unsafePerformIO $ peek minOp_
+sumOp = MkOperation <$> unsafePerformIO $ peek sumOp_
+prodOp = MkOperation <$> unsafePerformIO $ peek prodOp_
+landOp = MkOperation <$> unsafePerformIO $ peek landOp_
+bandOp = MkOperation <$> unsafePerformIO $ peek bandOp_
+lorOp = MkOperation <$> unsafePerformIO $ peek lorOp_
+borOp = MkOperation <$> unsafePerformIO $ peek borOp_
+lxorOp = MkOperation <$> unsafePerformIO $ peek lxorOp_
+bxorOp = MkOperation <$> unsafePerformIO $ peek bxorOp_
 
 
 {-
