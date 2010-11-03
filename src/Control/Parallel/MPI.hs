@@ -49,7 +49,6 @@ module Control.Parallel.MPI
    -- * Requests and statuses.
    , Request
    , Status (..)
-   , StatusPtr
    , probe
    , test
    , cancel

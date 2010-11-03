@@ -61,7 +61,7 @@ module Control.Parallel.MPI.Internal
      borOp, lxorOp, bxorOp,
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
      Request,
-     Status (..), StatusPtr,
+     Status (..),
      Tag, toTag, fromTag, tagVal, anyTag,
      ThreadSupport (..)
    ) where
@@ -352,8 +352,6 @@ data Status =
    , status_cancelled :: CInt -- ^ whether the request was cancelled
    }
    deriving (Eq, Ord, Show)
-
-{#pointer *Status as StatusPtr -> Status #}
 
 instance Storable Status where
   sizeOf _ = {#sizeof MPI_Status #}
