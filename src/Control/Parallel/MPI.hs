@@ -502,7 +502,7 @@ commGetErrhandler :: Comm -> IO Errhandler
 commGetErrhandler comm =
    alloca $ \handlerPtr -> do
       checkError $ Internal.commGetErrhandler comm handlerPtr
-      peek handlerPtr
+      peek (castPtr handlerPtr)
 
 -- | Error handler which causes errors from MPI functions to be raised as exceptions.
 errorsThrowExceptions :: Errhandler

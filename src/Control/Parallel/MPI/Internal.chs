@@ -169,7 +169,7 @@ groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTra
 typeSize = {# call unsafe Type_size as typeSize_ #} <$> fromDatatype
 errorClass = {# call unsafe Error_class as errorClass_ #}
 errorString = {# call unsafe Error_string as errorString_ #}
-commSetErrhandler = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #} <$> fromComm
+commSetErrhandler c h = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #} (fromComm c) (fromErrhandler h)
 commGetErrhandler = {# call unsafe Comm_get_errhandler as commGetErrhandler_ #} <$> fromComm
 abort = {# call unsafe Abort as abort_ #} <$> fromComm
 
@@ -217,12 +217,14 @@ byte = MkDatatype <$> unsafePerformIO $ peek byte_
 packed = MkDatatype <$> unsafePerformIO $ peek packed_
 
 
-type Errhandler = {# type MPI_Errhandler #}
-foreign import ccall "&mpi_errors_are_fatal" errorsAreFatal_ :: Ptr Errhandler
-foreign import ccall "&mpi_errors_return" errorsReturn_ :: Ptr Errhandler
+type MPIErrhandler = {# type MPI_Errhandler #}
+newtype Errhandler = MkErrhandler { fromErrhandler :: MPIErrhandler } deriving Storable
+
+foreign import ccall "&mpi_errors_are_fatal" errorsAreFatal_ :: Ptr MPIErrhandler
+foreign import ccall "&mpi_errors_return" errorsReturn_ :: Ptr MPIErrhandler
 errorsAreFatal, errorsReturn :: Errhandler
-errorsAreFatal = unsafePerformIO $ peek errorsAreFatal_
-errorsReturn = unsafePerformIO $ peek errorsReturn_
+errorsAreFatal = MkErrhandler <$> unsafePerformIO $ peek errorsAreFatal_
+errorsReturn = MkErrhandler <$> unsafePerformIO $ peek errorsReturn_
 
 {# enum ErrorClass {underscoreToCase} deriving (Eq,Ord,Show,Typeable) #}
 
