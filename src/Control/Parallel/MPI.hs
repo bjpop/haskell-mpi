@@ -164,7 +164,6 @@ module Control.Parallel.MPI
    ) where
 
 import Prelude hiding (init)
-import C2HS
 import Control.Applicative ((<$>))
 import Control.Exception (finally)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
@@ -172,12 +171,7 @@ import Control.Concurrent (ThreadId, killThread)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Internal hiding
    (finalize,
-    abort,
-    groupUnion, groupIntersection, groupDifference,
-    groupCompare, groupExcl, groupIncl, groupTranslateRanks,
     wtime, wtick)
-import Control.Parallel.MPI.Utils (enumToCInt, enumFromCInt)
-import Control.Parallel.MPI.Exception as Exception
 
 -- | A tag with unit value. Intended to be used as a convenient default.
 unitTag :: Tag
@@ -256,73 +250,10 @@ cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 -- XXX May want to stop people from waiting on Futures which are killed...
 
-groupUnion :: Group -> Group -> Group
-groupUnion g1 g2 = with2Groups Internal.groupUnion g1 g2
-
-groupIntersection :: Group -> Group -> Group
-groupIntersection g1 g2 = with2Groups Internal.groupIntersection g1 g2
-
-groupDifference :: Group -> Group -> Group
-groupDifference g1 g2 = with2Groups Internal.groupDifference g1 g2
-
-groupCompare :: Group -> Group -> ComparisonResult
-groupCompare g1 g2 = enumFromCInt $ with2Groups Internal.groupCompare g1 g2
-
-with2Groups :: (Storable a, Storable b) => (Group -> Group -> Ptr a -> IO CInt) -> Group -> Group -> b
-with2Groups prim group1 group2 =
-   unsafePerformIO $
-      alloca $ \ptr -> do
-         checkError $ prim group1 group2 ptr
-         peek (castPtr ptr)
-
--- Technically it might make better sense to make the second argument a Set rather than a list
--- but the order is significant in the groupIncl function (the other function, not this one).
--- For the sake of keeping their types in sync, a list is used instead.
-groupExcl :: Group -> [Rank] -> Group
-groupExcl group ranks = groupWithRankList Internal.groupExcl group ranks
-
-groupIncl :: Group -> [Rank] -> Group
-groupIncl group ranks = groupWithRankList Internal.groupIncl group ranks
-
--- TODO: this (Ptr a) is really a (Ptr MPI_Group), only we dont want to export MPI_Group from Internal.chs
--- Should find a way to make typesig cleaner.
-groupWithRankList :: (Group -> CInt -> Ptr CInt -> Ptr a -> IO CInt) -> Group -> [Rank] -> Group
-groupWithRankList prim group ranks =
-   unsafePerformIO $ do
-      let (rankIntList :: [Int]) = map fromEnum ranks
-      alloca $ \groupPtr ->
-         withArrayLen rankIntList $ \size ranksPtr -> do
-            checkError $ prim group (enumToCInt size) (castPtr ranksPtr) (castPtr groupPtr)
-            peek groupPtr
-
-groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
-groupTranslateRanks group1 ranks group2 =
-   unsafePerformIO $ do
-      let (rankIntList :: [Int]) = map fromEnum ranks
-      withArrayLen rankIntList $ \size ranksPtr ->
-         allocaArray size $ \resultPtr -> do
-            checkError $ Internal.groupTranslateRanks group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
-            map toRank <$> peekArray size resultPtr
-
 -- | Error handler which causes errors from MPI functions to be raised as exceptions.
 errorsThrowExceptions :: Errhandler
 errorsThrowExceptions = errorsReturn
 
--- | Tries to terminate all MPI processes in its communicator argument.
--- The second argument is an error code which /may/ be used as the return status
--- of the MPI process, but this is not guaranteed. On systems where 'Int' has a larger
--- range than 'CInt', the error code will be clipped to fit into the range of 'CInt'.
--- This function corresponds to @MPI_Abort@.
-abort :: Comm -> Int -> IO ()
-abort comm code =
-   checkError $ Internal.abort comm (toErrorCode code)
-   where
-   toErrorCode :: Int -> CInt
-   toErrorCode i
-      -- Assumes Int always has range at least as big as CInt.
-      | i < (fromIntegral (minBound :: CInt)) = minBound
-      | i > (fromIntegral (maxBound :: CInt)) = maxBound
-      | otherwise = cIntConv i
 
 {- $collectives-split
 Collective operations in MPI usually take a large set of arguments

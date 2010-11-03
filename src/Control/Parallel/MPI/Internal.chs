@@ -306,26 +306,60 @@ wtick = {# call unsafe Wtick as wtick_ #}
 commGroup = {# fun unsafe Comm_group as commGroup_
                {fromComm `Comm', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
-groupRank = {# fun unsafe Group_rank as groupRank_
-               {fromGroup `Group', alloca- `Rank' peekIntConv*} -> `()' checkError*- #}
+groupRank = unsafePerformIO <$> groupRank'
+  where groupRank' = {# fun unsafe Group_rank as groupRank_
+                        {fromGroup `Group', alloca- `Rank' peekIntConv*} -> `()' checkError*- #}
 
-groupSize = {# fun unsafe Group_size as groupSize_
-               {fromGroup `Group', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
+groupSize = unsafePerformIO <$> groupSize'
+  where groupSize' = {# fun unsafe Group_size as groupSize_
+                        {fromGroup `Group', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
 
-groupUnion g1 g2 = {# call unsafe Group_union as groupUnion_ #} (fromGroup g1) (fromGroup g2)
-groupIntersection g1 g2 = {# call unsafe Group_intersection as groupIntersection_ #} (fromGroup g1) (fromGroup g2)
-groupDifference g1 g2 = {# call unsafe Group_difference as groupDifference_ #} (fromGroup g1) (fromGroup g2)
-groupCompare g1 g2 = {# call unsafe Group_compare as groupCompare_ #} (fromGroup g1) (fromGroup g2)
-groupExcl g = {# call unsafe Group_excl as groupExcl_ #} (fromGroup g)
-groupIncl g = {# call unsafe Group_incl as groupIncl_ #} (fromGroup g)
-groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #} (fromGroup g1) s r (fromGroup g2)
+groupUnion g1 g2 = unsafePerformIO $ groupUnion' g1 g2
+  where groupUnion' = {# fun unsafe Group_union as groupUnion_
+                         {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
+
+groupIntersection g1 g2 = unsafePerformIO $ groupIntersection' g1 g2
+  where groupIntersection' = {# fun unsafe Group_intersection as groupIntersection_
+                                {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
+
+groupDifference g1 g2 = unsafePerformIO $ groupDifference' g1 g2
+  where groupDifference' = {# fun unsafe Group_difference as groupDifference_
+                              {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
+
+groupCompare g1 g2 = unsafePerformIO $ groupCompare' g1 g2
+  where
+    groupCompare' = {# fun unsafe Group_compare as groupCompare_
+                       {fromGroup `Group', fromGroup `Group', alloca- `ComparisonResult' peekEnum*} -> `()' checkError*- #}                  
+
+-- Technically it might make better sense to make the second argument a Set rather than a list
+-- but the order is significant in the groupIncl function (the other function, not this one).
+-- For the sake of keeping their types in sync, a list is used instead.
+groupExcl = {# fun unsafe Group_excl as groupExcl_
+               {fromGroup `Group', withRanksAsInts* `[Rank]'&, alloca- `Group' peekGroup*} -> `()' checkError*- #}
+groupIncl = {# fun unsafe Group_incl as groupIncl_
+               {fromGroup `Group', withRanksAsInts* `[Rank]'&, alloca- `Group' peekGroup*} -> `()' checkError*- #}
+
+groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
+groupTranslateRanks group1 ranks group2 =
+   unsafePerformIO $ do
+      let (rankIntList :: [Int]) = map fromEnum ranks
+      withArrayLen rankIntList $ \size ranksPtr ->
+         allocaArray size $ \resultPtr -> do
+            groupTranslateRanks' group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
+            map toRank <$> peekArray size resultPtr
+  where
+    groupTranslateRanks' = {# fun unsafe Group_translate_ranks as groupTranslateRanks_
+                              {fromGroup `Group', id `CInt', id `Ptr CInt', fromGroup `Group', id `Ptr CInt'} -> `()' checkError*- #}
+
+withRanksAsInts ranks f = withArrayLen (map fromEnum ranks) $ \size ptr -> f (cIntConv size, castPtr ptr)
 
 -- | Return the number of bytes used to store an MPI 'Datatype'.
-typeSize = unsafePerformIO . typeSizeIO
-typeSizeIO =
-  {# fun unsafe Type_size as typeSize_ 
-     {fromDatatype `Datatype', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
- 
+typeSize = unsafePerformIO . typeSize'
+  where 
+    typeSize' =
+      {# fun unsafe Type_size as typeSize_ 
+         {fromDatatype `Datatype', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
+
 
 errorClass = {# fun unsafe Error_class as errorClass_
                 { id `CInt', alloca- `CInt' peek*} -> `CInt' id #}
@@ -341,7 +375,23 @@ commSetErrhandler = {# fun unsafe Comm_set_errhandler as commSetErrhandler_
 commGetErrhandler = {# fun unsafe Comm_get_errhandler as commGetErrhandler_
                        {fromComm `Comm', alloca- `Errhandler' peekErrhandler*} -> `()' checkError*- #}
 
-abort = {# call unsafe Abort as abort_ #} <$> fromComm
+-- | Tries to terminate all MPI processes in its communicator argument.
+-- The second argument is an error code which /may/ be used as the return status
+-- of the MPI process, but this is not guaranteed. On systems where 'Int' has a larger
+-- range than 'CInt', the error code will be clipped to fit into the range of 'CInt'.
+-- This function corresponds to @MPI_Abort@.
+abort :: Comm -> Int -> IO ()
+abort comm code =
+   abort' comm (toErrorCode code)
+   where
+   toErrorCode :: Int -> CInt
+   toErrorCode i
+      -- Assumes Int always has range at least as big as CInt.
+      | i < (fromIntegral (minBound :: CInt)) = minBound
+      | i > (fromIntegral (maxBound :: CInt)) = maxBound
+      | otherwise = cIntConv i
+
+   abort' = {# fun unsafe Abort as abort_ {fromComm `Comm', id `CInt'} -> `()' checkError*- #}
 
 
 type MPIDatatype = {# type MPI_Datatype #}
