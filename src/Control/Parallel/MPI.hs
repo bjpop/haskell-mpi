@@ -333,12 +333,7 @@ probe :: Rank       -- ^ Rank of the sender.
       -> Tag        -- ^ Tag of the sent message.
       -> Comm       -- ^ Communicator.
       -> IO Status  -- ^ Information about the incoming message (but not the content of the message).
-probe rank tag comm = do
-   let cSource = fromRank rank
-       cTag    = fromTag tag
-   alloca $ \statusPtr -> do
-      checkError $ Internal.probe cSource cTag comm $ castPtr statusPtr
-      peek statusPtr
+probe rank tag comm = checkErrorFst $ Internal.probe rank tag comm
 
 -- | Blocks until all processes on the communicator call this function.
 -- This function corresponds to @MPI_Barrier@.

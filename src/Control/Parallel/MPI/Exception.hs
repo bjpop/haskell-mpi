@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Control.Parallel.MPI.Exception (checkError, MPIError (..), ErrorClass (..)) where
+module Control.Parallel.MPI.Exception (checkError, checkErrorFst, MPIError (..), ErrorClass (..)) where
 
 import C2HS
 import Control.Exception
@@ -53,3 +53,9 @@ checkError comp = do
    unless (errClass == Success) $ do
       errStr <- errorString code
       throwIO $ MPIError errClass errStr
+
+checkErrorFst :: IO (CInt, a) -> IO a
+checkErrorFst comp = do
+   (code, res) <- comp
+   checkError $ return code
+   return res

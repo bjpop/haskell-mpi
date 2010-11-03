@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
 #include <mpi.h>
@@ -126,8 +126,9 @@ commRank = {# call unsafe Comm_rank as commRank_ #} <$> fromComm
 commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #} <$> fromComm
 commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #} <$> fromComm
 commCompare c1 c2 = {# call unsafe Comm_compare as commCompare_ #} (fromComm c1) (fromComm c2)
-probe s t c = {# call Probe as probe_ #} s t (fromComm c)
-
+-- probe s t c = {# call Probe as probe_ #} s t (fromComm c)
+probe = {# fun Probe as probe_
+           {fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast*} -> `ErrCode' cIntConv #}
 send = {# fun unsafe Send as send_
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
 bsend = {# fun unsafe Bsend as bsend_
@@ -412,6 +413,11 @@ instance Storable Status where
     {#set MPI_Status._count #} p (cIntConv $ status_count x)
     {#set MPI_Status._cancelled #} p (cIntConv $ status_cancelled x)
 #endif
+
+-- NOTE: Int here is picked arbitrary
+allocaCast f = 
+  alloca $ \(ptr :: Ptr Int) -> f (castPtr ptr :: Ptr ())
+peekCast = peek . castPtr
 
 
 {-
