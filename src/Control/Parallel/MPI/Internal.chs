@@ -1,6 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
-{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 #include <mpi.h>
 #include "init_wrapper.h"
 #include "comparison_result.h"
@@ -32,7 +32,7 @@ module Control.Parallel.MPI.Internal
    ( maxProcessorName,
      maxErrorString,
      init, initThread, queryThread, isThreadMain, initialized, finalized,
-     finalize, getProcessorName, getVersion,
+     finalize, getProcessorName, getVersion, Version(..),
      send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
      commCompare,
@@ -159,8 +159,30 @@ isThreadMain = {# fun unsafe Is_thread_main as isThreadMain_
                  {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
 finalize = {# call unsafe Finalize as finalize_ #}
-getProcessorName = {# call unsafe Get_processor_name as getProcessorName_ #}
-getVersion = {# call unsafe Get_version as getVersion_ #}
+
+getProcessorName :: IO String
+getProcessorName = do
+  allocaBytes (fromIntegral maxProcessorName) $ \ptr -> do
+    len <- getProcessorName' ptr
+    peekCStringLen (ptr, cIntConv len)
+  where
+    getProcessorName' = {# fun unsafe Get_processor_name as getProcessorName_
+                           {id `Ptr CChar', alloca- `CInt' peekIntConv*} -> `()' checkError*- #}
+
+data Version =
+   Version { version :: Int, subversion :: Int }
+   deriving (Eq, Ord)
+
+instance Show Version where
+   show v = show (version v) ++ "." ++ show (subversion v)
+
+getVersion :: IO Version
+getVersion = do
+   (version, subversion) <- getVersion'
+   return $ Version version subversion
+  where
+    getVersion' = {# fun unsafe Get_version as getVersion_
+                     {alloca- `Int' peekIntConv*, alloca- `Int' peekIntConv*} -> `()' checkError*- #}
 
 -- | Return the number of processes involved in a communicator. For 'commWorld'
 -- it returns the total number of processes available. If the communicator is

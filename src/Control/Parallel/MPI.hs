@@ -175,7 +175,7 @@ import Control.Parallel.MPI.Internal hiding
     abort, test,
     groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
     groupCompare, groupExcl, groupIncl, groupTranslateRanks,
-    wtime, wtick, getProcessorName, getVersion)
+    wtime, wtick)
 import Control.Parallel.MPI.Utils (enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.Exception as Exception
 
@@ -219,29 +219,6 @@ finalize :: IO ()
 -- These cannot be called after finalize (at least on OpenMPI).
 finalize = Internal.finalize >> return ()
 
-getProcessorName :: IO String
-getProcessorName = do
-  allocaBytes (fromIntegral Internal.maxProcessorName) $ \ptr ->
-    alloca $ \lenPtr -> do
-       checkError $ Internal.getProcessorName ptr lenPtr
-       (len :: CInt) <- peek lenPtr
-       peekCStringLen (ptr, cIntConv len)
-
-data Version =
-   Version { version :: Int, subversion :: Int }
-   deriving (Eq, Ord)
-
-instance Show Version where
-   show v = show (version v) ++ "." ++ show (subversion v)
-
-getVersion :: IO Version
-getVersion = do
-   alloca $ \versionPtr ->
-      alloca $ \subversionPtr -> do
-         checkError $ Internal.getVersion versionPtr subversionPtr
-         version <- peekIntConv versionPtr
-         subversion <- peekIntConv subversionPtr
-         return $ Version version subversion
 
 -- | Non-blocking test for the completion of a send or receive.
 -- Returns @Nothing@ if the request is not complete, otherwise
