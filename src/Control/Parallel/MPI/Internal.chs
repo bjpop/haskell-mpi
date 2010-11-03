@@ -55,7 +55,7 @@ module Control.Parallel.MPI.Internal
      unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double,
      longDouble, byte, packed,
      Errhandler, errorsAreFatal, errorsReturn,
-     ErrorClass (..),
+     ErrorClass (..), MPIError (..),
      Group(), groupEmpty,
      Operation(), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
      borOp, lxorOp, bxorOp,
@@ -69,14 +69,15 @@ module Control.Parallel.MPI.Internal
 import Prelude hiding (init)
 import C2HS
 import Data.Typeable
-import Control.Monad (liftM)
+import Control.Monad (liftM, unless)
 import Control.Applicative ((<$>), (<*>))
+import Control.Exception
+import Control.Parallel.MPI.Utils (enumFromCInt, enumToCInt)
 
 {# context prefix = "MPI" #}
 
 type BufferPtr = Ptr ()
 type Count = CInt
-type ErrCode = CInt
 
 {-
 This module provides Haskell enum that comprises of MPI constants
@@ -192,7 +193,8 @@ groupExcl g = {# call unsafe Group_excl as groupExcl_ #} (fromGroup g)
 groupIncl g = {# call unsafe Group_incl as groupIncl_ #} (fromGroup g)
 groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #} (fromGroup g1) s r (fromGroup g2)
 typeSize = {# call unsafe Type_size as typeSize_ #} <$> fromDatatype
-errorClass = {# call unsafe Error_class as errorClass_ #}
+errorClass = {# fun unsafe Error_class as errorClass_ 
+                { id `CInt', alloca- `CInt' peek*} -> `CInt' id #}
 errorString = {# call unsafe Error_string as errorString_ #}
 commSetErrhandler c h = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #} (fromComm c) (fromErrhandler h)
 commGetErrhandler = {# call unsafe Comm_get_errhandler as commGetErrhandler_ #} <$> fromComm
@@ -454,3 +456,40 @@ predefined MPI constants @MPI_THREAD_SINGLE@, @MPI_THREAD_FUNNELED@,
 -}
 
 {# enum ThreadSupport {underscoreToCase} deriving (Eq,Ord,Show) #} 
+
+{- From MPI 2.2 report:
+ "To make it possible for an application to interpret an error code, the routine
+ MPI_ERROR_CLASS converts any error code into one of a small set of standard 
+ error codes"
+-}
+
+data MPIError
+   = MPIError
+     { mpiErrorClass :: ErrorClass
+     , mpiErrorString :: String
+     }
+   deriving (Eq, Show, Typeable)
+
+instance Exception MPIError
+
+checkError :: CInt -> IO ()
+checkError code = do
+   -- We ignore the error code from the call to Internal.errorClass
+   -- because we call errorClass from checkError. We'd end up
+   -- with an infinite loop if we called checkError here.
+   (_, errClassRaw) <- errorClass code
+   let errClass = enumFromCInt errClassRaw
+   unless (errClass == Success) $ do
+      errStr <- errorStringWrapper code
+      throwIO $ MPIError errClass errStr
+
+errorStringWrapper :: CInt -> IO String
+errorStringWrapper code =
+  allocaBytes (fromIntegral maxErrorString) $ \ptr ->
+    alloca $ \lenPtr -> do
+       -- We ignore the error code from the call to Internal.errorString
+       -- because we call errorString from checkError. We'd end up
+       -- with an infinite loop if we called checkError here.
+       _ <- errorString code ptr lenPtr
+       len <- peek lenPtr
+       peekCStringLen (ptr, cIntConv len)
