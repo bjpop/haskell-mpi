@@ -306,8 +306,12 @@ wtick = {# call unsafe Wtick as wtick_ #}
 commGroup = {# fun unsafe Comm_group as commGroup_
                {fromComm `Comm', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
-groupRank = {# call unsafe Group_rank as groupRank_ #} <$> fromGroup
-groupSize = {# call unsafe Group_size as groupSize_ #} <$> fromGroup
+groupRank = {# fun unsafe Group_rank as groupRank_
+               {fromGroup `Group', alloca- `Rank' peekIntConv*} -> `()' checkError*- #}
+
+groupSize = {# fun unsafe Group_size as groupSize_
+               {fromGroup `Group', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
+
 groupUnion g1 g2 = {# call unsafe Group_union as groupUnion_ #} (fromGroup g1) (fromGroup g2)
 groupIntersection g1 g2 = {# call unsafe Group_intersection as groupIntersection_ #} (fromGroup g1) (fromGroup g2)
 groupDifference g1 g2 = {# call unsafe Group_difference as groupDifference_ #} (fromGroup g1) (fromGroup g2)

@@ -173,7 +173,7 @@ import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Internal hiding
    (finalize,
     abort,
-    groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
+    groupUnion, groupIntersection, groupDifference,
     groupCompare, groupExcl, groupIncl, groupTranslateRanks,
     wtime, wtick)
 import Control.Parallel.MPI.Utils (enumToCInt, enumFromCInt)
@@ -255,19 +255,6 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 -- XXX May want to stop people from waiting on Futures which are killed...
-
-groupRank :: Group -> Rank
-groupRank = withGroup Internal.groupRank toRank
-
-groupSize :: Group -> Int
-groupSize = withGroup Internal.groupSize cIntConv
-
-withGroup :: Storable a => (Group -> Ptr a -> IO CInt) -> (a -> b) -> Group -> b
-withGroup prim build group =
-   unsafePerformIO $
-      alloca $ \ptr -> do
-         checkError $ prim group ptr
-         build <$> peek ptr
 
 groupUnion :: Group -> Group -> Group
 groupUnion g1 g2 = with2Groups Internal.groupUnion g1 g2
