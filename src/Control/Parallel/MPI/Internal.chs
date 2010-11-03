@@ -154,7 +154,9 @@ initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_
 
 queryThread = {# fun unsafe Query_thread as queryThread_ 
                  {alloca- `Bool' peekBool* } -> `()' checkError* #}
-isThreadMain = {# call unsafe Is_thread_main as isThreadMain_ #}
+
+isThreadMain = {# fun unsafe Is_thread_main as isThreadMain_
+                 {alloca- `Bool' peekBool* } -> `()' checkError* #}
 finalize = {# call unsafe Finalize as finalize_ #}
 getProcessorName = {# call unsafe Get_processor_name as getProcessorName_ #}
 getVersion = {# call unsafe Get_version as getVersion_ #}
