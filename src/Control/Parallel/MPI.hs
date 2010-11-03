@@ -46,7 +46,7 @@ module Control.Parallel.MPI
    , initThread
    , abort
 
-   -- * Requests and statuses.
+     -- * Requests and statuses.
    , Request
    , Status (..)
    , probe
@@ -170,8 +170,8 @@ import Control.Exception (finally)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Internal hiding 
-   (commRank, finalize, commSize, init, initialized, finalized, initThread,
+import Control.Parallel.MPI.Internal hiding
+   (commRank, finalize, commSize,
     abort, probe, test, cancel, wait, commTestInter, commRemoteSize,
     commCompare, commSetErrhandler, commGetErrhandler, commGroup, barrier,
     groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
@@ -207,38 +207,6 @@ mpiWorld action = do
    rank <- commRank commWorld
    action size rank `finally` finalize
 
--- | Initialize the MPI environment. The MPI environment must be intialized by each
--- MPI process before any other MPI function is called. Note that
--- the environment may also be initialized by the functions 'initThread', 'mpi',
--- and 'mpiWorld'. It is an error to attempt to initialize the environment more
--- than once for a given MPI program execution. The only MPI functions that may
--- be called before the MPI environment is initialized are 'getVersion',
--- 'initialized' and 'finalized'. This function corresponds to @MPI_Init@.
-init :: IO ()
-init = checkError Internal.init
-
--- | Determine if the MPI environment has been initialized. Returns @True@ if the
--- environment has been initialized and @False@ otherwise. This function
--- may be called before the MPI environment has been initialized and after it
--- has been finalized.
--- This function corresponds to @MPI_Initialized@.
-initialized :: IO Bool
-initialized =
-   alloca $ \flagPtr -> do
-      checkError $ Internal.initialized flagPtr
-      peekBool flagPtr
-
--- | Determine if the MPI environment has been finalized. Returns @True@ if the
--- environment has been finalized and @False@ otherwise. This function
--- may be called before the MPI environment has been initialized and after it
--- has been finalized.
--- This function corresponds to @MPI_Finalized@.
-finalized :: IO Bool
-finalized =
-   alloca $ \flagPtr -> do
-      checkError $ Internal.finalized flagPtr
-      peekBool flagPtr
-
 -- | Terminate the MPI execution environment.
 -- Once 'finalize' is called no other MPI functions may be called except
 -- 'getVersion', 'initialized' and 'finalized'. Each process must complete
@@ -251,22 +219,6 @@ finalize :: IO ()
 -- checkError calls Internal.errorClass and Internal.errorString.
 -- These cannot be called after finalize (at least on OpenMPI).
 finalize = Internal.finalize >> return ()
-
--- | Initialize the MPI environment with a /required/ level of thread support.
--- See the documentation for 'init' for more information about MPI initialization.
--- The /provided/ level of thread support is returned in the result.
--- There is no guarantee that provided will be greater than or equal to required.
--- The level of provided thread support depends on the underlying MPI implementation,
--- and may also depend on information provided when the program is executed
--- (for example, by supplying appropriate arguments to @mpiexec@).
--- If the required level of support cannot be provided then it will try to
--- return the least supported level greater than what was required.
--- If that cannot be satisfied then it will return the highest supported level
--- provided by the MPI implementation. See the documentation for 'ThreadSupport'
--- for information about what levels are available and their relative ordering.
--- This function corresponds to @MPI_Init_thread@.
-initThread :: ThreadSupport -> IO ThreadSupport
-initThread required = asEnum $ checkError . Internal.initThread (enumToCInt required)
 
 queryThread :: IO Bool
 queryThread = asBool $ checkError . Internal.queryThread
@@ -539,7 +491,7 @@ Therefore it was decided to split most asymmetric collective calls in
 two parts - sending and receiving. Thus @MPI_Gather@ is represented by
 'gatherSend' and 'gatherRecv', and so on. -}
 
-{- $arg-order 
+{- $arg-order
 Very often MPI programmer would find himself in the situation
 where he wants to send/receive messages between the same processess
 over and over again. This is true for both point-to-point modes of

@@ -113,10 +113,45 @@ maxProcessorName = unsafePerformIO $ peek max_processor_name_
 maxErrorString :: CInt
 maxErrorString = unsafePerformIO $ peek max_error_string_
 
-init = {# call unsafe init_wrapper as init_wrapper_ #}
-initialized = {# call unsafe Initialized as initialized_ #}
-finalized = {# call unsafe Finalized as finalized_ #}
-initThread = {# call unsafe init_wrapper_thread as init_wrapper_thread_ #}
+-- | Initialize the MPI environment. The MPI environment must be intialized by each
+-- MPI process before any other MPI function is called. Note that
+-- the environment may also be initialized by the functions 'initThread', 'mpi',
+-- and 'mpiWorld'. It is an error to attempt to initialize the environment more
+-- than once for a given MPI program execution. The only MPI functions that may
+-- be called before the MPI environment is initialized are 'getVersion',
+-- 'initialized' and 'finalized'. This function corresponds to @MPI_Init@.
+init = {# fun unsafe init_wrapper as init_wrapper_ {} -> `()' checkError* #}
+
+-- | Determine if the MPI environment has been initialized. Returns @True@ if the
+-- environment has been initialized and @False@ otherwise. This function
+-- may be called before the MPI environment has been initialized and after it
+-- has been finalized.
+-- This function corresponds to @MPI_Initialized@.
+initialized = {# fun unsafe Initialized as initialized_ {alloca- `Bool' peekBool*} -> `()' checkError* #}
+
+-- | Determine if the MPI environment has been finalized. Returns @True@ if the
+-- environment has been finalized and @False@ otherwise. This function
+-- may be called before the MPI environment has been initialized and after it
+-- has been finalized.
+-- This function corresponds to @MPI_Finalized@.
+finalized = {# fun unsafe Finalized as finalized_ {alloca- `Bool' peekBool*} -> `()' checkError* #}
+
+-- | Initialize the MPI environment with a /required/ level of thread support.
+-- See the documentation for 'init' for more information about MPI initialization.
+-- The /provided/ level of thread support is returned in the result.
+-- There is no guarantee that provided will be greater than or equal to required.
+-- The level of provided thread support depends on the underlying MPI implementation,
+-- and may also depend on information provided when the program is executed
+-- (for example, by supplying appropriate arguments to @mpiexec@).
+-- If the required level of support cannot be provided then it will try to
+-- return the least supported level greater than what was required.
+-- If that cannot be satisfied then it will return the highest supported level
+-- provided by the MPI implementation. See the documentation for 'ThreadSupport'
+-- for information about what levels are available and their relative ordering.
+-- This function corresponds to @MPI_Init_thread@.
+initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_ 
+                {enumToCInt `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError* #}
+
 queryThread = {# call unsafe Query_thread as queryThread_ #}
 isThreadMain = {# call unsafe Is_thread_main as isThreadMain_ #}
 finalize = {# call unsafe Finalize as finalize_ #}
