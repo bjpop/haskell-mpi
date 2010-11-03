@@ -162,42 +162,41 @@ commRank = {# call unsafe Comm_rank as commRank_ #} <$> fromComm
 commTestInter = {# call unsafe Comm_test_inter as commTestInter_ #} <$> fromComm
 commRemoteSize = {# call unsafe Comm_remote_size as commRemoteSize_ #} <$> fromComm
 commCompare c1 c2 = {# call unsafe Comm_compare as commCompare_ #} (fromComm c1) (fromComm c2)
--- probe s t c = {# call Probe as probe_ #} s t (fromComm c)
 probe = {# fun Probe as probe_
-           {fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast*} -> `ErrCode' cIntConv #}
+           {fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast*} -> `()' checkError* #}
 send = {# fun unsafe Send as send_
-          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError* #}
 bsend = {# fun unsafe Bsend as bsend_
-          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError* #}
 ssend = {# fun unsafe Ssend as ssend_
-          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError* #}
 rsend = {# fun unsafe Rsend as rsend_
-          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `ErrCode' cIntConv #}
+          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError* #}
 recv b cnt d r t c = {# call unsafe Recv as recv_ #} b cnt (fromDatatype d) r t (fromComm c)
 isend = {# fun unsafe Isend as isend_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError* #}
 ibsend = {# fun unsafe Ibsend as ibsend_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError* #}
 issend = {# fun unsafe Issend as issend_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError* #}
 isendPtr = {# fun unsafe Isend as isendPtr_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
 ibsendPtr = {# fun unsafe Ibsend as ibsendPtr_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
 issendPtr = {# fun unsafe Issend as issendPtr_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
 irecv = {# fun Irecv as irecv_ 
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError* #}
 irecvPtr = {# fun Irecv as irecvPtr_
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `ErrCode' cIntConv #}
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
 bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt (fromDatatype d) r (fromComm c)
 barrier = {# call unsafe Barrier as barrier_ #} <$> fromComm
 wait = {# call unsafe Wait as wait_ #}
 waitall = {# fun unsafe Waitall as waitall_ 
-            { id `Count', castPtr `Ptr Request', castPtr `Ptr Status'} -> `ErrCode' cIntConv #}
+            { id `Count', castPtr `Ptr Request', castPtr `Ptr Status'} -> `()' checkError* #}
 test = {# call unsafe Test as test_ #}
 cancel = {# fun unsafe Cancel as cancel_ 
-            {withRequest* `Request'} -> `ErrCode' cIntConv #}
+            {withRequest* `Request'} -> `()' checkError* #}
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
 scatter sb se st rb re rt r c = {# call unsafe Scatter as scatter_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
