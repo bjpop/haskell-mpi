@@ -91,7 +91,7 @@ process groups (f.e. 'groupCompare').
 -- | Which Haskell type will be used as @Comm@ depends on the MPI
 -- implementation that was selected during compilation. It could be
 -- @CInt@, @Ptr ()@, @Ptr CInt@ or something else.
-type MPIComm = {# type MPI_Comm #} 
+type MPIComm = {# type MPI_Comm #}
 newtype Comm = MkComm { fromComm :: MPIComm }
 foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr MPIComm
 foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr MPIComm
@@ -149,10 +149,11 @@ finalized = {# fun unsafe Finalized as finalized_ {alloca- `Bool' peekBool*} -> 
 -- provided by the MPI implementation. See the documentation for 'ThreadSupport'
 -- for information about what levels are available and their relative ordering.
 -- This function corresponds to @MPI_Init_thread@.
-initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_ 
+initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_
                 {enumToCInt `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError* #}
 
-queryThread = {# call unsafe Query_thread as queryThread_ #}
+queryThread = {# fun unsafe Query_thread as queryThread_ 
+                 {alloca- `Bool' peekBool* } -> `()' checkError* #}
 isThreadMain = {# call unsafe Is_thread_main as isThreadMain_ #}
 finalize = {# call unsafe Finalize as finalize_ #}
 getProcessorName = {# call unsafe Get_processor_name as getProcessorName_ #}
@@ -185,17 +186,17 @@ ibsendPtr = {# fun unsafe Ibsend as ibsendPtr_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
 issendPtr = {# fun unsafe Issend as issendPtr_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
-irecv = {# fun Irecv as irecv_ 
+irecv = {# fun Irecv as irecv_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError* #}
 irecvPtr = {# fun Irecv as irecvPtr_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError* #}
 bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt (fromDatatype d) r (fromComm c)
 barrier = {# call unsafe Barrier as barrier_ #} <$> fromComm
 wait = {# call unsafe Wait as wait_ #}
-waitall = {# fun unsafe Waitall as waitall_ 
+waitall = {# fun unsafe Waitall as waitall_
             { id `Count', castPtr `Ptr Request', castPtr `Ptr Status'} -> `()' checkError* #}
 test = {# call unsafe Test as test_ #}
-cancel = {# fun unsafe Cancel as cancel_ 
+cancel = {# fun unsafe Cancel as cancel_
             {withRequest* `Request'} -> `()' checkError* #}
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
@@ -227,7 +228,7 @@ groupExcl g = {# call unsafe Group_excl as groupExcl_ #} (fromGroup g)
 groupIncl g = {# call unsafe Group_incl as groupIncl_ #} (fromGroup g)
 groupTranslateRanks g1 s r g2 = {# call unsafe Group_translate_ranks as groupTranslateRanks_ #} (fromGroup g1) s r (fromGroup g2)
 typeSize = {# call unsafe Type_size as typeSize_ #} <$> fromDatatype
-errorClass = {# fun unsafe Error_class as errorClass_ 
+errorClass = {# fun unsafe Error_class as errorClass_
                 { id `CInt', alloca- `CInt' peek*} -> `CInt' id #}
 errorString = {# call unsafe Error_string as errorString_ #}
 commSetErrhandler c h = {# call unsafe Comm_set_errhandler as commSetErrhandler_ #} (fromComm c) (fromErrhandler h)
@@ -451,7 +452,7 @@ instance Storable Status where
 #endif
 
 -- NOTE: Int here is picked arbitrary
-allocaCast f = 
+allocaCast f =
   alloca $ \(ptr :: Ptr Int) -> f (castPtr ptr :: Ptr ())
 peekCast = peek . castPtr
 
@@ -489,11 +490,11 @@ predefined MPI constants @MPI_THREAD_SINGLE@, @MPI_THREAD_FUNNELED@,
 @MPI_THREAD_SERIALIZED@, @MPI_THREAD_MULTIPLE@.
 -}
 
-{# enum ThreadSupport {underscoreToCase} deriving (Eq,Ord,Show) #} 
+{# enum ThreadSupport {underscoreToCase} deriving (Eq,Ord,Show) #}
 
 {- From MPI 2.2 report:
  "To make it possible for an application to interpret an error code, the routine
- MPI_ERROR_CLASS converts any error code into one of a small set of standard 
+ MPI_ERROR_CLASS converts any error code into one of a small set of standard
  error codes"
 -}
 

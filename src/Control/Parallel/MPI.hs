@@ -176,7 +176,7 @@ import Control.Parallel.MPI.Internal hiding
     commCompare, commSetErrhandler, commGetErrhandler, commGroup, barrier,
     groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
     groupCompare, groupExcl, groupIncl, groupTranslateRanks, typeSize,
-    queryThread, isThreadMain, wtime, wtick, getProcessorName, getVersion)
+    isThreadMain, wtime, wtick, getProcessorName, getVersion)
 import Control.Parallel.MPI.Utils (asBool, asInt, asEnum, enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.Exception as Exception
 
@@ -219,9 +219,6 @@ finalize :: IO ()
 -- checkError calls Internal.errorClass and Internal.errorString.
 -- These cannot be called after finalize (at least on OpenMPI).
 finalize = Internal.finalize >> return ()
-
-queryThread :: IO Bool
-queryThread = asBool $ checkError . Internal.queryThread
 
 isThreadMain :: IO Bool
 isThreadMain = asBool $ checkError . Internal.isThreadMain
