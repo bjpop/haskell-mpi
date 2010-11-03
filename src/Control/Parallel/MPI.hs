@@ -171,13 +171,12 @@ import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Internal hiding
-   (commRank, finalize, commSize,
-    abort, probe, test, cancel, wait, commTestInter, commRemoteSize,
-    commCompare, commSetErrhandler, commGetErrhandler, commGroup, barrier,
+   (finalize,
+    abort, test,
     groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
-    groupCompare, groupExcl, groupIncl, groupTranslateRanks, typeSize,
+    groupCompare, groupExcl, groupIncl, groupTranslateRanks,
     wtime, wtick, getProcessorName, getVersion)
-import Control.Parallel.MPI.Utils (asBool, asInt, asEnum, enumToCInt, enumFromCInt)
+import Control.Parallel.MPI.Utils (enumToCInt, enumFromCInt)
 import Control.Parallel.MPI.Exception as Exception
 
 -- | A tag with unit value. Intended to be used as a convenient default.
@@ -244,79 +243,16 @@ getVersion = do
          subversion <- peekIntConv subversionPtr
          return $ Version version subversion
 
--- | Return the number of processes involved in a communicator. For 'commWorld'
--- it returns the total number of processes available. If the communicator is
--- and intra-communicator it returns the number of processes in the local group.
--- This function corresponds to @MPI_Comm_size@.
-commSize :: Comm -> IO Int
-commSize comm = asInt $ checkError . Internal.commSize comm
-
--- | Return the rank of the calling process for the given communicator.
--- This function corresponds to @MPI_Comm_rank@.
-commRank :: Comm -> IO Rank
-commRank comm =
-   alloca $ \ptr -> do
-      checkError $ Internal.commRank comm ptr
-      toRank <$> peek ptr
-
-commTestInter :: Comm -> IO Bool
-commTestInter comm = asBool $ checkError . Internal.commTestInter comm
-
-commRemoteSize :: Comm -> IO Int
-commRemoteSize comm = asInt $ checkError . Internal.commRemoteSize comm
-
-commCompare :: Comm -> Comm -> IO ComparisonResult
-commCompare comm1 comm2 = asEnum $ checkError . Internal.commCompare comm1 comm2
-
--- | Test for an incomming message, without actually receiving it.
--- If a message has been sent from @Rank@ to the current process with @Tag@ on the
--- communicator @Comm@ then 'probe' will return the 'Status' of the message. Otherwise
--- it will block the current process until such a matching message is sent.
--- This allows the current process to check for an incoming message and decide
--- how to receive it, based on the information in the 'Status'.
--- This function corresponds to @MPI_Probe@.
-probe :: Rank       -- ^ Rank of the sender.
-      -> Tag        -- ^ Tag of the sent message.
-      -> Comm       -- ^ Communicator.
-      -> IO Status  -- ^ Information about the incoming message (but not the content of the message).
-probe rank tag comm = checkErrorFst $ Internal.probe rank tag comm
-
--- | Blocks until all processes on the communicator call this function.
--- This function corresponds to @MPI_Barrier@.
-barrier :: Comm -> IO ()
-barrier comm = checkError $ Internal.barrier comm
-
--- | Blocking test for the completion of a send of receive.
--- See 'test' for a non-blocking variant.
--- This function corresponds to @MPI_Wait@.
-wait :: Request -> IO Status
-wait request =
-   alloca $ \statusPtr ->
-     alloca $ \reqPtr -> do
-       poke (castPtr reqPtr) request
-       checkError $ Internal.wait reqPtr $ castPtr statusPtr
-       peek statusPtr
-
 -- | Non-blocking test for the completion of a send or receive.
 -- Returns @Nothing@ if the request is not complete, otherwise
 -- it returns @Just status@. See 'wait' for a blocking variant.
 -- This function corresponds to @MPI_Test@.
 test :: Request -> IO (Maybe Status)
-test request =
-    alloca $ \statusPtr ->
-       alloca $ \reqPtr ->
-          alloca $ \flagPtr -> do
-              poke (castPtr reqPtr) request
-              checkError $ Internal.test reqPtr (castPtr flagPtr) (castPtr statusPtr)
-              flag <- peek flagPtr
-              if flag
-                 then Just <$> peek statusPtr
-                 else return Nothing
-
--- | Cancel a pending communication request.
--- This function corresponds to @MPI_Cancel@.
-cancel :: Request -> IO ()
-cancel request = checkError $ Internal.cancel request
+test request = do
+  (flag, status) <- Internal.test request
+  if flag
+     then return $ Just status
+     else return Nothing
 
 wtime, wtick :: IO Double
 wtime = realToFrac <$> Internal.wtime
@@ -353,13 +289,6 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 -- XXX May want to stop people from waiting on Futures which are killed...
-
--- | Return the process group from a communicator.
-commGroup :: Comm -> IO Group
-commGroup comm =
-   alloca $ \ptr -> do
-      checkError $ Internal.commGroup comm ptr
-      peek (castPtr ptr)
 
 groupRank :: Group -> Rank
 groupRank = withGroup Internal.groupRank toRank
@@ -421,26 +350,6 @@ groupTranslateRanks group1 ranks group2 =
          allocaArray size $ \resultPtr -> do
             checkError $ Internal.groupTranslateRanks group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
             map toRank <$> peekArray size resultPtr
-
--- | Return the number of bytes used to store an MPI 'Datatype'.
-typeSize :: Datatype -> Int
-typeSize dataType = unsafePerformIO $
-   alloca $ \ptr -> do
-      checkError $ Internal.typeSize dataType ptr
-      fromIntegral <$> peek ptr
-
--- | Set the error handler for a communicator.
--- This function corresponds to MPI_Comm_set_errhandler.
-commSetErrhandler :: Comm -> Errhandler -> IO ()
-commSetErrhandler comm h = checkError $ Internal.commSetErrhandler comm h
-
--- | Get the error handler for a communicator.
--- This function corresponds to MPI_Comm_get_errhandler.
-commGetErrhandler :: Comm -> IO Errhandler
-commGetErrhandler comm =
-   alloca $ \handlerPtr -> do
-      checkError $ Internal.commGetErrhandler comm handlerPtr
-      peek (castPtr handlerPtr)
 
 -- | Error handler which causes errors from MPI functions to be raised as exceptions.
 errorsThrowExceptions :: Errhandler

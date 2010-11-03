@@ -2,7 +2,7 @@ module ExceptionTests (exceptionTests) where
 
 import TestHelpers
 import Control.Exception as Ex (try)
-import Control.Parallel.MPI.Exception
+import Control.Parallel.MPI.Internal (MPIError(..), ErrorClass(..))
 import Control.Parallel.MPI.Serializable
 
 exceptionTests :: Rank -> [(String,TestRunnerTest)]

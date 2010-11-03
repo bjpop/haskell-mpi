@@ -113,12 +113,12 @@ bsend = sendWith Internal.bsend
 ssend = sendWith Internal.ssend
 rsend = sendWith Internal.rsend
 
-type SendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO CInt
+type SendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO ()
 
 sendWith :: (SendFrom v) => SendPrim -> Comm -> Rank -> Tag -> v -> IO ()
 sendWith send_function comm rank tag val = do
    sendFrom val $ \valPtr numBytes dtype -> do
-      checkError $ send_function (castPtr valPtr) numBytes dtype (fromRank rank) (fromTag tag) comm
+      send_function (castPtr valPtr) numBytes dtype (fromRank rank) (fromTag tag) comm
 
 recv :: (RecvInto v) => Comm -> Rank -> Tag -> v -> IO Status
 recv comm rank tag arr = do
@@ -142,14 +142,12 @@ isend  = isendWith Internal.isend
 ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
-type ISendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO (CInt, Request)
+type ISendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO (Request)
 
 isendWith :: (SendFrom v) => ISendPrim -> Comm -> Rank -> Tag -> v -> IO Request
 isendWith send_function comm recvRank tag val = do
   sendFrom val $ \valPtr numBytes dtype -> do
-    (err, req) <- send_function valPtr numBytes dtype recvRank tag comm
-    checkError $ return err
-    return req
+    send_function valPtr numBytes dtype recvRank tag comm
 
 
 isendPtr, ibsendPtr, issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
@@ -157,11 +155,11 @@ isendPtr  = isendWithPtr Internal.isendPtr
 ibsendPtr = isendWithPtr Internal.ibsendPtr
 issendPtr = isendWithPtr Internal.issendPtr
 
-type ISendPtrPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> Ptr Request -> IO CInt
+type ISendPtrPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> Ptr Request -> IO ()
 isendWithPtr :: (SendFrom v) => ISendPtrPrim -> Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
 isendWithPtr send_function comm recvRank tag requestPtr val = do
    sendFrom val $ \valPtr numBytes dtype ->
-     checkError $ send_function (castPtr valPtr) numBytes dtype (fromRank recvRank) (fromTag tag) comm requestPtr
+     send_function (castPtr valPtr) numBytes dtype (fromRank recvRank) (fromTag tag) comm requestPtr
 
 {-
    At the moment we are limiting this to StorableArrays because they
