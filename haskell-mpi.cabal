@@ -59,8 +59,7 @@ Library
       Control.Parallel.MPI,
       Control.Parallel.MPI.Internal,
       Control.Parallel.MPI.Storable,
-      Control.Parallel.MPI.Serializable,
-      Control.Parallel.MPI.Exception
+      Control.Parallel.MPI.Serializable
    other-modules:
       C2HS,
       Control.Parallel.MPI.Utils
@@ -83,7 +82,6 @@ executable  haskell-mpi-testsuite
     Control.Parallel.MPI.Storable,
     Control.Parallel.MPI.Serializable
     Control.Parallel.MPI.Utils,
-    Control.Parallel.MPI.Exception,
     C2HS,
     IOArrayTests,
     SerializableTests,
