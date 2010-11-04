@@ -72,7 +72,6 @@ import Data.Typeable
 import Control.Monad (liftM, unless)
 import Control.Applicative ((<$>), (<*>))
 import Control.Exception
-import Control.Parallel.MPI.Utils (enumFromCInt, enumToCInt)
 
 {# context prefix = "MPI" #}
 
@@ -150,7 +149,7 @@ finalized = {# fun unsafe Finalized as finalized_ {alloca- `Bool' peekBool*} -> 
 -- for information about what levels are available and their relative ordering.
 -- This function corresponds to @MPI_Init_thread@.
 initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_
-                {enumToCInt `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
+                {cFromEnum `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
 queryThread = {# fun unsafe Query_thread as queryThread_
                  {alloca- `Bool' peekBool* } -> `()' checkError*- #}
@@ -697,7 +696,7 @@ checkError code = do
    -- because we call errorClass from checkError. We'd end up
    -- with an infinite loop if we called checkError here.
    (_, errClassRaw) <- errorClass code
-   let errClass = enumFromCInt errClassRaw
+   let errClass = cToEnum errClassRaw
    unless (errClass == Success) $ do
       errStr <- errorStringWrapper code
       throwIO $ MPIError errClass errStr

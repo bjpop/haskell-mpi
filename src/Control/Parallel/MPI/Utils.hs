@@ -1,4 +1,4 @@
-module Control.Parallel.MPI.Utils (asBool, asInt, asEnum, debugOut, enumToCInt, enumFromCInt) where
+module Control.Parallel.MPI.Utils (asBool, asInt, asEnum, debugOut) where
 
 import C2HS
 
@@ -21,15 +21,9 @@ asEnum f =
   alloca $ \ptr -> do
     f ptr
     res <- peek ptr
-    return $ enumFromCInt res
+    return $ cToEnum res
 
 debugOut :: Show a => a -> Bool
 debugOut x = unsafePerformIO $ do
    print x
    return False
-
-enumToCInt :: Enum a => a -> CInt
-enumToCInt = cIntConv . fromEnum
-
-enumFromCInt :: Enum a => CInt -> a
-enumFromCInt = toEnum . fromIntegral
