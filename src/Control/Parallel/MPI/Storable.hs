@@ -215,15 +215,15 @@ scattervSend comm root sendVal counts displacements recvVal  = do
      sendFrom sendVal $ \sendPtr _ sendType->
        withStorableArray counts $ \countsPtr ->
          withStorableArray displacements $ \displPtr ->
-           checkError $ Internal.scatterv (castPtr sendPtr) (castPtr countsPtr) (castPtr displPtr) sendType
-                        (castPtr recvPtr) recvElements recvType (fromRank root) comm
+           Internal.scatterv (castPtr sendPtr) countsPtr displPtr sendType
+                             (castPtr recvPtr) recvElements recvType root comm
 
 scattervRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 scattervRecv comm root arr = do
    -- myRank <- commRank comm
    -- XXX: assert (myRank /= sendRank)
    recvInto arr $ \recvPtr recvElements recvType ->
-     checkError $ Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
+     Internal.scatterv nullPtr nullPtr nullPtr byte (castPtr recvPtr) recvElements recvType root comm
 
 {-
 XXX we should check that the recvArray is large enough to store:
@@ -255,8 +255,9 @@ gathervRecv comm root segment counts displacements recvVal = do
      withStorableArray counts $ \countsPtr ->
         withStorableArray displacements $ \displPtr ->
           recvInto recvVal $ \recvPtr _ recvType->
-            checkError $ Internal.gatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr)
-                         (castPtr countsPtr) (castPtr displPtr) recvType (fromRank root) comm
+            Internal.gatherv (castPtr sendPtr) sendElements sendType 
+                             (castPtr recvPtr) countsPtr displPtr recvType 
+                             root comm
 
 gathervSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 gathervSend comm root segment = do
@@ -264,7 +265,7 @@ gathervSend comm root segment = do
    -- XXX: assert myRank == root
    sendFrom segment $ \sendPtr sendElements sendType ->
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
-     checkError $ Internal.gatherv (castPtr sendPtr) sendElements sendType nullPtr nullPtr nullPtr byte (fromRank root) comm
+     Internal.gatherv (castPtr sendPtr) sendElements sendType nullPtr nullPtr nullPtr byte root comm
 
 allgather :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> v2 -> IO ()
 allgather comm sendVal recvVal = do
@@ -278,7 +279,7 @@ allgatherv comm segment counts displacements recvVal = do
      withStorableArray counts $ \countsPtr ->  
         withStorableArray displacements $ \displPtr -> 
           recvInto recvVal $ \recvPtr _ recvType ->
-            checkError $ Internal.allgatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr) (castPtr countsPtr) (castPtr displPtr) recvType comm
+            Internal.allgatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr) countsPtr displPtr recvType comm
              
 -- XXX: when sending arrays, we can not measure the size of the array element with sizeOf here without
 -- breaking the abstraction. Hence for now `sendCount' should be treated as "count of the underlying MPI

@@ -152,7 +152,7 @@ finalized = {# fun unsafe Finalized as finalized_ {alloca- `Bool' peekBool*} -> 
 initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_
                 {enumToCInt `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
-queryThread = {# fun unsafe Query_thread as queryThread_ 
+queryThread = {# fun unsafe Query_thread as queryThread_
                  {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
 isThreadMain = {# fun unsafe Is_thread_main as isThreadMain_
@@ -188,7 +188,7 @@ getVersion = do
 -- it returns the total number of processes available. If the communicator is
 -- and intra-communicator it returns the number of processes in the local group.
 -- This function corresponds to @MPI_Comm_size@.
-commSize = {# fun unsafe Comm_size as commSize_ 
+commSize = {# fun unsafe Comm_size as commSize_
               {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
 
 commRemoteSize = {# fun unsafe Comm_remote_size as commRemoteSize_
@@ -245,7 +245,7 @@ irecv = {# fun Irecv as irecv_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
 irecvPtr = {# fun Irecv as irecvPtr_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-bcast = {# fun unsafe Bcast as bcast_ 
+bcast = {# fun unsafe Bcast as bcast_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
 -- | Blocks until all processes on the communicator call this function.
@@ -286,24 +286,35 @@ cancel = {# fun unsafe Cancel as cancel_
             {withRequest* `Request'} -> `()' checkError*- #}
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
-scatter = {# fun unsafe Scatter as scatter_ 
+scatter = {# fun unsafe Scatter as scatter_
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 gather = {# fun unsafe Gather as gather_
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
-scatterv sb sc sd st rb re rt r c = {# call unsafe Scatterv as scatterv_ #} sb sc sd (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
-gatherv sb se st rb rc rd rt r c = {# call unsafe Gatherv as gatherv_ #} sb se (fromDatatype st) rb rc rd (fromDatatype rt) r (fromComm c)
+-- We pass counts/displs as Ptr CInt so that caller could supply nullPtr here
+-- which would be impossible if we marshal arrays ourselves here.
+scatterv = {# fun unsafe Scatterv as scatterv_
+             { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+               id `BufferPtr', id `Count', fromDatatype `Datatype',
+               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+gatherv = {# fun unsafe Gatherv as gatherv_
+             { id `BufferPtr', id `Count', fromDatatype `Datatype',
+               id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 allgather = {# fun unsafe Allgather as allgather_
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
-allgatherv sb se st rb rc rd rt c = {# call unsafe Allgatherv as allgatherv_ #} sb se (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
+allgatherv = {# fun unsafe Allgatherv as allgatherv_
+             { id `BufferPtr', id `Count', fromDatatype `Datatype',
+               id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+               fromComm `Comm'} -> `()' checkError*- #}
 alltoall = {# fun unsafe Alltoall as alltoall_
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
 alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
 -- Reduce, allreduce and reduceScatter could call back to Haskell
@@ -343,7 +354,7 @@ groupDifference g1 g2 = unsafePerformIO $ groupDifference' g1 g2
 groupCompare g1 g2 = unsafePerformIO $ groupCompare' g1 g2
   where
     groupCompare' = {# fun unsafe Group_compare as groupCompare_
-                       {fromGroup `Group', fromGroup `Group', alloca- `ComparisonResult' peekEnum*} -> `()' checkError*- #}                  
+                       {fromGroup `Group', fromGroup `Group', alloca- `ComparisonResult' peekEnum*} -> `()' checkError*- #}
 
 -- Technically it might make better sense to make the second argument a Set rather than a list
 -- but the order is significant in the groupIncl function (the other function, not this one).
@@ -369,9 +380,9 @@ withRanksAsInts ranks f = withArrayLen (map fromEnum ranks) $ \size ptr -> f (cI
 
 -- | Return the number of bytes used to store an MPI 'Datatype'.
 typeSize = unsafePerformIO . typeSize'
-  where 
+  where
     typeSize' =
-      {# fun unsafe Type_size as typeSize_ 
+      {# fun unsafe Type_size as typeSize_
          {fromDatatype `Datatype', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
 
 
@@ -381,7 +392,7 @@ errorString = {# call unsafe Error_string as errorString_ #}
 
 -- | Set the error handler for a communicator.
 -- This function corresponds to MPI_Comm_set_errhandler.
-commSetErrhandler = {# fun unsafe Comm_set_errhandler as commSetErrhandler_ 
+commSetErrhandler = {# fun unsafe Comm_set_errhandler as commSetErrhandler_
                        {fromComm `Comm', fromErrhandler `Errhandler'} -> `()' checkError*- #}
 
 -- | Get the error handler for a communicator.
