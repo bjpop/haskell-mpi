@@ -35,7 +35,7 @@ module Control.Parallel.MPI.Internal
      finalize, getProcessorName, getVersion, Version(..),
      send, bsend, ssend, rsend, recv,
      commRank, probe, commSize, commTestInter, commRemoteSize,
-     commCompare,
+     commCompare, commGetAttr,
      isend, ibsend, issend, isendPtr, ibsendPtr, issendPtr, irecv, irecvPtr, bcast, barrier, wait, waitall, test,
      cancel, scatter, gather,
      scatterv, gatherv,
@@ -59,16 +59,17 @@ module Control.Parallel.MPI.Internal
      Group(), groupEmpty,
      Operation(), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
      borOp, lxorOp, bxorOp,
-     Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
+     Rank(), rankId, toRank, fromRank, anySource, theRoot, procNull,
      Request(),
      Status (..),
-     Tag, toTag, fromTag, tagVal, anyTag,
+     Tag(), toTag, fromTag, tagVal, anyTag, tagUpperBound,
      ThreadSupport (..)
    ) where
 
 import Prelude hiding (init)
 import C2HS
 import Data.Typeable
+import Data.Maybe (fromMaybe)
 import Control.Monad (liftM, unless)
 import Control.Applicative ((<$>), (<*>))
 import Control.Exception
@@ -206,6 +207,29 @@ commRemoteSize = {# fun unsafe Comm_remote_size as commRemoteSize_
 
 commTestInter = {# fun unsafe Comm_test_inter as commTestInter_
                    {fromComm `Comm', alloca- `Bool' peekBool* } -> `()' checkError*- #}
+
+commGetAttr :: Storable e => Comm -> Int -> IO (Maybe e)
+commGetAttr comm key = do
+  isInitialized <- initialized
+  if isInitialized then do 
+    alloca $ \ptr -> do
+      found <- commGetAttr' comm key (castPtr ptr)
+      if found then do ptr2 <- peek ptr
+                       Just <$> peek ptr2
+               else return Nothing
+    else return Nothing
+      where
+        commGetAttr' = {# fun unsafe Comm_get_attr as commGetAttr_
+                         {fromComm `Comm', cIntConv `Int', id `Ptr ()', alloca- `Bool' peekBool*} -> `()' checkError*- #}
+
+foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr Int
+
+-- | Predefined tag value that allows reception of the messages with
+--   arbitrary tag values. Corresponds to @MPI_ANY_TAG@.
+tagUpperBound :: Int
+tagUpperBound = 
+  let key = unsafePerformIO (peek tagUB_) 
+      in fromMaybe 0 $ unsafePerformIO (commGetAttr commWorld key)
 
 -- | Return the rank of the calling process for the given communicator.
 -- This function corresponds to @MPI_Comm_rank@.
@@ -553,9 +577,18 @@ This module provides Haskell datatype that represents values which
 could be used as MPI rank designations.
 -}
 
--- TODO: actually, this should be 32-bit int
 newtype Rank = MkRank { rankId :: Int }
-   deriving (Eq, Ord, Enum, Num, Integral, Real)
+   deriving (Eq, Ord, Enum, Integral, Real)
+
+instance Num Rank where
+  (MkRank x) + (MkRank y) = MkRank (x+y)
+  (MkRank x) * (MkRank y) = MkRank (x*y)
+  abs (MkRank x) = MkRank (abs x)
+  signum (MkRank x) = MkRank (signum x)
+  fromInteger x 
+    | x > ( fromIntegral (maxBound :: CInt)) = error "Rank value does not fit into 32 bits" 
+    | x < 0             = error "Negative Rank value"
+    | otherwise         = MkRank (fromIntegral x)
 
 foreign import ccall "mpi_any_source" anySource_ :: Ptr Int
 foreign import ccall "mpi_root" theRoot_ :: Ptr Int
@@ -666,11 +699,18 @@ This module provides Haskell datatype that represents values which
 could be used as MPI tags.
 -}
 
--- TODO: actually, this is a 32-bit int, and even less than that.
--- See section 8 of MPI report about extracting MPI_TAG_UB
--- and using it here
 newtype Tag = MkTag { tagVal :: Int }
-   deriving (Eq, Ord, Enum, Num, Integral, Real)
+   deriving (Eq, Ord, Enum, Integral, Real)
+
+instance Num Tag where
+  (MkTag x) + (MkTag y) = MkTag (x+y)
+  (MkTag x) * (MkTag y) = MkTag (x*y)
+  abs (MkTag x) = MkTag (abs x)
+  signum (MkTag x) = MkTag (signum x)
+  fromInteger x 
+    | fromIntegral x > tagUpperBound = error "Tag value is over the MPI_TAG_UB" 
+    | x < 0             = error "Negative Tag value"
+    | otherwise         = MkTag (fromIntegral x)
 
 instance Show Tag where
   show = show . tagVal

@@ -4,13 +4,15 @@ import TestHelpers
 
 import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
+import Control.Parallel.MPI.Internal (tagUpperBound)
 
 otherTests :: Rank -> [(String,TestRunnerTest)]
 otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke
                , testCase "wtime/wtick" wtimeWtickTest
                , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
                , testCase "initialized" initializedTest
-               , testCase "finalized" finalizedTest ]
+               , testCase "finalized" finalizedTest 
+               , testCase "tag value upper bound" tagUpperBoundTest ]
 
 statusPeekPoke :: IO ()
 statusPeekPoke = do
@@ -44,3 +46,9 @@ finalizedTest :: IO ()
 finalizedTest = do
    isFinal <- finalized
    isFinal == False @? "finalized return True, but was expected to return False"
+
+tagUpperBoundTest :: IO ()
+tagUpperBoundTest = do
+  putStrLn $ "Maximum tag value is " ++ show tagUpperBound
+  tagUpperBound /= (-1) @? "tagUpperBound has no value"
+  
