@@ -286,13 +286,25 @@ cancel = {# fun unsafe Cancel as cancel_
             {withRequest* `Request'} -> `()' checkError*- #}
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
-scatter sb se st rb re rt r c = {# call unsafe Scatter as scatter_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
-gather sb se st rb re rt r c = {# call unsafe Gather as gather_ #} sb se (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
+scatter = {# fun unsafe Scatter as scatter_ 
+             { id `BufferPtr', id `Count', fromDatatype `Datatype',
+               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+gather = {# fun unsafe Gather as gather_
+             { id `BufferPtr', id `Count', fromDatatype `Datatype',
+               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 scatterv sb sc sd st rb re rt r c = {# call unsafe Scatterv as scatterv_ #} sb sc sd (fromDatatype st) rb re (fromDatatype rt) r (fromComm c)
 gatherv sb se st rb rc rd rt r c = {# call unsafe Gatherv as gatherv_ #} sb se (fromDatatype st) rb rc rd (fromDatatype rt) r (fromComm c)
-allgather sb se st rb re rt c = {# call unsafe Allgather as allgather_ #} sb se (fromDatatype st) rb re (fromDatatype rt) (fromComm c)
+allgather = {# fun unsafe Allgather as allgather_
+             { id `BufferPtr', id `Count', fromDatatype `Datatype',
+               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               fromComm `Comm'} -> `()' checkError*- #}
 allgatherv sb se st rb rc rd rt c = {# call unsafe Allgatherv as allgatherv_ #} sb se (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
-alltoall sb sc st rb rc rt c = {# call unsafe Alltoall as alltoall_ #} sb sc (fromDatatype st) rb rc (fromDatatype rt) (fromComm c)
+alltoall = {# fun unsafe Alltoall as alltoall_
+             { id `BufferPtr', id `Count', fromDatatype `Datatype',
+               id `BufferPtr', id `Count', fromDatatype `Datatype', 
+               fromComm `Comm'} -> `()' checkError*- #}
 alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode

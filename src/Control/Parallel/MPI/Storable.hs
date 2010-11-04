@@ -198,12 +198,12 @@ scatterSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 scatterSend comm root sendVal recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      sendFrom sendVal $ \sendPtr _ _ ->
-       checkError $ Internal.scatter (castPtr sendPtr) recvElements recvType (castPtr recvPtr) recvElements recvType (fromRank root) comm
+       Internal.scatter (castPtr sendPtr) recvElements recvType (castPtr recvPtr) recvElements recvType root comm
 
 scatterRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 scatterRecv comm root recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
-     checkError $ Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType (fromRank root) comm
+     Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType root comm
 
 -- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
 scattervSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
@@ -236,8 +236,7 @@ gatherRecv comm root segment recvVal = do
    -- XXX: assert myRank == root
    sendFrom segment $ \sendPtr sendElements sendType ->
      recvInto recvVal $ \recvPtr _ _ ->
-       checkError $ Internal.gather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType 
-                    (fromRank root) comm
+       Internal.gather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType root comm
 
 gatherSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 gatherSend comm root segment = do
@@ -245,7 +244,7 @@ gatherSend comm root segment = do
    -- XXX: assert it is /= root
    sendFrom segment $ \sendPtr sendElements sendType ->
      -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
-     checkError $ Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte (fromRank root) comm
+     Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte root comm
 
 gathervRecv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                 StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
@@ -271,7 +270,7 @@ allgather :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> v2 -> IO ()
 allgather comm sendVal recvVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent equals amount received
-      checkError $ Internal.allgather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
+      Internal.allgather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
 
 allgatherv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 allgatherv comm segment counts displacements recvVal = do
@@ -290,7 +289,7 @@ alltoall comm sendVal sendCount recvVal = do
   let sendCount_ = cIntConv sendCount
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
-      checkError $ Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
+      Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
 
 alltoallv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
