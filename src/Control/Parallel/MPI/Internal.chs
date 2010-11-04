@@ -245,7 +245,8 @@ irecv = {# fun Irecv as irecv_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
 irecvPtr = {# fun Irecv as irecvPtr_
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-bcast b cnt d r c = {# call unsafe Bcast as bcast_ #} b cnt (fromDatatype d) r (fromComm c)
+bcast = {# fun unsafe Bcast as bcast_ 
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
 -- | Blocks until all processes on the communicator call this function.
 -- This function corresponds to @MPI_Barrier@.

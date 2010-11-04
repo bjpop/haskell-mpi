@@ -128,12 +128,12 @@ recv comm rank tag arr = do
 bcastSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 bcastSend comm sendRank val = do
    sendFrom val $ \valPtr numBytes dtype -> do
-      checkError $ Internal.bcast (castPtr valPtr) numBytes dtype (fromRank sendRank) comm
+      Internal.bcast (castPtr valPtr) numBytes dtype sendRank comm
 
 bcastRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 bcastRecv comm sendRank val = do
    recvInto val $ \valPtr numBytes dtype -> do
-      checkError $ Internal.bcast (castPtr valPtr) numBytes dtype (fromRank sendRank) comm
+      Internal.bcast (castPtr valPtr) numBytes dtype sendRank comm
 
 isend, ibsend, issend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
 isend  = isendWith Internal.isend
@@ -185,7 +185,7 @@ irecvPtr comm sendRank tag requestPtr recvVal = do
 irecv :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType -> do
-      Internal.irecvPtr (castPtr recvPtr) recvElements recvType sendRank tag comm
+      Internal.irecv (castPtr recvPtr) recvElements recvType sendRank tag comm
 
 waitall :: StorableArray Int Request -> StorableArray Int Status -> IO ()
 waitall requests statuses = do
