@@ -164,14 +164,10 @@ module Control.Parallel.MPI
    ) where
 
 import Prelude hiding (init)
-import Control.Applicative ((<$>))
 import Control.Exception (finally)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
-import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Internal hiding
-   (finalize,
-    wtime, wtick)
+import Control.Parallel.MPI.Internal
 
 -- | A tag with unit value. Intended to be used as a convenient default.
 unitTag :: Tag
@@ -199,25 +195,6 @@ mpiWorld action = do
    size <- commSize commWorld
    rank <- commRank commWorld
    action size rank `finally` finalize
-
--- | Terminate the MPI execution environment.
--- Once 'finalize' is called no other MPI functions may be called except
--- 'getVersion', 'initialized' and 'finalized'. Each process must complete
--- any pending communication that it initiated before calling 'finalize'.
--- If 'finalize' returns then regular (non-MPI) computations may continue,
--- but no further MPI computation is possible. Note: the error code returned
--- by 'finalize' is not checked. This function corresponds to @MPI_Finalize@.
-finalize :: IO ()
--- XXX can't call checkError on finalize, because
--- checkError calls Internal.errorClass and Internal.errorString.
--- These cannot be called after finalize (at least on OpenMPI).
-finalize = Internal.finalize >> return ()
-
-
-wtime, wtick :: IO Double
-wtime = realToFrac <$> Internal.wtime
-
-wtick = realToFrac <$> Internal.wtick
 
 -- | A value to be computed by some thread in the future.
 data Future a =

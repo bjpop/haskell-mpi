@@ -157,7 +157,18 @@ queryThread = {# fun unsafe Query_thread as queryThread_
 isThreadMain = {# fun unsafe Is_thread_main as isThreadMain_
                  {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
-finalize = {# call unsafe Finalize as finalize_ #}
+-- | Terminate the MPI execution environment.
+-- Once 'finalize' is called no other MPI functions may be called except
+-- 'getVersion', 'initialized' and 'finalized'. Each process must complete
+-- any pending communication that it initiated before calling 'finalize'.
+-- If 'finalize' returns then regular (non-MPI) computations may continue,
+-- but no further MPI computation is possible. Note: the error code returned
+-- by 'finalize' is not checked. This function corresponds to @MPI_Finalize@.
+finalize = {# fun unsafe Finalize as finalize_ {} -> `()' discard*- #}
+  where discard _ = return ()
+-- XXX can't call checkError on finalize, because
+-- checkError calls Internal.errorClass and Internal.errorString.
+-- These cannot be called after finalize (at least on OpenMPI).
 
 getProcessorName :: IO String
 getProcessorName = do
@@ -333,8 +344,8 @@ reduceScatter = {# fun Reduce_scatter as reduceScatter_
 opCreate = {# fun unsafe Op_create as opCreate_
               {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
 opFree = {# call unsafe Op_free as opFree_ #}
-wtime = {# call unsafe Wtime as wtime_ #}
-wtick = {# call unsafe Wtick as wtick_ #}
+wtime = {# fun unsafe Wtime as wtime_ {} -> `Double' realToFrac #}
+wtick = {# fun unsafe Wtick as wtick_ {} -> `Double' realToFrac #}
 
 -- | Return the process group from a communicator.
 commGroup = {# fun unsafe Comm_group as commGroup_
