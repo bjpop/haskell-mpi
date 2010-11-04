@@ -315,13 +315,23 @@ alltoall = {# fun unsafe Alltoall as alltoall_
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
-alltoallv sb sc sd st rb rc rd rt c = {# call unsafe Alltoallv as alltoallv_ #} sb sc sd (fromDatatype st) rb rc rd (fromDatatype rt) (fromComm c)
+alltoallv = {# fun unsafe Alltoallv as alltoallv_
+             { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+               id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+               fromComm `Comm'} -> `()' checkError*- #}
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode
-reduce sb rb se st o r c  = {# call Reduce as reduce_ #} sb rb se (fromDatatype st) (fromOperation o) r (fromComm c)
-allreduce sb rb se st o c = {# call Allreduce as allreduce_ #} sb rb se (fromDatatype st) (fromOperation o) (fromComm c)
-reduceScatter sb rb cnt t o c = {# call Reduce_scatter as reduceScatter_ #} sb rb cnt (fromDatatype t) (fromOperation o) (fromComm c)
-opCreate = {# call unsafe Op_create as opCreate_ #}
+reduce = {# fun Reduce as reduce_ 
+             { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
+               fromOperation `Operation', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+allreduce = {# fun Allreduce as allreduce_
+             { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
+               fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+reduceScatter = {# fun Reduce_scatter as reduceScatter_
+             { id `BufferPtr', id `BufferPtr', id `Ptr CInt', fromDatatype `Datatype',
+               fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+opCreate = {# fun unsafe Op_create as opCreate_
+              {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
 opFree = {# call unsafe Op_free as opFree_ #}
 wtime = {# call unsafe Wtime as wtime_ #}
 wtick = {# call unsafe Wtick as wtick_ #}
@@ -369,7 +379,7 @@ groupTranslateRanks group1 ranks group2 =
       let (rankIntList :: [Int]) = map fromEnum ranks
       withArrayLen rankIntList $ \size ranksPtr ->
          allocaArray size $ \resultPtr -> do
-            groupTranslateRanks' group1 (enumToCInt size) (castPtr ranksPtr) group2 resultPtr
+            groupTranslateRanks' group1 (cFromEnum size) (castPtr ranksPtr) group2 resultPtr
             map toRank <$> peekArray size resultPtr
   where
     groupTranslateRanks' = {# fun unsafe Group_translate_ranks as groupTranslateRanks_
@@ -496,8 +506,8 @@ defined in the MPI Report.
 
 -- | Actual Haskell type used depends on the MPI implementation.
 type MPIOperation = {# type MPI_Op #}
-
 newtype Operation = MkOperation { fromOperation :: MPIOperation } deriving Storable
+peekOperation ptr = MkOperation <$> peek ptr
 
 foreign import ccall unsafe "&mpi_max" maxOp_ :: Ptr MPIOperation
 foreign import ccall unsafe "&mpi_min" minOp_ :: Ptr MPIOperation

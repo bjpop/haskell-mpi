@@ -57,7 +57,6 @@ import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI
-import Control.Parallel.MPI.Exception (checkError)
 import Data.Int()
 import Data.Word
 
@@ -300,32 +299,32 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
         withStorableArray sendDisplacements $ \sendDisplPtr ->
           withStorableArray recvCounts $ \recvCountsPtr ->
             withStorableArray recvDisplacements $ \recvDisplPtr ->
-              checkError $ Internal.alltoallv (castPtr sendPtr) (castPtr sendCountsPtr) (castPtr sendDisplPtr) sendType
-                                              (castPtr recvPtr) (castPtr recvCountsPtr) (castPtr recvDisplPtr) recvType comm
+              Internal.alltoallv (castPtr sendPtr) sendCountsPtr sendDisplPtr sendType
+                                 (castPtr recvPtr) recvCountsPtr recvDisplPtr recvType comm
   
 sendReduce :: SendFrom v => Comm -> Rank -> Operation -> v -> IO ()
 sendReduce comm root op sendVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
-    checkError $ Internal.reduce (castPtr sendPtr) nullPtr sendElements sendType op (fromRank root) comm
+    Internal.reduce (castPtr sendPtr) nullPtr sendElements sendType op root comm
 
 recvReduce :: (SendFrom v, RecvInto v) => Comm -> Rank -> Operation -> v -> v -> IO ()
 recvReduce comm root op sendVal recvVal =
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
-      checkError $ Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op (fromRank root) comm
+      Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op root comm
 
 allreduce :: (SendFrom v, RecvInto v) => Comm -> Operation -> v -> v -> IO ()
 allreduce comm op sendVal recvVal = 
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
-      checkError $ Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
+      Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
 
 reduceScatter :: (SendFrom v, RecvInto v) => Comm -> Operation -> StorableArray Int CInt -> v -> v -> IO ()
 reduceScatter comm op counts sendVal recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
       withStorableArray counts $ \countsPtr ->
-      checkError $ Internal.reduceScatter (castPtr sendPtr) (castPtr recvPtr) (castPtr countsPtr) sendType op comm
+      Internal.reduceScatter (castPtr sendPtr) (castPtr recvPtr) countsPtr sendType op comm
 
 class Repr e where
   -- How many elements of given datatype do we need to represent given
@@ -533,6 +532,4 @@ intoNewBS_ len f = do
 
 opCreate :: Storable t => Bool -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) -> IO Operation
 opCreate commute f = do
-  alloca $ \ptr -> do
-    checkError $ Internal.opCreate (castFunPtr f) (cIntConv $ fromEnum commute) ptr
-    peek (castPtr ptr)
+  Internal.opCreate (castFunPtr f) commute
