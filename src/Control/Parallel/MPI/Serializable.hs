@@ -114,7 +114,6 @@ import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
 import qualified Control.Parallel.MPI.Storable as Storable
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Exception (checkError)
 import Control.Parallel.MPI
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
@@ -172,16 +171,12 @@ recvBS :: Comm -> Rank -> Tag -> IO (BS.ByteString, Status)
 recvBS comm rank tag = do
    probeStatus <- probe rank tag comm
    let count = fromIntegral $ status_count probeStatus
-       cSource = fromRank rank
-       cTag    = fromTag tag
        cCount  = cIntConv count
    allocaBytes count
-      (\bufferPtr ->
-          alloca $ \statusPtr -> do
-             checkError $ Internal.recv bufferPtr cCount byte cSource cTag comm $ castPtr statusPtr
-             recvStatus <- peek statusPtr
-             message <- BS.packCStringLen (castPtr bufferPtr, count)
-             return (message, recvStatus))
+      (\bufferPtr -> do
+          recvStatus <- Internal.recv bufferPtr cCount byte rank tag comm
+          message <- BS.packCStringLen (castPtr bufferPtr, count)
+          return (message, recvStatus))
 
 -- | Sends message to specified process in non-blocking mode (using @MPI_ISend@).
 --
@@ -233,7 +228,7 @@ waitall :: [Request] -> IO [Status]
 waitall reqs = do
   withArrayLen reqs $ \len reqPtr ->
     allocaArray len $ \statPtr -> do
-      checkError $ Internal.waitall (cIntConv len) reqPtr (castPtr statPtr)
+      Internal.waitall (cIntConv len) reqPtr (castPtr statPtr)
       peekArray len statPtr
 
 -- | Non-blocking receive of the message. Returns value of type `Future',

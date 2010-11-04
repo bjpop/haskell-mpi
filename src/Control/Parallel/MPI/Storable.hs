@@ -118,14 +118,12 @@ type SendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO ()
 sendWith :: (SendFrom v) => SendPrim -> Comm -> Rank -> Tag -> v -> IO ()
 sendWith send_function comm rank tag val = do
    sendFrom val $ \valPtr numBytes dtype -> do
-      send_function (castPtr valPtr) numBytes dtype (fromRank rank) (fromTag tag) comm
+      send_function (castPtr valPtr) numBytes dtype rank tag comm
 
 recv :: (RecvInto v) => Comm -> Rank -> Tag -> v -> IO Status
 recv comm rank tag arr = do
    recvInto arr $ \valPtr numBytes dtype ->
-      alloca $ \statusPtr -> do
-         checkError $ Internal.recv (castPtr valPtr) numBytes dtype (fromRank rank) (fromTag tag) comm (castPtr statusPtr)
-         peek statusPtr
+      Internal.recv (castPtr valPtr) numBytes dtype rank tag comm
 
 bcastSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 bcastSend comm sendRank val = do
@@ -182,20 +180,19 @@ isendWithPtr send_function comm recvRank tag requestPtr val = do
 irecvPtr :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> Ptr Request -> StorableArray i e -> IO ()
 irecvPtr comm sendRank tag requestPtr recvVal = do
   recvInto recvVal $ \recvPtr recvElements recvType -> do
-    checkError $ Internal.irecvPtr (castPtr recvPtr) recvElements recvType (fromRank sendRank) (fromTag tag) comm requestPtr
+    Internal.irecvPtr (castPtr recvPtr) recvElements recvType sendRank tag comm requestPtr
 
 irecv :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag recvVal = do
-   alloca $ \requestPtr -> do
-     irecvPtr comm sendRank tag requestPtr recvVal
-     peek requestPtr
+   recvInto recvVal $ \recvPtr recvElements recvType -> do
+      Internal.irecvPtr (castPtr recvPtr) recvElements recvType sendRank tag comm
 
 waitall :: StorableArray Int Request -> StorableArray Int Status -> IO ()
 waitall requests statuses = do
   cnt <- rangeSize <$> getBounds requests
   withStorableArray requests $ \reqs ->
     withStorableArray statuses $ \stats ->
-      checkError $ Internal.waitall (cIntConv cnt) (castPtr reqs) (castPtr stats)
+      Internal.waitall (cIntConv cnt) (castPtr reqs) (castPtr stats)
 
 scatterSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 scatterSend comm root sendVal recvVal = do
