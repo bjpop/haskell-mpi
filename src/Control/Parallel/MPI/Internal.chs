@@ -120,21 +120,21 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
 -- than once for a given MPI program execution. The only MPI functions that may
 -- be called before the MPI environment is initialized are 'getVersion',
 -- 'initialized' and 'finalized'. This function corresponds to @MPI_Init@.
-init = {# fun unsafe init_wrapper as init_wrapper_ {} -> `()' checkError*- #}
+{# fun unsafe init_wrapper as init {} -> `()' checkError*- #}
 
 -- | Determine if the MPI environment has been initialized. Returns @True@ if the
 -- environment has been initialized and @False@ otherwise. This function
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
 -- This function corresponds to @MPI_Initialized@.
-initialized = {# fun unsafe Initialized as initialized_ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
+{# fun unsafe Initialized as ^ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
 
 -- | Determine if the MPI environment has been finalized. Returns @True@ if the
 -- environment has been finalized and @False@ otherwise. This function
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
 -- This function corresponds to @MPI_Finalized@.
-finalized = {# fun unsafe Finalized as finalized_ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
+{# fun unsafe Finalized as ^ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
 
 -- | Initialize the MPI environment with a /required/ level of thread support.
 -- See the documentation for 'init' for more information about MPI initialization.
@@ -149,13 +149,12 @@ finalized = {# fun unsafe Finalized as finalized_ {alloca- `Bool' peekBool*} -> 
 -- provided by the MPI implementation. See the documentation for 'ThreadSupport'
 -- for information about what levels are available and their relative ordering.
 -- This function corresponds to @MPI_Init_thread@.
-initThread = {# fun unsafe init_wrapper_thread as init_wrapper_thread_
+{# fun unsafe init_wrapper_thread as initThread
                 {cFromEnum `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
-queryThread = {# fun unsafe Query_thread as queryThread_
-                 {alloca- `Bool' peekBool* } -> `()' checkError*- #}
+{# fun unsafe Query_thread as ^ {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
-isThreadMain = {# fun unsafe Is_thread_main as isThreadMain_
+{# fun unsafe Is_thread_main as ^
                  {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
 -- | Terminate the MPI execution environment.
@@ -165,8 +164,8 @@ isThreadMain = {# fun unsafe Is_thread_main as isThreadMain_
 -- If 'finalize' returns then regular (non-MPI) computations may continue,
 -- but no further MPI computation is possible. Note: the error code returned
 -- by 'finalize' is not checked. This function corresponds to @MPI_Finalize@.
-finalize = {# fun unsafe Finalize as finalize_ {} -> `()' discard*- #}
-  where discard _ = return ()
+{# fun unsafe Finalize as ^ {} -> `()' discard*- #}
+discard _ = return ()
 -- XXX can't call checkError on finalize, because
 -- checkError calls Internal.errorClass and Internal.errorString.
 -- These cannot be called after finalize (at least on OpenMPI).
@@ -199,13 +198,13 @@ getVersion = do
 -- it returns the total number of processes available. If the communicator is
 -- and intra-communicator it returns the number of processes in the local group.
 -- This function corresponds to @MPI_Comm_size@.
-commSize = {# fun unsafe Comm_size as commSize_
+{# fun unsafe Comm_size as ^
               {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
 
-commRemoteSize = {# fun unsafe Comm_remote_size as commRemoteSize_
+{# fun unsafe Comm_remote_size as ^
                     {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
 
-commTestInter = {# fun unsafe Comm_test_inter as commTestInter_
+{# fun unsafe Comm_test_inter as ^
                    {fromComm `Comm', alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
 commGetAttr :: Storable e => Comm -> Int -> IO (Maybe e)
@@ -227,16 +226,16 @@ foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr Int
 -- | Predefined tag value that allows reception of the messages with
 --   arbitrary tag values. Corresponds to @MPI_ANY_TAG@.
 tagUpperBound :: Int
-tagUpperBound = 
+tagUpperBound =
   let key = unsafePerformIO (peek tagUB_) 
       in fromMaybe 0 $ unsafePerformIO (commGetAttr commWorld key)
 
 -- | Return the rank of the calling process for the given communicator.
 -- This function corresponds to @MPI_Comm_rank@.
-commRank = {# fun unsafe Comm_rank as commRank_
+{# fun unsafe Comm_rank as ^
               {fromComm `Comm', alloca- `Rank' peekIntConv* } -> `()' checkError*- #}
 
-commCompare = {# fun unsafe Comm_compare as commCompare_
+{# fun unsafe Comm_compare as ^
                  {fromComm `Comm', fromComm `Comm', alloca- `ComparisonResult' peekEnum*} -> `()' checkError*- #}
 
 -- | Test for an incomming message, without actually receiving it.
@@ -246,60 +245,56 @@ commCompare = {# fun unsafe Comm_compare as commCompare_
 -- This allows the current process to check for an incoming message and decide
 -- how to receive it, based on the information in the 'Status'.
 -- This function corresponds to @MPI_Probe@.
-probe = {# fun Probe as probe_
+{# fun Probe as ^
            {fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast*} -> `()' checkError*- #}
 {- probe :: Rank       -- ^ Rank of the sender.
       -> Tag        -- ^ Tag of the sent message.
       -> Comm       -- ^ Communicator.
       -> IO Status  -- ^ Information about the incoming message (but not the content of the message). -}
 
-send = {# fun unsafe Send as send_
+{# fun unsafe Send as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
-bsend = {# fun unsafe Bsend as bsend_
+{# fun unsafe Bsend as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
-ssend = {# fun unsafe Ssend as ssend_
+{# fun unsafe Ssend as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
-rsend = {# fun unsafe Rsend as rsend_
+{# fun unsafe Rsend as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
-recv = {# fun unsafe Recv as recv_
+{# fun unsafe Recv as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast* } -> `()' checkError*- #}
-isend = {# fun unsafe Isend as isend_
+{# fun unsafe Isend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
-ibsend = {# fun unsafe Ibsend as ibsend_
+{# fun unsafe Ibsend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
-issend = {# fun unsafe Issend as issend_
+{# fun unsafe Issend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
-isendPtr = {# fun unsafe Isend as isendPtr_
+{# fun unsafe Isend as isendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-ibsendPtr = {# fun unsafe Ibsend as ibsendPtr_
+{# fun unsafe Ibsend as ibsendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-issendPtr = {# fun unsafe Issend as issendPtr_
+{# fun unsafe Issend as issendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-irecv = {# fun Irecv as irecv_
+{# fun Irecv as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
-irecvPtr = {# fun Irecv as irecvPtr_
+{# fun Irecv as irecvPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-bcast = {# fun unsafe Bcast as bcast_
+{# fun unsafe Bcast as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
 -- | Blocks until all processes on the communicator call this function.
 -- This function corresponds to @MPI_Barrier@.
-barrier = {# fun unsafe Barrier as barrier_ {fromComm `Comm'} -> `()' checkError*- #}
+{# fun unsafe Barrier as ^ {fromComm `Comm'} -> `()' checkError*- #}
 
 -- | Blocking test for the completion of a send of receive.
 -- See 'test' for a non-blocking variant.
 -- This function corresponds to @MPI_Wait@.
-wait = {# fun unsafe Wait as wait_
+{# fun unsafe Wait as ^
           {withRequest* `Request', allocaCast- `Status' peekCast*} -> `()' checkError*-  #}
 
 -- TODO: Make this Storable Array instead of Ptr ?
-waitall = {# fun unsafe Waitall as waitall_
+{# fun unsafe Waitall as ^
             { id `Count', castPtr `Ptr Request', castPtr `Ptr Status'} -> `()' checkError*- #}
 
--- | Non-blocking test for the completion of a send or receive.
--- Returns @Nothing@ if the request is not complete, otherwise
--- it returns @Just status@. See 'wait' for a blocking variant.
--- This function corresponds to @MPI_Test@.
 -- | Non-blocking test for the completion of a send or receive.
 -- Returns @Nothing@ if the request is not complete, otherwise
 -- it returns @Just status@. See 'wait' for a blocking variant.
@@ -316,63 +311,65 @@ test request = do
 
 -- | Cancel a pending communication request.
 -- This function corresponds to @MPI_Cancel@.
-cancel = {# fun unsafe Cancel as cancel_
+{# fun unsafe Cancel as ^
             {withRequest* `Request'} -> `()' checkError*- #}
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
-scatter = {# fun unsafe Scatter as scatter_
+{# fun unsafe Scatter as ^
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
-gather = {# fun unsafe Gather as gather_
+
+{# fun unsafe Gather as ^
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+
 -- We pass counts/displs as Ptr CInt so that caller could supply nullPtr here
 -- which would be impossible if we marshal arrays ourselves here.
-scatterv = {# fun unsafe Scatterv as scatterv_
+{# fun unsafe Scatterv as ^
              { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
                id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
-gatherv = {# fun unsafe Gatherv as gatherv_
+{# fun unsafe Gatherv as ^
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
                fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
-allgather = {# fun unsafe Allgather as allgather_
+{# fun unsafe Allgather as ^
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
-allgatherv = {# fun unsafe Allgatherv as allgatherv_
+{# fun unsafe Allgatherv as ^
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
-alltoall = {# fun unsafe Alltoall as alltoall_
+{# fun unsafe Alltoall as ^
              { id `BufferPtr', id `Count', fromDatatype `Datatype',
                id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
-alltoallv = {# fun unsafe Alltoallv as alltoallv_
+{# fun unsafe Alltoallv as ^
              { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
                id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
                fromComm `Comm'} -> `()' checkError*- #}
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode
-reduce = {# fun Reduce as reduce_ 
+{# fun Reduce as ^
              { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromOperation `Operation', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
-allreduce = {# fun Allreduce as allreduce_
+{# fun Allreduce as ^
              { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
                fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
-reduceScatter = {# fun Reduce_scatter as reduceScatter_
+{# fun Reduce_scatter as ^
              { id `BufferPtr', id `BufferPtr', id `Ptr CInt', fromDatatype `Datatype',
                fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
-opCreate = {# fun unsafe Op_create as opCreate_
+{# fun unsafe Op_create as ^
               {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
 opFree = {# call unsafe Op_free as opFree_ #}
-wtime = {# fun unsafe Wtime as wtime_ {} -> `Double' realToFrac #}
-wtick = {# fun unsafe Wtick as wtick_ {} -> `Double' realToFrac #}
+{# fun unsafe Wtime as ^ {} -> `Double' realToFrac #}
+{# fun unsafe Wtick as ^ {} -> `Double' realToFrac #}
 
 -- | Return the process group from a communicator.
-commGroup = {# fun unsafe Comm_group as commGroup_
+{# fun unsafe Comm_group as ^
                {fromComm `Comm', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
 groupRank = unsafePerformIO <$> groupRank'
@@ -403,9 +400,9 @@ groupCompare g1 g2 = unsafePerformIO $ groupCompare' g1 g2
 -- Technically it might make better sense to make the second argument a Set rather than a list
 -- but the order is significant in the groupIncl function (the other function, not this one).
 -- For the sake of keeping their types in sync, a list is used instead.
-groupExcl = {# fun unsafe Group_excl as groupExcl_
+{# fun unsafe Group_excl as ^
                {fromGroup `Group', withRanksAsInts* `[Rank]'&, alloca- `Group' peekGroup*} -> `()' checkError*- #}
-groupIncl = {# fun unsafe Group_incl as groupIncl_
+{# fun unsafe Group_incl as ^
                {fromGroup `Group', withRanksAsInts* `[Rank]'&, alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
 groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
@@ -429,19 +426,18 @@ typeSize = unsafePerformIO . typeSize'
       {# fun unsafe Type_size as typeSize_
          {fromDatatype `Datatype', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
 
-
-errorClass = {# fun unsafe Error_class as errorClass_
+{# fun unsafe Error_class as ^
                 { id `CInt', alloca- `CInt' peek*} -> `CInt' id #}
 errorString = {# call unsafe Error_string as errorString_ #}
 
 -- | Set the error handler for a communicator.
--- This function corresponds to MPI_Comm_set_errhandler.
-commSetErrhandler = {# fun unsafe Comm_set_errhandler as commSetErrhandler_
+-- This function corresponds to @MPI_Comm_set_errhandler@.
+{# fun unsafe Comm_set_errhandler as ^
                        {fromComm `Comm', fromErrhandler `Errhandler'} -> `()' checkError*- #}
 
 -- | Get the error handler for a communicator.
--- This function corresponds to MPI_Comm_get_errhandler.
-commGetErrhandler = {# fun unsafe Comm_get_errhandler as commGetErrhandler_
+-- This function corresponds to @MPI_Comm_get_errhandler@.
+{# fun unsafe Comm_get_errhandler as ^
                        {fromComm `Comm', alloca- `Errhandler' peekErrhandler*} -> `()' checkError*- #}
 
 -- | Tries to terminate all MPI processes in its communicator argument.
