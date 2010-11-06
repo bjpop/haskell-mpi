@@ -69,7 +69,6 @@ module Control.Parallel.MPI
    , Errhandler
    , errorsAreFatal
    , errorsReturn
-   , errorsThrowExceptions
 
    -- * Tags.
    , Tag
@@ -226,11 +225,6 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 -- XXX May want to stop people from waiting on Futures which are killed...
-
--- | Error handler which causes errors from MPI functions to be raised as exceptions.
-errorsThrowExceptions :: Errhandler
-errorsThrowExceptions = errorsReturn
-
 
 {- $collectives-split
 Collective operations in MPI usually take a large set of arguments
