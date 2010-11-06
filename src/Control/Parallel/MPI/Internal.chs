@@ -304,16 +304,29 @@ tagUpperBound =
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
 {# fun unsafe Issend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
-{# fun unsafe Isend as isendPtr
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-{# fun unsafe Ibsend as ibsendPtr
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-{# fun unsafe Issend as issendPtr
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 {# fun Irecv as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
+
+-- | Like 'isend', but stores Request at the supplied pointer. Useful
+-- for making arrays of Requests that could be passed to 'waitall'
+{# fun unsafe Isend as isendPtr
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
+
+-- | Like 'ibsend', but stores Request at the supplied pointer. Useful
+-- for making arrays of Requests that could be passed to 'waitall'
+{# fun unsafe Ibsend as ibsendPtr
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
+
+-- | Like 'issend', but stores Request at the supplied pointer. Useful
+-- for making arrays of Requests that could be passed to 'waitall'
+{# fun unsafe Issend as issendPtr
+           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
+
+-- | Like 'irecv', but stores Request at the supplied pointer. Useful
+-- for making arrays of Requests that could be passed to 'waitall'
 {# fun Irecv as irecvPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
+
 {# fun unsafe Bcast as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
@@ -327,9 +340,11 @@ tagUpperBound =
 {# fun unsafe Wait as ^
           {withRequest* `Request', allocaCast- `Status' peekCast*} -> `()' checkError*-  #}
 
--- TODO: Make this Storable Array instead of Ptr ?
+-- | Takes pointer to the array of Requests of given size, 'wait's on all of them,
+--   populates array of Statuses of the same size. This function corresponds to @MPI_Waitall@
 {# fun unsafe Waitall as ^
             { id `Count', castPtr `Ptr Request', castPtr `Ptr Status'} -> `()' checkError*- #}
+-- TODO: Make this Storable Array instead of Ptr ?
 
 -- | Non-blocking test for the completion of a send or receive.
 -- Returns @Nothing@ if the request is not complete, otherwise
