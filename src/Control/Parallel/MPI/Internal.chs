@@ -29,41 +29,71 @@ qualified.
 -}
 -----------------------------------------------------------------------------
 module Control.Parallel.MPI.Internal
-   ( maxProcessorName,
-     maxErrorString,
-     init, initThread, queryThread, isThreadMain, initialized, finalized,
-     finalize, getProcessorName, getVersion, Version(..),
+   ( 
+
+     -- * MPI runtime management
+     -- ** Initialization, finalization, termination.
+     init, finalize, initialized, finalized, abort,
+     -- ** Multi-threaded environment support
+     ThreadSupport (..), initThread, queryThread, isThreadMain,
+     -- ** Predefined constants     
+     maxProcessorName, maxErrorString,
+     -- ** Runtime attributes.
+     getProcessorName, Version (..), getVersion,
+
+     -- * Requests and statuses.
+     Request, Status (..), probe, test, cancel, wait, waitall,
+
+     -- * Process management.
+     -- ** Communicators.
+     Comm, commWorld, commSelf, commSize, commRank, commTestInter,
+     commRemoteSize, commCompare, commGroup, commGetAttr,
+
+     -- ** Process groups.
+     Group, groupEmpty, groupRank, groupSize, groupUnion,
+     groupIntersection, groupDifference, groupCompare, groupExcl,
+     groupIncl, groupTranslateRanks,
+     -- ** Comparisons.
+     ComparisonResult (..),
+
+     -- * Error handling.
+     Errhandler, errorsAreFatal, errorsReturn, commSetErrhandler, commGetErrhandler,
+     ErrorClass (..), MPIError(..),
+
+     -- Ranks.
+     Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
+
+     -- * Data types.
+     Datatype, char, wchar, short, int, long, longLong, unsignedChar, unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double, longDouble, byte, packed, typeSize,
+
+     -- * Point-to-point operations
+     -- ** Tags.
+     Tag, toTag, fromTag, tagVal, anyTag, unitTag, tagUpperBound,
+     -- ** Blocking operations
      send, bsend, ssend, rsend, recv,
-     commRank, probe, commSize, commTestInter, commRemoteSize,
-     commCompare, commGetAttr,
-     isend, ibsend, issend, isendPtr, ibsendPtr, issendPtr, irecv, irecvPtr, bcast, barrier, wait, waitall, test,
-     cancel, scatter, gather,
-     scatterv, gatherv,
+     -- ** Non-blocking operations
+     isend, ibsend, issend, isendPtr, ibsendPtr, issendPtr, irecv,
+     irecvPtr, 
+
+
+     -- * Collective operations
+     -- ** One-to-all
+     bcast, scatter, scatterv,
+     -- ** All-to-one
+     gather, gatherv, reduce,
+     -- ** All-to-all
      allgather, allgatherv,
      alltoall, alltoallv,
-     reduce, allreduce, reduceScatter,
+     allreduce, reduceScatter,
+     barrier,
+
+     -- ** Reduction operations.
+     Operation, maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp, borOp, lxorOp, bxorOp,
      opCreate, opFree,
+
+     -- * Timing.
      wtime, wtick,
-     commGroup, groupRank, groupSize, groupUnion, groupIntersection, groupDifference,
-     groupCompare, groupExcl, groupIncl, groupTranslateRanks,
-     typeSize,
-     errorClass, errorString, commSetErrhandler, commGetErrhandler,
-     abort,
-     Comm(), commWorld, commSelf,
-     ComparisonResult (..),
-     Datatype(), char, wchar, short, int, long, longLong, unsignedChar,
-     unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double,
-     longDouble, byte, packed,
-     Errhandler, errorsAreFatal, errorsReturn,
-     ErrorClass (..), MPIError(..),
-     Group(), groupEmpty,
-     Operation(), maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp,
-     borOp, lxorOp, bxorOp,
-     Rank(), rankId, toRank, fromRank, anySource, theRoot, procNull,
-     Request(),
-     Status (..),
-     Tag(), toTag, fromTag, tagVal, anyTag, tagUpperBound,
-     ThreadSupport (..)
+
    ) where
 
 import Prelude hiding (init)
