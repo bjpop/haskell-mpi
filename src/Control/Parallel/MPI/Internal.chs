@@ -725,6 +725,11 @@ foreign import ccall unsafe "&mpi_any_tag" anyTag_ :: Ptr Int
 anyTag :: Tag
 anyTag = toTag $ unsafePerformIO $ peek anyTag_
 
+-- | A tag with unit value. Intended to be used as a convenient default.
+unitTag :: Tag
+unitTag = toTag ()
+
+
 {-
 This module provides Haskell datatypes that comprises of values of
 predefined MPI constants @MPI_THREAD_SINGLE@, @MPI_THREAD_FUNNELED@,

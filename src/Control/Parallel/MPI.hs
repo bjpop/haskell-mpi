@@ -168,10 +168,6 @@ import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
 import Control.Concurrent (ThreadId, killThread)
 import Control.Parallel.MPI.Internal
 
--- | A tag with unit value. Intended to be used as a convenient default.
-unitTag :: Tag
-unitTag = toTag ()
-
 -- | A convenience wrapper which takes an MPI computation as its argument and wraps it
 -- inside calls to 'init' (before the computation) and 'finalize' (after the computation).
 -- It will make sure that 'finalize' is called even if the MPI computation raises
