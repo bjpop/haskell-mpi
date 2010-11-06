@@ -17,15 +17,12 @@ Portability : ghc
 
 This module contains low-level Haskell bindings to core MPI functions.
 All Haskell functions correspond to MPI functions with the similar
-name (i.e. @commRank@ is the binding for @MPI_Comm_rank@)
+name (i.e. @commRank@ is the binding for @MPI_Comm_rank@ etc)
 
-Actual types of all functions defined here depend on the MPI
-implementation.
-
-Since "Control.Parallel.MPI.Storable" and
-"Control.Parallel.MPI.Serializable" contains many functions of the
-same name as defined here, users would want to import this module
-qualified.
+Note that most of this module is re-exported by
+"Control.Parallel.MPI", so if you are not interested in writing
+low-level code, you should probably import "Control.Parallel.MPI" and
+either ""Control.Parallel.MPI.Storable" or ""Control.Parallel.MPI.Serializable".
 -}
 -----------------------------------------------------------------------------
 module Control.Parallel.MPI.Internal
