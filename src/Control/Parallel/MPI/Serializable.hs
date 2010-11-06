@@ -48,7 +48,7 @@
 
 module Control.Parallel.MPI.Serializable
    (
-     -- * Point-to-point communication functions
+     -- * Point-to-point operations
      -- ** Blocking
      send
    , bsend
