@@ -364,7 +364,7 @@ withRequest req f = do alloca $ \ptr -> do poke ptr req
                fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
 {# fun unsafe Op_create as ^
               {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
-opFree = {# call unsafe Op_free as opFree_ #}
+{# fun Op_free as ^ {withOperation* `Operation'} -> `()' checkError*- #}
 {# fun unsafe Wtime as ^ {} -> `Double' realToFrac #}
 {# fun unsafe Wtick as ^ {} -> `Double' realToFrac #}
 
@@ -538,6 +538,8 @@ defined in the MPI Report.
 type MPIOperation = {# type MPI_Op #}
 newtype Operation = MkOperation { fromOperation :: MPIOperation } deriving Storable
 peekOperation ptr = MkOperation <$> peek ptr
+withOperation op f = alloca $ \ptr -> do poke ptr (fromOperation op)
+                                         f (castPtr ptr)
 
 foreign import ccall unsafe "&mpi_max" maxOp_ :: Ptr MPIOperation
 foreign import ccall unsafe "&mpi_min" minOp_ :: Ptr MPIOperation
