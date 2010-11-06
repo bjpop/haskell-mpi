@@ -65,7 +65,7 @@ module Control.Parallel.MPI.Internal
 
      -- * Point-to-point operations
      -- ** Tags.
-     Tag, toTag, fromTag, tagVal, anyTag, unitTag, tagUpperBound,
+     Tag, toTag, fromTag, anyTag, unitTag, tagUpperBound,
      -- ** Blocking operations
      BufferPtr, Count, -- XXX: what will break if we don't export those?
      send, bsend, ssend, rsend, recv,
