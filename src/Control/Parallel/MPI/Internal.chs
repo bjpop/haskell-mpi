@@ -22,18 +22,18 @@ name (i.e. @commRank@ is the binding for @MPI_Comm_rank@ etc)
 Note that most of this module is re-exported by
 "Control.Parallel.MPI", so if you are not interested in writing
 low-level code, you should probably import "Control.Parallel.MPI" and
-either ""Control.Parallel.MPI.Storable" or ""Control.Parallel.MPI.Serializable".
+either "Control.Parallel.MPI.Storable" or "Control.Parallel.MPI.Serializable".
 -}
 -----------------------------------------------------------------------------
 module Control.Parallel.MPI.Internal
-   ( 
+   (
 
      -- * MPI runtime management
      -- ** Initialization, finalization, termination.
      init, finalize, initialized, finalized, abort,
      -- ** Multi-threaded environment support
      ThreadSupport (..), initThread, queryThread, isThreadMain,
-     -- ** Predefined constants     
+     -- ** Predefined constants
      maxProcessorName, maxErrorString,
      -- ** Runtime attributes.
      getProcessorName, Version (..), getVersion,
@@ -67,10 +67,11 @@ module Control.Parallel.MPI.Internal
      -- ** Tags.
      Tag, toTag, fromTag, tagVal, anyTag, unitTag, tagUpperBound,
      -- ** Blocking operations
+     BufferPtr, Count, -- XXX: what will break if we don't export those?
      send, bsend, ssend, rsend, recv,
      -- ** Non-blocking operations
-     isend, ibsend, issend, isendPtr, ibsendPtr, issendPtr, irecv,
-     irecvPtr, 
+     isend, ibsend, issend, irecv,
+     isendPtr, ibsendPtr, issendPtr, irecvPtr,
 
 
      -- * Collective operations
@@ -103,7 +104,13 @@ import Control.Exception
 
 {# context prefix = "MPI" #}
 
+-- | Pointer to memory buffer that either holds data to be sent or is
+--   used to receive some data. You would
+--   probably have to use 'castPtr' to pass some actual pointers to
+--   API functions.
 type BufferPtr = Ptr ()
+
+-- | Count of elements in the send/receive buffer
 type Count = CInt
 
 {-
@@ -237,7 +244,7 @@ getVersion = do
 commGetAttr :: Storable e => Comm -> Int -> IO (Maybe e)
 commGetAttr comm key = do
   isInitialized <- initialized
-  if isInitialized then do 
+  if isInitialized then do
     alloca $ \ptr -> do
       found <- commGetAttr' comm key (castPtr ptr)
       if found then do ptr2 <- peek ptr
@@ -250,11 +257,13 @@ commGetAttr comm key = do
 
 foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr Int
 
--- | Predefined tag value that allows reception of the messages with
---   arbitrary tag values. Corresponds to @MPI_ANY_TAG@.
+-- | Maximum tag value supported by the current MPI implementation. Corresponds to the value of standard MPI
+--   attribute @MPI_TAG_UB@.
+--
+-- When called before 'init' or 'initThread' would return 0.
 tagUpperBound :: Int
 tagUpperBound =
-  let key = unsafePerformIO (peek tagUB_) 
+  let key = unsafePerformIO (peek tagUB_)
       in fromMaybe 0 $ unsafePerformIO (commGetAttr commWorld key)
 
 -- | Return the rank of the calling process for the given communicator.
@@ -609,8 +618,8 @@ instance Num Rank where
   (MkRank x) * (MkRank y) = MkRank (x*y)
   abs (MkRank x) = MkRank (abs x)
   signum (MkRank x) = MkRank (signum x)
-  fromInteger x 
-    | x > ( fromIntegral (maxBound :: CInt)) = error "Rank value does not fit into 32 bits" 
+  fromInteger x
+    | x > ( fromIntegral (maxBound :: CInt)) = error "Rank value does not fit into 32 bits"
     | x < 0             = error "Negative Rank value"
     | otherwise         = MkRank (fromIntegral x)
 
@@ -731,8 +740,8 @@ instance Num Tag where
   (MkTag x) * (MkTag y) = MkTag (x*y)
   abs (MkTag x) = MkTag (abs x)
   signum (MkTag x) = MkTag (signum x)
-  fromInteger x 
-    | fromIntegral x > tagUpperBound = error "Tag value is over the MPI_TAG_UB" 
+  fromInteger x
+    | fromIntegral x > tagUpperBound = error "Tag value is over the MPI_TAG_UB"
     | x < 0             = error "Negative Tag value"
     | otherwise         = MkTag (fromIntegral x)
 
@@ -765,17 +774,14 @@ predefined MPI constants @MPI_THREAD_SINGLE@, @MPI_THREAD_FUNNELED@,
 
 {# enum ThreadSupport {underscoreToCase} deriving (Eq,Ord,Show) #}
 
-{- From MPI 2.2 report:
- "To make it possible for an application to interpret an error code, the routine
- MPI_ERROR_CLASS converts any error code into one of a small set of standard
- error codes"
--}
-
+-- | Value thrown as exception when MPI runtime is instructed to pass
+--   errors to user code (via 'commSetErrhandler' and 'errorsReturn').
+-- Since raw MPI errors codes are not standartized and not portable,
+-- they are not exposed.
 data MPIError
    = MPIError
-     { mpiErrorClass :: ErrorClass
-     , mpiErrorString :: String
-     , mpiErrorCode :: CInt
+     { mpiErrorClass :: ErrorClass -- ^ Broad class of errors this one belongs to
+     , mpiErrorString :: String -- ^ Human-readable error description
      }
    deriving (Eq, Show, Typeable)
 
@@ -790,8 +796,9 @@ checkError code = do
    let errClass = cToEnum errClassRaw
    unless (errClass == Success) $ do
       errStr <- errorString code
-      throwIO $ MPIError errClass errStr code
+      throwIO $ MPIError errClass errStr
 
+-- | Convert MPI error code human-readable error description. Corresponds to @MPI_Error_string@.
 errorString :: CInt -> IO String
 errorString code =
   allocaBytes (fromIntegral maxErrorString) $ \ptr ->
