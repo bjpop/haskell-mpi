@@ -428,7 +428,6 @@ typeSize = unsafePerformIO . typeSize'
 
 {# fun unsafe Error_class as ^
                 { id `CInt', alloca- `CInt' peek*} -> `CInt' id #}
-errorString = {# call unsafe Error_string as errorString_ #}
 
 -- | Set the error handler for a communicator.
 -- This function corresponds to @MPI_Comm_set_errhandler@.
@@ -742,6 +741,7 @@ data MPIError
    = MPIError
      { mpiErrorClass :: ErrorClass
      , mpiErrorString :: String
+     , mpiErrorCode :: CInt
      }
    deriving (Eq, Show, Typeable)
 
@@ -755,16 +755,18 @@ checkError code = do
    (_, errClassRaw) <- errorClass code
    let errClass = cToEnum errClassRaw
    unless (errClass == Success) $ do
-      errStr <- errorStringWrapper code
-      throwIO $ MPIError errClass errStr
+      errStr <- errorString code
+      throwIO $ MPIError errClass errStr code
 
-errorStringWrapper :: CInt -> IO String
-errorStringWrapper code =
+errorString :: CInt -> IO String
+errorString code =
   allocaBytes (fromIntegral maxErrorString) $ \ptr ->
     alloca $ \lenPtr -> do
        -- We ignore the error code from the call to Internal.errorString
        -- because we call errorString from checkError. We'd end up
        -- with an infinite loop if we called checkError here.
-       _ <- errorString code ptr lenPtr
+       _ <- errorString' code ptr lenPtr
        len <- peek lenPtr
        peekCStringLen (ptr, cIntConv len)
+  where
+    errorString' = {# call unsafe Error_string as errorString_ #}
