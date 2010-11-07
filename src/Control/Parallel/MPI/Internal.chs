@@ -390,6 +390,7 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 {# fun Irecv as irecvPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 
+-- | Broadcast data from one member to all members of the communicator.
 {# fun unsafe Bcast as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
@@ -429,55 +430,158 @@ test request = do
             {withRequest* `Request'} -> `()' checkError*- #}
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
+
+-- | Scatter data from one member to all members of
+-- a group.
 {# fun unsafe Scatter as ^
-             { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Count', fromDatatype `Datatype',
+     id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
+-- | Gather data from all members of a group to one
+-- member.
 {# fun unsafe Gather as ^
-             { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Count', fromDatatype `Datatype',
+     id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
 
--- We pass counts/displs as Ptr CInt so that caller could supply nullPtr here
+-- Note: We pass counts/displs as Ptr CInt so that caller could supply nullPtr here
 -- which would be impossible if we marshal arrays ourselves here.
+
+-- | A variation of 'scatter' which allows to use data segments of
+--   different length.
 {# fun unsafe Scatterv as ^
-             { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+     id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+
+-- | A variation of 'gather' which allows to use data segments of
+--   different length.
 {# fun unsafe Gatherv as ^
-             { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
-               fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Count', fromDatatype `Datatype',
+     id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+     fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+
+-- | A variation of 'gather' where all members of
+-- a group receive the result.
 {# fun unsafe Allgather as ^
-             { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Count', fromDatatype `Datatype',
+     id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromComm `Comm'} -> `()' checkError*- #}
+
+-- | A variation of 'allgather' that allows to use data segments of
+--   different length.
 {# fun unsafe Allgatherv as ^
-             { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
-               fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Count', fromDatatype `Datatype',
+     id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+     fromComm `Comm'} -> `()' checkError*- #}
+
+-- | Scatter/Gather data from all
+-- members to all members of a group (also called complete exchange)
 {# fun unsafe Alltoall as ^
-             { id `BufferPtr', id `Count', fromDatatype `Datatype',
-               id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Count', fromDatatype `Datatype',
+     id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromComm `Comm'} -> `()' checkError*- #}
+
+-- | A variant of 'alltoall' allows to use data segments of different length.
 {# fun unsafe Alltoallv as ^
-             { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
-               id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
-               fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+     id `BufferPtr', id `Ptr CInt', id `Ptr CInt', fromDatatype `Datatype',
+     fromComm `Comm'} -> `()' checkError*- #}
+
 -- Reduce, allreduce and reduceScatter could call back to Haskell
 -- via user-defined ops, so they should be imported in "safe" mode
+
+-- | Applies predefined or user-defined reduction operations to data,
+--   and delivers result to the single process.
 {# fun Reduce as ^
-             { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromOperation `Operation', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromOperation `Operation', fromRank `Rank', fromComm `Comm'} -> `()' checkError*- #}
+
+-- | Applies predefined or user-defined reduction operations to data,
+--   and delivers result to all members of the group.
 {# fun Allreduce as ^
-             { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
-               fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+
+-- | A combined reduction and scatter operation
 {# fun Reduce_scatter as ^
-             { id `BufferPtr', id `BufferPtr', id `Ptr CInt', fromDatatype `Datatype',
-               fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+   { id `BufferPtr', id `BufferPtr', id `Ptr CInt', fromDatatype `Datatype',
+     fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+
+-- TODO: In the following haddock block, mention SCAN and EXSCAN once
+-- they are implemented 
+
+{- | Binds a user-dened reduction operation to an 'Operation' handle that can
+subsequently be used in 'reduce', 'allreduce', and 'reduceScatter'.
+The user-defined operation is assumed to be associative. 
+
+If second argument to @opCreate@ is @True@, then the operation should be both commutative and associative. If
+it is not commutative, then the order of operands is fixed and is defined to be in ascending,
+process rank order, beginning with process zero. The order of evaluation can be changed,
+taking advantage of the associativity of the operation. If operation
+is commutative then the order
+of evaluation can be changed, taking advantage of commutativity and
+associativity.
+
+User-defined operation accepts four arguments, @invec@, @inoutvec@,
+@len@ and @datatype@:
+
+[@invec@] first input vector
+
+[@inoutvec@] second input vector, which is also the output vector
+
+[@len@] length of both vectors
+
+[@datatype@] type of the elements in both vectors.
+
+Function is expected to apply reduction operation to the elements
+of @invec@ and @inoutvec@ in pariwise manner:
+
+@
+inoutvec[i] = op invec[i] inoutvec[i]
+@
+
+Full example with user-defined function that mimics standard operation
+'sumOp':
+
+@
+import "Control.Parallel.MPI"
+import "Control.Parallel.MPI.Storable"
+
+foreign import ccall \"wrapper\" 
+  wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()) 
+          -> IO (FunPtr (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()))
+reduceUserOpTest myRank = do
+  numProcs <- commSize commWorld
+  userSumPtr <- wrap userSum
+  mySumOp <- opCreate True userSumPtr
+  (src :: StorableArray Int Double) <- newListArray (0,99) [0..99]
+  if myRank /= root
+    then sendReduce commWorld root sumOp src
+    else do
+    (result :: StorableArray Int Double) <- intoNewArray_ (0,99) $ recvReduce commWorld root mySumOp src
+    recvMsg <- getElems result
+  freeHaskellFunPtr userSumPtr
+  where
+    userSum :: Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()
+    userSum inPtr inoutPtr lenPtr _ = do
+      len <- peek lenPtr
+      let offs = sizeOf ( undefined :: CDouble )
+      let loop 0 _ _ = return ()
+          loop n inPtr inoutPtr = do
+            a <- peek inPtr
+            b <- peek inoutPtr
+            poke inoutPtr (a+b)
+            loop (n-1) (plusPtr inPtr offs) (plusPtr inoutPtr offs)
+      loop len inPtr inoutPtr
+@
+-}
 {# fun unsafe Op_create as ^
-              {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
+   {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
+
+{- | Free the handle for user-defined reduction operation created by 'opCreate'
+-}
 {# fun Op_free as ^ {withOperation* `Operation'} -> `()' checkError*- #}
 
 {- | Returns a 
@@ -658,14 +762,12 @@ groupEmpty :: Group
 groupEmpty = MkGroup <$> unsafePerformIO $ peek groupEmpty_
 
 
-{-
-This module provides Haskell type that represents values of @MPI_Op@
-type (reduction operations), and predefined reduction operations
-defined in the MPI Report.
--}
-
 -- | Actual Haskell type used depends on the MPI implementation.
 type MPIOperation = {# type MPI_Op #}
+
+{- | Abstract type representing handle for MPI reduction operation
+(that can be used with 'reduce', 'allreduce', and 'reduceScatter').
+-}
 newtype Operation = MkOperation { fromOperation :: MPIOperation } deriving Storable
 peekOperation ptr = MkOperation <$> peek ptr
 withOperation op f = alloca $ \ptr -> do poke ptr (fromOperation op)
@@ -686,16 +788,44 @@ foreign import ccall unsafe "&mpi_bxor" bxorOp_ :: Ptr MPIOperation
 -- foreign import ccall "mpi_replace" replaceOp :: MPIOperation
 -- TODO: support for those requires better support for pair datatypes
 
-maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp, borOp, lxorOp, bxorOp :: Operation
+-- | Predefined reduction operation: maximum
+maxOp :: Operation
 maxOp = MkOperation <$> unsafePerformIO $ peek maxOp_
+
+-- | Predefined reduction operation: minimum
+minOp :: Operation
 minOp = MkOperation <$> unsafePerformIO $ peek minOp_
+
+-- | Predefined reduction operation: (+)
+sumOp :: Operation
 sumOp = MkOperation <$> unsafePerformIO $ peek sumOp_
+
+-- | Predefined reduction operation: (*)
+prodOp :: Operation
 prodOp = MkOperation <$> unsafePerformIO $ peek prodOp_
+
+-- | Predefined reduction operation: logical \"and\"
+landOp :: Operation
 landOp = MkOperation <$> unsafePerformIO $ peek landOp_
+
+-- | Predefined reduction operation: bit-wise \"and\"
+bandOp :: Operation
 bandOp = MkOperation <$> unsafePerformIO $ peek bandOp_
+
+-- | Predefined reduction operation: logical \"or\"
+lorOp :: Operation
 lorOp = MkOperation <$> unsafePerformIO $ peek lorOp_
+
+-- | Predefined reduction operation: bit-wise \"or\"
+borOp :: Operation
 borOp = MkOperation <$> unsafePerformIO $ peek borOp_
+
+-- | Predefined reduction operation: logical \"xor\"
+lxorOp :: Operation
 lxorOp = MkOperation <$> unsafePerformIO $ peek lxorOp_
+
+-- | Predefined reduction operation: bit-wise \"xor\"
+bxorOp :: Operation
 bxorOp = MkOperation <$> unsafePerformIO $ peek bxorOp_
 
 
