@@ -43,8 +43,10 @@ module Control.Parallel.MPI.Internal
 
      -- * Process management.
      -- ** Communicators.
-     Comm, commWorld, commSelf, commSize, commRank, commTestInter,
-     commRemoteSize, commCompare, commGroup, commGetAttr,
+     Comm, commWorld, commSelf, commTestInter,
+     commSize, commRemoteSize, 
+     commRank, 
+     commCompare, commGroup, commGetAttr,
 
      -- ** Process groups.
      Group, groupEmpty, groupRank, groupSize, groupUnion,
