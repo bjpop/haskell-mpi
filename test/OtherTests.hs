@@ -28,6 +28,7 @@ wtimeWtickTest = do
   tick <- wtick
   tick < t @? "Timer resolution is greater than current time"
   putStrLn $ "Current time is " ++ show t ++ ", timer resolution is " ++ show tick
+  putStrLn $ "Wtime is global: " ++ show wtimeIsGlobal
 
 rankSizeNameVersionTest :: IO ()
 rankSizeNameVersionTest = do

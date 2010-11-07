@@ -154,6 +154,7 @@ module Control.Parallel.MPI
    -- * Timing.
    , wtime
    , wtick
+   , wtimeIsGlobal
 
    -- * Environment.
    , getProcessorName
