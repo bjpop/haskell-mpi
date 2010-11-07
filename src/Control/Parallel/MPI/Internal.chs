@@ -266,11 +266,48 @@ tagUpperBound =
   let key = unsafePerformIO (peek tagUB_)
       in fromMaybe 0 $ unsafePerformIO (commGetAttr commWorld key)
 
--- | Return the rank of the calling process for the given communicator.
--- This function corresponds to @MPI_Comm_rank@.
+foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr Int
+
+{- | True if clocks at all processes in
+'commWorld' are synchronized, False otherwise. The expectation is that
+the variation in time, as measured by calls to 'wtime', will be less then one half the
+round-trip time for an MPI message of length zero. 
+
+Communicators other than 'commWorld' could have different clocks.
+You could find it out by querying attribute 'wtimeIsGlobalKey' with 'commGetAttr'.
+
+When wtimeIsGlobal is called before 'init' or 'initThread' it would return False.
+-}
+wtimeIsGlobal :: Bool
+wtimeIsGlobal =
+  fromMaybe False $ unsafePerformIO (commGetAttr commWorld wtimeIsGlobalKey)
+
+foreign import ccall unsafe "&mpi_wtime_is_global" wtimeIsGlobal_ :: Ptr Int
+
+-- | Numeric key for standard MPI communicator attribute @MPI_WTIME_IS_GLOBAL@.
+-- To be used with 'commGetAttr'.
+wtimeIsGlobalKey :: Int
+wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
+
+-- | Return the rank of the calling process for the given
+-- communicator. If it is an intercommunicator, returns rank of the
+-- process in the local group.
 {# fun unsafe Comm_rank as ^
               {fromComm `Comm', alloca- `Rank' peekIntConv* } -> `()' checkError*- #}
 
+{- | Compares two communicators.
+
+* If they are handles for the same MPI communicator object, result is 'Identical';
+
+* If both communicators are identical in constituents and rank
+    order, result is `Congruent';
+
+* If they have the same members, nbut with different ranks, then
+    result is 'Similar';
+
+* Otherwise, result is 'Unequal'.
+
+-}
 {# fun unsafe Comm_compare as ^
                  {fromComm `Comm', fromComm `Comm', alloca- `ComparisonResult' peekEnum*} -> `()' checkError*- #}
 
