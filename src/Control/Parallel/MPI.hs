@@ -74,7 +74,7 @@ module Control.Parallel.MPI
    , Tag
    , toTag
    , fromTag
-   , tagVal
+   -- , tagVal
    , anyTag
    , unitTag
 
