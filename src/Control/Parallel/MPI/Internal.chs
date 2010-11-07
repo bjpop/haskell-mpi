@@ -68,6 +68,7 @@ module Control.Parallel.MPI.Internal
      -- * Point-to-point operations
      -- ** Tags.
      Tag, toTag, fromTag, anyTag, unitTag, tagUpperBound,
+
      -- ** Blocking operations
      BufferPtr, Count, -- XXX: what will break if we don't export those?
      send, bsend, ssend, rsend, recv,
@@ -92,7 +93,7 @@ module Control.Parallel.MPI.Internal
      opCreate, opFree,
 
      -- * Timing.
-     wtime, wtick,
+     wtime, wtick, wtimeIsGlobal, wtimeIsGlobalKey
 
    ) where
 
@@ -120,14 +121,24 @@ This module provides Haskell enum that comprises of MPI constants
 @MPI_IDENT@, @MPI_CONGRUENT@, @MPI_SIMILAR@ and @MPI_UNEQUAL@.
 
 Those are used to compare communicators (f.e. 'commCompare') and
-process groups (f.e. 'groupCompare').
+process groups (f.e. 'groupCompare'). Refer to those
+functions for description of comparison rules.
 -}
 {# enum ComparisonResult {underscoreToCase} deriving (Eq,Ord,Show) #}
 
--- | Which Haskell type will be used as @Comm@ depends on the MPI
+-- Which Haskell type will be used as Comm depends on the MPI
 -- implementation that was selected during compilation. It could be
--- @CInt@, @Ptr ()@, @Ptr CInt@ or something else.
+-- CInt, Ptr (), Ptr CInt or something else.
 type MPIComm = {# type MPI_Comm #}
+
+{- | Abstract type representing MPI communicator handle. Different MPI
+   implementations use different C types to implement this, so
+   concrete Haskell type behind @Comm@ is hidden from user.
+
+   In any MPI program you have predefined communicator 'commWorld'
+   which includes all running processes. You could create new
+   communicators with TODO
+-}
 newtype Comm = MkComm { fromComm :: MPIComm }
 foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr MPIComm
 foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr MPIComm
@@ -188,8 +199,12 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
 {# fun unsafe init_wrapper_thread as initThread
                 {cFromEnum `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
+-- | Returns the current provided level of thread support. This will be the value
+-- returned as \"provided level of support\" by 'initThread' as well.
 {# fun unsafe Query_thread as ^ {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
+-- | This function can be called by a thread to find out whether it is the main thread (the
+-- thread that called 'init' or 'initThread'.
 {# fun unsafe Is_thread_main as ^
                  {alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
@@ -237,12 +252,23 @@ getVersion = do
 {# fun unsafe Comm_size as ^
               {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
 
+-- | For intercommunicators, returs size of the remote process group.
+--   Corresponds to @MPI_Comm_remote_size@.
 {# fun unsafe Comm_remote_size as ^
                     {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
 
+{- | Check whether the given communicator is intercommunicator - that
+   is, communicator connecting two different groups of processes.
+
+Refer to MPI Report v2.2, Section 5.2 "Communicator Argument" for
+more details.
+-}
 {# fun unsafe Comm_test_inter as ^
                    {fromComm `Comm', alloca- `Bool' peekBool* } -> `()' checkError*- #}
 
+-- | Look up MPI communicator argument by the given numeric key.
+--   Lookup of some standard MPI arguments is provided by convenience
+--   functions 'tagUpperBound' and 'wtimeIsGlobal'.
 commGetAttr :: Storable e => Comm -> Int -> IO (Maybe e)
 commGetAttr comm key = do
   isInitialized <- initialized
@@ -256,8 +282,6 @@ commGetAttr comm key = do
       where
         commGetAttr' = {# fun unsafe Comm_get_attr as commGetAttr_
                          {fromComm `Comm', cIntConv `Int', id `Ptr ()', alloca- `Bool' peekBool*} -> `()' checkError*- #}
-
-foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr Int
 
 -- | Maximum tag value supported by the current MPI implementation. Corresponds to the value of standard MPI
 --   attribute @MPI_TAG_UB@.
@@ -346,23 +370,23 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 {# fun Irecv as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
 
--- | Like 'isend', but stores Request at the supplied pointer. Useful
--- for making arrays of Requests that could be passed to 'waitall'
+-- | Like 'isend', but stores @Request@ at the supplied pointer. Useful
+-- for making arrays of @Requests@ that could be passed to 'waitall'
 {# fun unsafe Isend as isendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 
--- | Like 'ibsend', but stores Request at the supplied pointer. Useful
--- for making arrays of Requests that could be passed to 'waitall'
+-- | Like 'ibsend', but stores @Request@ at the supplied pointer. Useful
+-- for making arrays of @Requests@ that could be passed to 'waitall'
 {# fun unsafe Ibsend as ibsendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 
--- | Like 'issend', but stores Request at the supplied pointer. Useful
--- for making arrays of Requests that could be passed to 'waitall'
+-- | Like 'issend', but stores @Request@ at the supplied pointer. Useful
+-- for making arrays of @Requests@ that could be passed to 'waitall'
 {# fun unsafe Issend as issendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 
--- | Like 'irecv', but stores Request at the supplied pointer. Useful
--- for making arrays of Requests that could be passed to 'waitall'
+-- | Like 'irecv', but stores @Request@ at the supplied pointer. Useful
+-- for making arrays of @Requests@ that could be passed to 'waitall'
 {# fun Irecv as irecvPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 
@@ -455,10 +479,26 @@ withRequest req f = do alloca $ \ptr -> do poke ptr req
 {# fun unsafe Op_create as ^
               {castFunPtr `FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())', cFromEnum `Bool', alloca- `Operation' peekOperation*} -> `()' checkError*- #}
 {# fun Op_free as ^ {withOperation* `Operation'} -> `()' checkError*- #}
+
+{- | Returns a 
+floating-point number of seconds, representing elapsed wallclock
+time since some time in the past.
+
+The \"time in the past\" is guaranteed not to change during the life of the process.
+The user is responsible for converting large numbers of seconds to other units if they are
+preferred. The time is local to the node that calls @wtime@, but see 'wtimeIsGlobal'.
+-}
 {# fun unsafe Wtime as ^ {} -> `Double' realToFrac #}
+
+{- | Returns the resolution of 'wtime' in seconds. That is, it returns,
+as a double precision value, the number of seconds between successive clock ticks. For
+example, if the clock is implemented by the hardware as a counter that is incremented
+every millisecond, the value returned by @wtick@ should be 10^(-3).
+-}
 {# fun unsafe Wtick as ^ {} -> `Double' realToFrac #}
 
--- | Return the process group from a communicator.
+-- | Return the process group from a communicator. With
+--   intercommunicator, returns the local group.
 {# fun unsafe Comm_group as ^
                {fromComm `Comm', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
@@ -826,6 +866,23 @@ predefined MPI constants @MPI_THREAD_SINGLE@, @MPI_THREAD_FUNNELED@,
 @MPI_THREAD_SERIALIZED@, @MPI_THREAD_MULTIPLE@.
 -}
 
+{- | Constants used to describe the required level of multithreading
+   support in call to 'initThread'. They also describe provided level
+   of multithreading support as returned by 'queryThread' and
+   'initThread'.
+
+[@Single@]  Only one thread will execute.
+
+[@Funneled@] The process may be multi-threaded, but the application must
+ensure that only the main thread makes MPI calls (see 'isThreadMain').
+
+[@Serialized@] The process may be multi-threaded, and multiple threads may
+make MPI calls, but only one at a time: MPI calls are not made concurrently from
+two distinct threads
+
+[@Multiple@] Multiple threads may call MPI, with no restrictions.
+
+-}
 {# enum ThreadSupport {underscoreToCase} deriving (Eq,Ord,Show) #}
 
 -- | Value thrown as exception when MPI runtime is instructed to pass
