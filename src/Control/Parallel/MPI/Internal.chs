@@ -16,7 +16,7 @@ Stability   : experimental
 Portability : ghc
 
 This module contains low-level Haskell bindings to core MPI functions.
-All Haskell functions correspond to MPI functions with the similar
+All Haskell functions correspond to MPI functions or values with the similar
 name (i.e. @commRank@ is the binding for @MPI_Comm_rank@ etc)
 
 Note that most of this module is re-exported by
