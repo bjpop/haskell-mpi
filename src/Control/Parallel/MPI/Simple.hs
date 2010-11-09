@@ -103,6 +103,10 @@ module Control.Parallel.MPI.Simple
    , allgather
      -- ** All-to-all
    , alltoall
+     
+     -- * Error handling
+   , MPIError(..)
+   , ErrorClass(..)
    ) where
 
 import C2HS

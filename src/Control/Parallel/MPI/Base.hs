@@ -161,6 +161,9 @@ module Control.Parallel.MPI.Base
    , Version (..)
    , getVersion
 
+   -- * Error handling.
+   , MPIError(..)
+   , ErrorClass(..)
    ) where
 
 import Prelude hiding (init)
