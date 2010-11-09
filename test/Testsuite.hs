@@ -7,6 +7,7 @@ import OtherTests
 import SimpleTests
 import StorableArrayTests
 import IOArrayTests
+import FastAndSimpleTests
 import GroupTests
 import PrimTypeTests
 import ExceptionTests
@@ -102,5 +103,6 @@ tests rank =
    ++ simpleTests rank
    ++ storableArrayTests rank
    ++ ioArrayTests rank
+   ++ fastAndSimpleTests rank
    ++ groupTests rank
    ++ exceptionTests rank

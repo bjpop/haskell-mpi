@@ -85,6 +85,7 @@ executable  haskell-mpi-testsuite
     C2HS,
     IOArrayTests,
     SimpleTests,
+    FastAndSimpleTests,
     StorableArrayTests,
     GroupTests,
     PrimTypeTests,
