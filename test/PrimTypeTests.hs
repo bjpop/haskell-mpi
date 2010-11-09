@@ -3,7 +3,7 @@
 module PrimTypeTests (primTypeTests) where
 
 import TestHelpers
-import Control.Parallel.MPI.Storable
+import Control.Parallel.MPI.Fast
 import C2HS
 import Data.Typeable
 

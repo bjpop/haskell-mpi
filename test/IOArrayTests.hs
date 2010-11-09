@@ -3,7 +3,7 @@ module IOArrayTests (ioArrayTests) where
 
 import TestHelpers
 import Data.Array.Storable (StorableArray)
-import Control.Parallel.MPI.Storable
+import Control.Parallel.MPI.Fast
 import Data.Array.IO (IOArray, newListArray, getElems)
 
 import Control.Concurrent (threadDelay)

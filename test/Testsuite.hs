@@ -2,7 +2,7 @@ module Main where
 
 import TestHelpers
 import OtherTests
-import SerializableTests
+import SimpleTests
 import StorableArrayTests
 import IOArrayTests
 import GroupTests
@@ -97,7 +97,7 @@ tests :: Rank -> [(String, TestRunnerTest)]
 tests rank =
    otherTests rank
    ++ primTypeTests rank
-   ++ serializableTests rank
+   ++ simpleTests rank
    ++ storableArrayTests rank
    ++ ioArrayTests rank
    ++ groupTests rank

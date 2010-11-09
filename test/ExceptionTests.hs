@@ -2,8 +2,9 @@ module ExceptionTests (exceptionTests) where
 
 import TestHelpers
 import Control.Exception as Ex (try)
+-- TODO: imports look wrong. Perhaps Simple should be enough?
 import Control.Parallel.MPI.Internal (MPIError(..), ErrorClass(..))
-import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Simple
 
 exceptionTests :: Rank -> [(String,TestRunnerTest)]
 exceptionTests rank =

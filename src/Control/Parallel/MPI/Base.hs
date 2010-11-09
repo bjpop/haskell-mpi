@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : Control.Parallel.MPI
+-- Module      : Control.Parallel.MPI.Base
 -- Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
 -- License     : BSD-style
 -- Maintainer  : florbitous@gmail.com
@@ -17,7 +17,7 @@
 -- relevant.
 -----------------------------------------------------------------------------
 
-module Control.Parallel.MPI
+module Control.Parallel.MPI.Base
    (
    -- * Notable changes from MPI
    --

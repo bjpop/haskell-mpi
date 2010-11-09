@@ -2,7 +2,7 @@ module TestHelpers (
   module Test.Runner,
   module Test.HUnit,
   module Test.HUnit.Lang,
-  module Control.Parallel.MPI,
+  module Base,
   mpiTestCase,
   testCase,
   checkStatus,
@@ -16,7 +16,7 @@ import Test.Runner
 import Test.HUnit ((@?), Test(..))
 import Test.HUnit.Lang (Assertion)
 
-import Control.Parallel.MPI
+import Control.Parallel.MPI.Base as Base
 
 -- Test case creation helpers
 mpiTestCase :: Rank -> String -> (Rank -> IO ()) -> (String,TestRunnerTest)

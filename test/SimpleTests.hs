@@ -1,7 +1,7 @@
-module SerializableTests (serializableTests) where
+module SimpleTests (simpleTests) where
 
 import TestHelpers
-import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Simple
 
 import Control.Concurrent (threadDelay)
 import Data.Serialize ()
@@ -9,8 +9,8 @@ import Data.Serialize ()
 root :: Rank
 root = 0
 
-serializableTests :: Rank -> [(String,TestRunnerTest)]
-serializableTests rank =
+simpleTests :: Rank -> [(String,TestRunnerTest)]
+simpleTests rank =
   [ mpiTestCase rank "send+recv simple message" $ syncSendRecv send
   , mpiTestCase rank "send+recv simple message (with sending process blocking)" syncSendRecvBlock
   , mpiTestCase rank "ssend+recv simple message" $ syncSendRecv ssend

@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : Control.Parallel.MPI.Serializable
+-- Module      : Control.Parallel.MPI.Simple
 -- Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
 -- License     : BSD-style
 -- Maintainer  : florbitous@gmail.com
@@ -46,7 +46,7 @@
 -- >   | otherwise = return () -- do nothing
 -----------------------------------------------------------------------------
 
-module Control.Parallel.MPI.Serializable
+module Control.Parallel.MPI.Simple
    (
      -- * Point-to-point operations
      -- ** Blocking
@@ -112,9 +112,9 @@ import Control.Monad (when)
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
-import qualified Control.Parallel.MPI.Storable as Storable
+import qualified Control.Parallel.MPI.Fast as Fast
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI
+import Control.Parallel.MPI.Base as Base
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
 
@@ -280,9 +280,9 @@ bcastSend comm rootRank msg = do
   where
     doSend bs = do
       -- broadcast the size of the message first
-      Storable.bcastSend comm rootRank (cIntConv (BS.length bs) :: CInt)
+      Fast.bcastSend comm rootRank (cIntConv (BS.length bs) :: CInt)
       -- then broadcast the actual message
-      Storable.bcastSend comm rootRank bs
+      Fast.bcastSend comm rootRank bs
 
 {- | Receive the message being broadcasted in the communicator from the process with specified `Rank'
 
@@ -295,9 +295,9 @@ Example:
 bcastRecv :: Serialize msg => Comm -> Rank -> IO msg
 bcastRecv comm rootRank = do
   -- receive the broadcast of the size
-  (count::CInt) <- Storable.intoNewVal_ $ Storable.bcastRecv comm rootRank
+  (count::CInt) <- Fast.intoNewVal_ $ Fast.bcastRecv comm rootRank
   -- receive the broadcast of the message
-  bs <- Storable.intoNewBS_ count $ Storable.bcastRecv comm rootRank
+  bs <- Fast.intoNewBS_ count $ Fast.bcastRecv comm rootRank
   case decode bs of
     Left e -> fail e
     Right val -> return val
@@ -307,9 +307,9 @@ gatherSend :: Serialize msg => Comm -> Rank -> msg -> IO ()
 gatherSend comm root msg = do
   let enc_msg = encode msg
   -- Send length
-  Storable.gatherSend comm root (cIntConv (BS.length enc_msg) :: CInt)
+  Fast.gatherSend comm root (cIntConv (BS.length enc_msg) :: CInt)
   -- Send payload
-  Storable.gathervSend comm root enc_msg
+  Fast.gathervSend comm root enc_msg
 
 {- | Collects the messages sent with `gatherSend' and returns them as list.
 Note that per MPI semantics collecting process is expected to supply the message as well.
@@ -334,11 +334,11 @@ gatherRecv comm root msg = do
     doRecv isInter = do
       let enc_msg = encode msg
       numProcs <- if isInter then commRemoteSize comm else commSize comm
-      (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0,numProcs-1) $ Storable.gatherRecv comm root (cIntConv (BS.length enc_msg) :: CInt)
+      (lengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (0,numProcs-1) $ Fast.gatherRecv comm root (cIntConv (BS.length enc_msg) :: CInt)
       -- calculate displacements from sizes
       lengths <- SA.getElems lengthsArr
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
-      bs <- Storable.intoNewBS_ (sum lengths) $ Storable.gathervRecv comm root enc_msg lengthsArr displArr
+      bs <- Fast.intoNewBS_ (sum lengths) $ Fast.gathervRecv comm root enc_msg lengthsArr displArr
       return $ decodeList lengths bs
 
 decodeList :: (Serialize msg) => [CInt] -> BS.ByteString -> [msg]
@@ -363,9 +363,9 @@ Example. Scattering @\"Hello world\"@ to all processes from process with rank 0:
 scatterRecv :: Serialize msg => Comm -> Rank -> IO msg
 scatterRecv comm root = do
   -- Recv length
-  (len::CInt) <- Storable.intoNewVal_ $ Storable.scatterRecv comm root
+  (len::CInt) <- Fast.intoNewVal_ $ Fast.scatterRecv comm root
   -- Recv payload
-  bs <- Storable.intoNewBS_ len $ Storable.scattervRecv comm root
+  bs <- Fast.intoNewBS_ len $ Fast.scattervRecv comm root
   case decode bs of
     Left e -> fail e
     Right val -> return val
@@ -396,11 +396,11 @@ scatterSend comm root msgs = do
           numProcs = length msgs
       -- scatter numProcs ints - sizes of payloads to be sent to other processes
       (lengthsArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) lengths
-      (myLen :: CInt) <- Storable.intoNewVal_ $ Storable.scatterSend comm root lengthsArr
+      (myLen :: CInt) <- Fast.intoNewVal_ $ Fast.scatterSend comm root lengthsArr
       -- calculate displacements from sizes
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
       -- scatter payloads
-      bs <- Storable.intoNewBS_ myLen $ Storable.scattervSend comm root payload lengthsArr displArr
+      bs <- Fast.intoNewBS_ myLen $ Fast.scattervSend comm root payload lengthsArr displArr
       case decode bs of
         Left e -> fail e
         Right val -> return val
@@ -422,12 +422,12 @@ allgather comm msg = do
   isInter <- commTestInter comm
   numProcs <- if isInter then commRemoteSize comm else commSize comm
   -- Send length of my message and receive lengths from other ranks
-  (lengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (0, numProcs-1) $ Storable.allgather comm (cIntConv (BS.length enc_msg) :: CInt)
+  (lengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (0, numProcs-1) $ Fast.allgather comm (cIntConv (BS.length enc_msg) :: CInt)
   -- calculate displacements from sizes
   lengths <- SA.getElems lengthsArr
   (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
   -- Send my payload and receive payloads from other ranks
-  bs <- Storable.intoNewBS_ (sum lengths) $ Storable.allgatherv comm enc_msg lengthsArr displArr
+  bs <- Fast.intoNewBS_ (sum lengths) $ Fast.allgatherv comm enc_msg lengthsArr displArr
   return $ decodeList lengths bs
 
 {- | Each processes in the given communicator sends one message to every other process
@@ -454,12 +454,12 @@ alltoall comm msgs = do
   when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in alltoall"
   -- First, all-to-all payload sizes
   (sendLengthsArr :: SA.StorableArray Int CInt) <- SA.newListArray (1,numProcs) sendLengths
-  (recvLengthsArr :: SA.StorableArray Int CInt) <- Storable.intoNewArray_ (1,numProcs) $ Storable.alltoall comm sendLengthsArr 1
+  (recvLengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (1,numProcs) $ Fast.alltoall comm sendLengthsArr 1
   recvLengths <- SA.getElems recvLengthsArr
   -- calculate displacements from sizes
   (sendDisplArr :: SA.StorableArray Int CInt) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:sendLengths)
   (recvDisplArr :: SA.StorableArray Int CInt) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:recvLengths)
   -- Receive payloads
-  bs <- Storable.intoNewBS_ (sum recvLengths) $ Storable.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
+  bs <- Fast.intoNewBS_ (sum recvLengths) $ Fast.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
   return $ decodeList recvLengths bs
 

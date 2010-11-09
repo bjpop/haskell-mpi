@@ -56,10 +56,10 @@ Library
       extensible-exceptions,
       array
    exposed-modules:
-      Control.Parallel.MPI,
+      Control.Parallel.MPI.Base,
       Control.Parallel.MPI.Internal,
-      Control.Parallel.MPI.Storable,
-      Control.Parallel.MPI.Serializable
+      Control.Parallel.MPI.Fast,
+      Control.Parallel.MPI.Simple
    other-modules:
       C2HS,
       Control.Parallel.MPI.Utils
@@ -77,14 +77,14 @@ executable  haskell-mpi-testsuite
   include-dirs:
     src/include
   other-modules:
-    Control.Parallel.MPI,
+    Control.Parallel.MPI.Base,
     Control.Parallel.MPI.Internal,
-    Control.Parallel.MPI.Storable,
-    Control.Parallel.MPI.Serializable
+    Control.Parallel.MPI.Fast,
+    Control.Parallel.MPI.Simple,
     Control.Parallel.MPI.Utils,
     C2HS,
     IOArrayTests,
-    SerializableTests,
+    SimpleTests,
     StorableArrayTests,
     GroupTests,
     PrimTypeTests,

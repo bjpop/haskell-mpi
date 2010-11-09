@@ -2,7 +2,7 @@
 module StorableArrayTests (storableArrayTests) where
 
 import TestHelpers
-import Control.Parallel.MPI.Storable
+import Control.Parallel.MPI.Fast
 import Data.Array.Storable (StorableArray, newListArray, getElems)
 
 import Control.Concurrent (threadDelay)

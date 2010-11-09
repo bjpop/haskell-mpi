@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, UndecidableInstances, CPP #-}
 
-module Control.Parallel.MPI.Storable
+module Control.Parallel.MPI.Fast
    ( SendFrom (..)
    , RecvInto (..)
    , Repr (..)
@@ -44,6 +44,7 @@ module Control.Parallel.MPI.Storable
    , intoNewBS
    , intoNewBS_
    , module Data.Word
+   , module Base
    ) where
 
 #include "MachDeps.h"
@@ -56,7 +57,7 @@ import Control.Applicative ((<$>))
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI
+import Control.Parallel.MPI.Base as Base
 import Data.Int()
 import Data.Word
 
