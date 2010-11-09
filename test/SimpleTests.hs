@@ -21,6 +21,7 @@ simpleTests rank =
   , mpiTestCase rank "isend+recv two messages"   asyncSendRecv2
   , mpiTestCase rank "isend+recvFuture two messages, out of order" asyncSendRecv2ooo
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
+  , mpiTestCase rank "isend+issend+waitall two messages" waitallTest
   , mpiTestCase rank "broadcast message" broadcastTest
   , mpiTestCase rank "scatter message" scatterTest
   , mpiTestCase rank "gather message" gatherTest
@@ -31,7 +32,7 @@ syncSendRecv  :: (Comm -> Rank -> Tag -> SmallMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecv :: (Comm -> Rank -> Tag -> BigMsg   -> IO Request) -> Rank -> IO ()
 syncRSendRecv, syncSendRecvBlock, syncSendRecvFuture, asyncSendRecv2, asyncSendRecv2ooo :: Rank -> IO ()
 crissCrossSendRecv, broadcastTest, scatterTest, gatherTest, allgatherTest, alltoallTest :: Rank -> IO ()
-
+waitallTest :: Rank -> IO ()
 
 -- Serializable tests
 type SmallMsg = (Bool, Int, String, [()])
@@ -130,6 +131,18 @@ crissCrossSendRecv rank
                           checkStatus status sender tag0
                           status2 <- wait req
                           checkStatus status2 receiver tag1
+  | otherwise        = return () -- idling
+
+waitallTest rank
+  | rank == sender   = do req1 <- isend commWorld receiver tag0 smallMsg
+                          req2 <- isend commWorld receiver tag2 smallMsg
+                          [stat1, stat2] <- waitall [req1, req2]
+                          checkStatus stat1 sender tag0
+                          checkStatus stat2 sender tag2
+  | rank == receiver = do (msg1,_) <- recv commWorld sender tag0
+                          (msg2,_) <- recv commWorld sender tag2
+                          msg1 == smallMsg @? "Got garbled msg1"
+                          msg2 == smallMsg @? "Got garbled msg2"
   | otherwise        = return () -- idling
 
 
