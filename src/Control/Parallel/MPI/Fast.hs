@@ -157,7 +157,7 @@ type ISendPtrPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> Ptr Req
 isendWithPtr :: (SendFrom v) => ISendPtrPrim -> Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
 isendWithPtr send_function comm recvRank tag requestPtr val = do
    sendFrom val $ \valPtr numBytes dtype ->
-     send_function (castPtr valPtr) numBytes dtype (fromRank recvRank) (fromTag tag) comm requestPtr
+     send_function (castPtr valPtr) numBytes dtype recvRank tag comm requestPtr
 
 {-
    At the moment we are limiting this to StorableArrays because they
