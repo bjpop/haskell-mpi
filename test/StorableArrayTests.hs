@@ -3,13 +3,14 @@ module StorableArrayTests (storableArrayTests) where
 
 import TestHelpers
 import Control.Parallel.MPI.Fast
-import Data.Array.Storable (StorableArray, newListArray, getElems)
+import Data.Array.Storable (StorableArray, newListArray, getElems, withStorableArray, newArray_)
 
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 
 import Foreign
 import Foreign.C.Types
+import Foreign.Marshal.Array (advancePtr)
 
 root :: Rank
 root = 0
@@ -21,6 +22,7 @@ storableArrayTests rank =
   , mpiTestCase rank "rsend+recv storable array" $ rsendRecvTest
   , mpiTestCase rank "isend+irecv storable array"  $ asyncSendRecvTest isend
   , mpiTestCase rank "issend+irecv storable array" $ asyncSendRecvTest issend
+  , mpiTestCase rank "isend+issend+waitall storable array" $ asyncSendRecvWaitallTest
   , mpiTestCase rank "broadcast storable array" broadcastTest
   , mpiTestCase rank "scatter storable array"   scatterTest
   , mpiTestCase rank "scatterv storable array"  scattervTest
@@ -86,6 +88,35 @@ asyncSendRecvTest isendf rank
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
+
+asyncSendRecvWaitallTest rank
+  | rank == sender   = do request :: StorableArray Int Request <- newArray_ (1,2)
+                          reqstat :: StorableArray Int Status  <- newArray_ (1,2)
+                          msg <- arrMsg
+                          withStorableArray request $ \reqPtr -> do
+                            isendPtr commWorld receiver tag1 reqPtr msg 
+                            issendPtr commWorld receiver tag2 (advancePtr reqPtr 1) msg
+                          waitall request reqstat
+                          statuses <- getElems reqstat
+                          checkStatus (statuses!!0) sender tag1
+                          checkStatus (statuses!!1) sender tag2
+  -- XXX this type annotation is ugly. Is there a way to make it nicer?
+  | rank == receiver = do request :: StorableArray Int Request <- newArray_ (1,2)
+                          reqstat :: StorableArray Int Status  <- newArray_ (1,2)
+                          (newMsg1, newMsg2) <- withStorableArray request $ \reqPtr -> do
+                            msg1 <- intoNewArray_ range $ irecvPtr commWorld sender tag1 reqPtr
+                            msg2 <- intoNewArray_ range $ irecvPtr commWorld sender tag2 (advancePtr reqPtr 1)
+                            return (msg1, msg2)
+                          waitall request reqstat
+                          statuses <- getElems reqstat
+                          checkStatus (statuses!!0) sender tag1
+                          checkStatus (statuses!!1) sender tag2
+                          elems1 <- getElems newMsg1
+                          elems2 <- getElems newMsg2
+                          elems1 == [low..hi::Int] @? "Got wrong array 1: " ++ show elems1
+                          elems2 == [low..hi::Int] @? "Got wrong array 2: " ++ show elems2
+  | otherwise        = return ()
+
 
 broadcastTest myRank = do
   msg <- arrMsg
