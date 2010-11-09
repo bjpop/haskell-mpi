@@ -30,8 +30,7 @@
 --
 -- >module Main where
 -- >
--- >import Control.Parallel.MPI (mpi, commRank, commWorld, unitTag)
--- >import Control.Parallel.MPI.Serializable (send, recv)
+-- >import Control.Parallel.MPI.Simple (mpi, commRank, commWorld, unitTag, send, recv)
 -- >
 -- >main :: IO ()
 -- >main = mpi $ do

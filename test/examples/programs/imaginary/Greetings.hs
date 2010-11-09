@@ -3,8 +3,7 @@
 
 module Main where
 
-import Control.Parallel.MPI.Serializable
-import Control.Parallel.MPI
+import Control.Parallel.MPI.Simple
 
 main :: IO ()
 main = mpiWorld $ \_size rank -> do

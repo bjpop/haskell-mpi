@@ -1,8 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import Control.Parallel.MPI.Storable
-import Control.Parallel.MPI
+import Control.Parallel.MPI.Fast
 import Data.Array.Storable
 import Foreign.C.Types (CInt)
 

@@ -1,8 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import Control.Parallel.MPI
-import Control.Parallel.MPI.Serializable
+import Control.Parallel.MPI.Simple
 import System.Exit
 
 import Foreign.C.Types
