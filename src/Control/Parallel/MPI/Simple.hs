@@ -104,9 +104,7 @@ module Control.Parallel.MPI.Simple
      -- ** All-to-all
    , alltoall
      
-     -- * Error handling
-   , MPIError(..)
-   , ErrorClass(..)
+   , module Base
    ) where
 
 import C2HS

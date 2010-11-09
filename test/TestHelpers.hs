@@ -2,7 +2,6 @@ module TestHelpers (
   module Test.Runner,
   module Test.HUnit,
   module Test.HUnit.Lang,
-  module Base,
   mpiTestCase,
   testCase,
   checkStatus,

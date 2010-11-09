@@ -1,6 +1,7 @@
 module GroupTests (groupTests) where
 
 import TestHelpers
+import Control.Parallel.MPI.Base
 
 groupTests :: Rank -> [(String,TestRunnerTest)]
 groupTests rank =

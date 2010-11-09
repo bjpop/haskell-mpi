@@ -5,7 +5,7 @@ import TestHelpers
 import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
 import Foreign.C.Types (CInt)
-import Control.Parallel.MPI.Internal (tagUpperBound)
+import Control.Parallel.MPI.Base
 
 otherTests :: Rank -> [(String,TestRunnerTest)]
 otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke

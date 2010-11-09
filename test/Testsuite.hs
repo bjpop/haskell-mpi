@@ -1,5 +1,7 @@
 module Main where
 
+import Control.Parallel.MPI.Base
+
 import TestHelpers
 import OtherTests
 import SimpleTests

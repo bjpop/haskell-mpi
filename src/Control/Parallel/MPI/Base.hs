@@ -77,6 +77,7 @@ module Control.Parallel.MPI.Base
    -- , tagVal
    , anyTag
    , unitTag
+   , tagUpperBound
 
    -- Ranks.
    , Rank
