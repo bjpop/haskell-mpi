@@ -1,0 +1,45 @@
+% HaskellMPI-BH.tex
+\begin{hcarentry}[new]{Haskell-MPI}
+\label{haskell-mpi}
+\report{Bernie Pope}%11/10
+\participants{Dmitry Astapov, Duncan Coutts}
+\status{first public version to be released soon}
+\makeheader
+
+MPI, the \emph{Message Passing Interface}, is a popular communications protocol
+for distributed parallel computing (\url{http://www.mpi-forum.org/}). It is widely
+used in high performance scientific computing, and is designed to scale up from
+small multi-core personal computers to massively parallel supercomputers.
+MPI applications
+consist of independent computing processes which share information by message passing
+communication. It supports both point-to-point and collective communication operators,
+and manages much of the mundane aspects of message delivery. There are several
+high-quality implementations of MPI available which adhere to the standard API
+specification (the latest version of which is 2.2). The MPI specification defines
+interfaces for C, C++, and Fortran, and bindings are available for many other
+programming languages. As the name suggests, Haskell-MPI provides a Haskell interface
+to MPI, and thus facilitates distributed parallel programming in Haskell. It is implemented
+on top of the C API via Haskell's foreign function interface. Haskell-MPI provides
+three different ways to access MPI's functionality:
+\begin{enumerate}
+   \item A direct binding to the C interface.
+   \item A convenient interface for sending arbitrary serializable Haskell data values as messages.
+   \item A high-performance interface for working with (possibly mutable) arrays of storable
+         Haskell data types.
+\end{enumerate}
+We do not currently provide exhaustive coverage of all the functions and types defined by MPI
+2.2, although we do provide bindings to the most commonly used parts. In the future we plan
+to extend coverage based on the needs of projects which use the library.
+
+We are in the final stages of preparing the first release of Haskell-MPI. We will
+publish the code on Hackage once the user documentation is complete.
+We have run various simple latency and bandwidth tests using up to 512 Intel x86-64 cores, and
+for the high-performance interface, the results are within acceptable bounds of those
+achieved by C.
+Haskell-MPI is designed to work with any compliant implementation of MPI, and we
+have successfully tested it with both OpenMPI (\url{http://www.open-mpi.org/}) and
+MPICH2 (\url{http://www.mcs.anl.gov/research/projects/mpich2/}).
+
+\FurtherReading
+  \url{http://github.com/bjpop/haskell-mpi}
+\end{hcarentry}
