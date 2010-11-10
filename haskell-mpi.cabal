@@ -6,8 +6,10 @@ description:         Haskell bindings to the MPI library.
  MPI is defined by the Message-Passing Interface Standard,
  as specified by the Message Passing Interface Forum. The latest release
  of the standard is known as MPI-2. These Haskell
- bindings are designed to work with any MPI-2 standards compliant
- implementation. Examples are MPICH2 and OpenMPI.
+ bindings are designed to work with any standards compliant
+ implementation of MPI-2. Examples are MPICH2:
+ <http://www.mcs.anl.gov/research/projects/mpich2> and
+ OpenMPI: <http://www.open-mpi.org>.
  .
  In addition to reading these documents, users may also find it
  beneficial to consult the MPI-2 standard documentation provided by the
@@ -15,18 +17,25 @@ description:         Haskell bindings to the MPI library.
  the MPI implementation linked to this library (that is, the MPI
  implementation which is chosen when this Haskell library is compiled).
  .
- Use "Control.Parallel.MPI" as starting point for browsing the API.
+ Module "Control.Parallel.MPI.Fast" contains a high-performance interface
+ for working with (possibly mutable) arrays of storable Haskell data types.
  .
- Module "Control.Parallel.MPI.Storable" contains high-performance API for mutable arrays.
+ Module "Control.Parallel.MPI.Simple" contains a convenient (but slower)
+ interface for sending arbitrary serializable Haskell data values as messages.
  .
- Module "Control.Parallel.MPI.Serializable" contains slower API for arbitraty serializable values.
+ Module "Control.Parallel.MPI.Internal" contains a direct binding to the
+ C interface.
+ .
+ Module "Control.Parallel.MPI.Base" contains essential MPI functionality
+ which is independent of the message passing API. This is re-exported
+ by the Fast and Simple modules.
 
 category:            FFI, Distributed Computing
 license:             BSD3
 license-file:        LICENSE
 copyright:           (c) 2010 Bernard James Pope
 author:              Bernard James Pope (Bernie Pope)
-maintainer:          florbitous@gmail.com 
+maintainer:          florbitous@gmail.com
 homepage:            http://github.com/bjpop/haskell-mpi
 build-type:          Simple
 stability:           experimental
