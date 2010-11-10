@@ -19,7 +19,7 @@
 
 module Control.Parallel.MPI.Base
    (
-   -- * Notable changes from MPI
+   -- * Notable changes from the C interface to MPI
    --
    -- ** Collective operations are split
    -- $collectives-split
@@ -74,7 +74,6 @@ module Control.Parallel.MPI.Base
    , Tag
    , toTag
    , fromTag
-   -- , tagVal
    , anyTag
    , unitTag
    , tagUpperBound
@@ -229,43 +228,27 @@ cancelFuture = killThread . futureThread
 
 {- $collectives-split
 Collective operations in MPI usually take a large set of arguments
-that include pointers to both input and output buffers. This fits
-nicely in the C programming style:
+that include pointers to both the input and output buffers. This fits
+nicely in the C programming style, which follows this pattern:
 
- 1. Pointers to send and receive buffers are declared
+ 1. Pointers to send and receive buffers are declared.
 
  2. if (my_rank == root) then (send buffer is allocated and filled)
 
- 3. Both pointers are passed to collective function, which ignores
-    unallocated send buffer for all non-root processes.
+ 3. Both pointers are passed to a collective function, which ignores
+    the unallocated send buffer for all non-root processes.
 
-In Haskell there is no simple way to declare pointers to arrays or
-values without allocating them and then do the allocation
-laterr. Plus, authors wanted to
-encourage users to partially apply API calls both for convenience (see
-below) and for simplifying reuse of already-allocated arrays (also see
-below).
-
-Therefore it was decided to split most asymmetric collective calls in
+However this style of programming is not idiomatic in Haskell.
+Therefore it was decided to split most asymmetric collective calls into
 two parts - sending and receiving. Thus @MPI_Gather@ is represented by
 'gatherSend' and 'gatherRecv', and so on. -}
 
 {- $arg-order
-Very often MPI programmer would find himself in the situation
-where he wants to send/receive messages between the same processess
-over and over again. This is true for both point-to-point modes of
-communication and for collective operations.
-
-Which is why we've chosen to change the order of arguments in most API
-calls in a way that would make partial application of API calls
-natural. For example, if your rank 0 process often sends single
-message msg1 to rank 1 and various messages to rank 2, you could
-define the following shortcuts:
-
-@
-sendMsg1 = send comm rank1 tag1 msg1
-sendTo2 = send comm rank2
-@
+The order of arguments to most of the Haskell communication operators
+is different than that of the corresponding C functions.
+This was motivated by the desire to make partial application
+more natural for the common case where the communicator,
+rank and tag are fixed but the message varies.
 -}
 
 {- $rank-checking
