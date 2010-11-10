@@ -10,7 +10,6 @@ import Control.Monad (when)
 
 import Foreign
 import Foreign.C.Types
-import Foreign.Marshal.Array (advancePtr)
 
 root :: Rank
 root = 0
@@ -41,6 +40,7 @@ syncSendRecvTest  :: (Comm -> Rank -> Tag -> ArrMsg -> IO ()) -> Rank -> IO ()
 asyncSendRecvTest :: (Comm -> Rank -> Tag -> ArrMsg -> IO Request) -> Rank -> IO ()
 rsendRecvTest, broadcastTest, scatterTest, scattervTest, gatherTest, gathervTest :: Rank -> IO ()
 allgatherTest, allgathervTest, alltoallTest, alltoallvTest, reduceTest, allreduceTest, reduceScatterTest :: Rank -> IO ()
+asyncSendRecvWaitallTest :: Rank -> IO ()
 reduceUserOpTest :: Rank -> IO ()
 
 -- StorableArray tests
