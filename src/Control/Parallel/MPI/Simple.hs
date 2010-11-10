@@ -103,7 +103,7 @@ module Control.Parallel.MPI.Simple
      -- ** All-to-all
    , alltoall
      
-   , module Base
+   , module Control.Parallel.MPI.Base
    ) where
 
 import C2HS
@@ -115,7 +115,7 @@ import qualified Data.ByteString as BS
 import Data.Serialize (encode, decode, Serialize)
 import qualified Control.Parallel.MPI.Fast as Fast
 import qualified Control.Parallel.MPI.Internal as Internal
-import Control.Parallel.MPI.Base as Base
+import Control.Parallel.MPI.Base
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
 
