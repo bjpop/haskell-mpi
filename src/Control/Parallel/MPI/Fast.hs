@@ -9,11 +9,8 @@ Maintainer  : florbitous@gmail.com
 Stability   : experimental
 Portability : ghc
 
-This module provides MPI functionality for arbitrary Haskell values that could be
-represented as continuous memory-mapped regions, possibly comprised of the
-values of the same bytesize.
-
-Such values require very little extra (de)serialization effort, or sometimes no effort at all,
+This module provides MPI functionality for arbitrary Haskell types that could be
+represented by corresponding MPI types without additional conversion or serialization,
 which allows fast application of MPI operations.
 
 TODO: expand
