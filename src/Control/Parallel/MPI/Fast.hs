@@ -56,9 +56,24 @@ process rank
 -----------------------------------------------------------------------------
 module Control.Parallel.MPI.Fast
    ( 
+     -- * Mapping between Haskell and MPI types
+     Repr (..)
+     
+     -- * Treating Haskell values as send or receive buffers
+   , SendFrom (..)
+   , RecvInto (..)
+
+     -- * On-the-fly buffer allocation helpers
+   , intoNewArray
+   , intoNewArray_
+   , intoNewVal
+   , intoNewVal_
+   , intoNewBS
+   , intoNewBS_
+     
      -- * Point-to-point operations.
      -- ** Blocking.
-     send
+   , send
    , bsend
    , ssend
    , rsend
@@ -322,13 +337,26 @@ gathervSend comm root segment = do
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
      Internal.gatherv (castPtr sendPtr) sendElements sendType nullPtr nullPtr nullPtr byte root comm
 
+{- | A variation of 'gatherSend' and 'gatherRecv' where all members of
+a group receive the result.
+
+Caller is expected to make sure that types of send and receive buffers
+are selected in a way such that amount of bytes sent equals amount of bytes received pairwise between all processes.
+-}
 allgather :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> v2 -> IO ()
 allgather comm sendVal recvVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent equals amount received
       Internal.allgather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
 
-allgatherv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
+-- | A variation of 'allgather' that allows to use data segments of
+--   different length.
+allgatherv :: (SendFrom v1, RecvInto v2) => Comm
+              -> v1 -- ^ Send buffer
+              -> StorableArray Int CInt -- ^ Lengths of segments in the send buffer
+              -> StorableArray Int CInt -- ^ Displacements of the segments in the send buffer
+              -> v2 -- ^ Receive buffer
+              -> IO ()
 allgatherv comm segment counts displacements recvVal = do
    sendFrom segment $ \sendPtr sendElements sendType ->
      withStorableArray counts $ \countsPtr ->  
