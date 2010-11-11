@@ -558,9 +558,9 @@ reduceUserOpTest myRank = do
   mySumOp <- opCreate True userSumPtr
   (src :: StorableArray Int Double) <- newListArray (0,99) [0..99]
   if myRank /= root
-    then sendReduce commWorld root sumOp src
+    then reduceSend commWorld root sumOp src
     else do
-    (result :: StorableArray Int Double) <- intoNewArray_ (0,99) $ recvReduce commWorld root mySumOp src
+    (result :: StorableArray Int Double) <- intoNewArray_ (0,99) $ reduceRecv commWorld root mySumOp src
     recvMsg <- getElems result
   freeHaskellFunPtr userSumPtr
   where

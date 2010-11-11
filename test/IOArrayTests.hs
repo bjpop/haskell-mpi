@@ -269,9 +269,9 @@ reduceTest myRank = do
   numProcs <- commSize commWorld
   (src :: ArrMsg) <- newListArray (0,99) [0..99]
   if myRank /= root
-    then sendReduce commWorld root sumOp src
+    then reduceSend commWorld root sumOp src
     else do
-    (result :: ArrMsg) <- intoNewArray_ (0,99) $ recvReduce commWorld root sumOp src
+    (result :: ArrMsg) <- intoNewArray_ (0,99) $ reduceRecv commWorld root sumOp src
     recvMsg <- getElems result
     let expected = map ((fromIntegral numProcs)*) [0..99::ElementType]
     recvMsg == expected @? "Got " ++ show recvMsg ++ " instead of " ++ show expected

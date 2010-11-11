@@ -86,8 +86,8 @@ module Control.Parallel.MPI.Fast
    , gatherRecv
    , gathervSend
    , gathervRecv
-   , sendReduce
-   , recvReduce
+   , reduceSend
+   , reduceRecv
    -- ** All-to-all.
    , allgather
    , allgatherv
@@ -366,13 +366,13 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
               Internal.alltoallv (castPtr sendPtr) sendCountsPtr sendDisplPtr sendType
                                  (castPtr recvPtr) recvCountsPtr recvDisplPtr recvType comm
   
-sendReduce :: SendFrom v => Comm -> Rank -> Operation -> v -> IO ()
-sendReduce comm root op sendVal = do
+reduceSend :: SendFrom v => Comm -> Rank -> Operation -> v -> IO ()
+reduceSend comm root op sendVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     Internal.reduce (castPtr sendPtr) nullPtr sendElements sendType op root comm
 
-recvReduce :: (SendFrom v, RecvInto v) => Comm -> Rank -> Operation -> v -> v -> IO ()
-recvReduce comm root op sendVal recvVal =
+reduceRecv :: (SendFrom v, RecvInto v) => Comm -> Rank -> Operation -> v -> v -> IO ()
+reduceRecv comm root op sendVal recvVal =
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
       Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op root comm
