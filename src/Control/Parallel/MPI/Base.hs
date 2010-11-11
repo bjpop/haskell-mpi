@@ -73,13 +73,6 @@ module Control.Parallel.MPI.Base
    -- * Synchronization.
    , barrier
 
-   -- * Futures.
-   , Future(..)   -- XXX should this be exported abstractly? Internals needed in Serializable.
-   , waitFuture
-   , getFutureStatus
-   , pollFuture
-   , cancelFuture
-
    -- * Groups.
    , Group
    , groupEmpty
@@ -151,8 +144,6 @@ module Control.Parallel.MPI.Base
 
 import Prelude hiding (init)
 import Control.Exception (finally)
-import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar)
-import Control.Concurrent (ThreadId, killThread)
 import Control.Parallel.MPI.Internal
 
 -- | A convenience wrapper which takes an MPI computation as its argument and wraps it
@@ -177,38 +168,6 @@ mpiWorld action = do
    size <- commSize commWorld
    rank <- commRank commWorld
    action size rank `finally` finalize
-
--- | A value to be computed by some thread in the future.
-data Future a =
-   Future
-   { futureThread :: ThreadId
-   , futureStatus :: MVar Status
-   , futureVal :: MVar a
-   }
-
--- | Obtain the computed value from a 'Future'. If the computation
--- has not completed, the caller will block, until the value is ready.
--- See 'pollFuture' for a non-blocking variant.
-waitFuture :: Future a -> IO a
-waitFuture = readMVar . futureVal
-
--- | Obtain the 'Status' from a 'Future'. If the computation
--- has not completed, the caller will block, until the value is ready.
-getFutureStatus :: Future a -> IO Status
-getFutureStatus = readMVar . futureStatus
--- XXX do we need a pollStatus?
-
--- | Poll for the computed value from a 'Future'. If the computation
--- has not completed, the function will return @None@, otherwise it
--- will return @Just value@.
-pollFuture :: Future a -> IO (Maybe a)
-pollFuture = tryTakeMVar . futureVal
-
--- | Terminate the computation associated with a 'Future'.
-cancelFuture :: Future a -> IO ()
-cancelFuture = killThread . futureThread
--- XXX May want to stop people from waiting on Futures which are killed...
-
 
 -- XXX I'm temporarily leaving these comments below until we are happy with
 -- the haddocks.

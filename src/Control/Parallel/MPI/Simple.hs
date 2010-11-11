@@ -58,9 +58,15 @@ module Control.Parallel.MPI.Simple
    , isend
    , ibsend
    , issend
-   , recvFuture
    , waitall
-
+   -- *** Futures.
+   , Future()
+   , waitFuture
+   , getFutureStatus
+   , pollFuture
+   , cancelFuture
+   , recvFuture     
+     
      -- ** Low-level (operating on ByteStrings).
    , sendBS
    , recvBS
@@ -108,7 +114,8 @@ module Control.Parallel.MPI.Simple
 
 import C2HS
 import Control.Concurrent (forkIO)
-import Control.Concurrent.MVar (newEmptyMVar, putMVar)
+import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar, newEmptyMVar, putMVar)
+import Control.Concurrent (ThreadId, killThread)
 import Control.Monad (when)
 import Data.ByteString.Unsafe as BS
 import qualified Data.ByteString as BS
@@ -231,6 +238,37 @@ waitall reqs = do
     allocaArray len $ \statPtr -> do
       Internal.waitall (cIntConv len) reqPtr (castPtr statPtr)
       peekArray len statPtr
+
+-- | A value to be computed by some thread in the future.
+data Future a =
+   Future
+   { futureThread :: ThreadId
+   , futureStatus :: MVar Status
+   , futureVal :: MVar a
+   }
+
+-- | Obtain the computed value from a 'Future'. If the computation
+-- has not completed, the caller will block, until the value is ready.
+-- See 'pollFuture' for a non-blocking variant.
+waitFuture :: Future a -> IO a
+waitFuture = readMVar . futureVal
+
+-- | Obtain the 'Status' from a 'Future'. If the computation
+-- has not completed, the caller will block, until the value is ready.
+getFutureStatus :: Future a -> IO Status
+getFutureStatus = readMVar . futureStatus
+-- XXX do we need a pollStatus?
+
+-- | Poll for the computed value from a 'Future'. If the computation
+-- has not completed, the function will return @None@, otherwise it
+-- will return @Just value@.
+pollFuture :: Future a -> IO (Maybe a)
+pollFuture = tryTakeMVar . futureVal
+
+-- | Terminate the computation associated with a 'Future'.
+cancelFuture :: Future a -> IO ()
+cancelFuture = killThread . futureThread
+-- XXX May want to stop people from waiting on Futures which are killed...
 
 -- | Non-blocking receive of the message. Returns value of type `Future',
 -- which could be used to check status of the operation using `getFutureStatus'
