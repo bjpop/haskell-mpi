@@ -1,41 +1,104 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, ScopedTypeVariables, UndecidableInstances, CPP #-}
 
+-----------------------------------------------------------------------------
+{- |
+Module      : Control.Parallel.MPI.Fast
+Copyright   : (c) 2010 Bernie Pope, Dmitry Astapov
+License     : BSD-style
+Maintainer  : florbitous@gmail.com
+Stability   : experimental
+Portability : ghc
+
+This module provides MPI functionality for arbitrary Haskell values that could be
+represented as continuous memory-mapped regions, possibly comprised of the
+values of the same bytesize.
+
+Such values require very little extra (de)serialization effort, or sometimes no effort at all,
+which allows fast application of MPI operations.
+
+TODO: expand
+
+Full range of point-to-point and collective operation is supported, including for reduce and similar operations.
+
+Below is a small but complete MPI program utilising this Module. Process 0 sends the array of @Int@s
+process 1. Process 1 receives the message and prints it
+to standard output. It assumes that there are at least 2 MPI processes
+available. Further examples in this module would provide different implementation of
+@process@ function.
+
+@
+\{\-\# LANGUAGE ScopedTypeVariables \#\-\}
+module Main where
+
+import Control.Parallel.MPI.Fast (mpi, commRank, commWorld, unitTag, send, recv, intoNewArray)
+import Data.Array.Storable
+
+type ArrMsg = StorableArray Int Int
+
+arrMsg :: IO (StorableArray Int Int)
+arrMsg = newListArray (1,10) [1..10]
+
+main :: IO ()
+main = mpi $ do
+   rank <- commRank commWorld
+   process rank
+
+process :: Rank -> IO ()
+process rank
+   | rank == 0 = do sendMsg <- arrMsg
+                    send commWorld 1 2 sendMsg
+   | rank == 1 = do (recvMsg::ArrMsg, status) <- intoNewArray (1,10) $ recv commWorld 0 2
+                    els <- getElems recvMsg
+                    putStrLn $ \"Got message: \" ++ show els
+   | otherwise = return ()
+@
+-}
+-----------------------------------------------------------------------------
 module Control.Parallel.MPI.Fast
-   ( SendFrom (..)
-   , RecvInto (..)
-   , Repr (..)
-   , send
-   , ssend
+   ( 
+     -- * Point-to-point operations.
+     -- ** Blocking.
+     send
    , bsend
+   , ssend
    , rsend
    , recv
-   , bcastSend
-   , bcastRecv
+     -- ** Non-blocking.
    , isend
    , ibsend
    , issend
+   , irecv
    , isendPtr
    , ibsendPtr
    , issendPtr
-   , irecv
    , irecvPtr
    , waitall
+   -- * Collective operations.
+   -- ** One-to-all.
+   , bcastSend
+   , bcastRecv
    , scatterSend
    , scatterRecv
    , scattervSend
    , scattervRecv
+   -- ** All-to-one.
    , gatherSend
    , gatherRecv
    , gathervSend
    , gathervRecv
+   , sendReduce
+   , recvReduce
+   -- ** All-to-all.
    , allgather
    , allgatherv
    , alltoall
    , alltoallv
-   , sendReduce
-   , recvReduce
    , allreduce
    , reduceScatter
+   -- * TODO
+   , SendFrom (..)
+   , RecvInto (..)
+   , Repr (..)
    , opCreate
    , intoNewArray
    , intoNewArray_
