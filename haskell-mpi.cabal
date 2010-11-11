@@ -63,7 +63,7 @@ description:         Haskell bindings to the MPI library.
       >     send commWorld 0 unitTag "Hello World"
       >  when (rank == 0) $ do
       >     (msg, _status) <- recv commWorld 1 unitTag
-      >  putStrLn msg
+      >     putStrLn msg
 
 category:            FFI, Distributed Computing
 license:             BSD3
