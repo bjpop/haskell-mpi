@@ -30,7 +30,7 @@ available. Further examples in this module would provide different implementatio
 \{\-\# LANGUAGE ScopedTypeVariables \#\-\}
 module Main where
 
-import Control.Parallel.MPI.Fast (mpi, commRank, commWorld, unitTag, send, recv, intoNewArray)
+import Control.Parallel.MPI.Fast ('mpi', 'commRank', 'commWorld', 'unitTag', 'send', 'recv', 'intoNewArray')
 import Data.Array.Storable
 
 type ArrMsg = StorableArray Int Int
@@ -39,15 +39,15 @@ arrMsg :: IO (StorableArray Int Int)
 arrMsg = newListArray (1,10) [1..10]
 
 main :: IO ()
-main = mpi $ do
-   rank <- commRank commWorld
+main = 'mpi' $ do
+   rank <- 'commRank' 'commWorld'
    process rank
 
-process :: Rank -> IO ()
+process :: 'Rank' -> IO ()
 process rank
    | rank == 0 = do sendMsg <- arrMsg
-                    send commWorld 1 2 sendMsg
-   | rank == 1 = do (recvMsg::ArrMsg, status) <- intoNewArray (1,10) $ recv commWorld 0 2
+                    'send' 'commWorld' 1 2 sendMsg
+   | rank == 1 = do (recvMsg::ArrMsg, status) <- 'intoNewArray' (1,10) $ 'recv' 'commWorld' 0 2
                     els <- getElems recvMsg
                     putStrLn $ \"Got message: \" ++ show els
    | otherwise = return ()
