@@ -546,8 +546,7 @@ Full example with user-defined function that mimics standard operation
 'sumOp':
 
 @
-import "Control.Parallel.MPI"
-import "Control.Parallel.MPI.Storable"
+import "Control.Parallel.MPI.Fast"
 
 foreign import ccall \"wrapper\" 
   wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()) 

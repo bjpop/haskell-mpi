@@ -242,7 +242,7 @@ isendWithPtr send_function comm recvRank tag requestPtr val = do
    copied when the wait was complete.
 -}
 
--- Pointer to Request is provided by called. Usefull for filling arrays of Requests for further consumption
+-- Pointer to Request is provided by caller. Usefull for filling arrays of Requests for further consumption
 -- by waitall
 irecvPtr :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> Ptr Request -> StorableArray i e -> IO ()
 irecvPtr comm sendRank tag requestPtr recvVal = do
