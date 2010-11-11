@@ -47,21 +47,21 @@
 
 module Control.Parallel.MPI.Simple
    (
-     -- * Point-to-point operations
-     -- ** Blocking
+     -- * Point-to-point operations.
+     -- ** Blocking.
      send
    , bsend
    , ssend
    , rsend
    , recv
-     -- ** Non-blocking
+     -- ** Non-blocking.
    , isend
    , ibsend
    , issend
    , recvFuture
    , waitall
 
-     -- ** Low-level (operating on ByteStrings)
+     -- ** Low-level (operating on ByteStrings).
    , sendBS
    , recvBS
    , isendBS
@@ -77,7 +77,7 @@ module Control.Parallel.MPI.Simple
      --   | otherwise = return ()
      -- @
 
-     -- * Collective operations
+     -- * Collective operations.
      {- | Broadcast and other collective operations are tricky because the receiver doesn't know how much memory to allocate.
      The C interface assumes the sender and receiver agree on the size in advance, but
      this is not useful for the Haskell interface (where we want to send arbitrary sized
@@ -91,16 +91,16 @@ module Control.Parallel.MPI.Simple
      The obvious downside of this approach is that it requires two MPI calls for one
      payload.
      -}
-     -- ** One-to-all
+     -- ** One-to-all.
    , bcastSend
    , bcastRecv
    , scatterSend
    , scatterRecv
-     -- ** All-to-one
+     -- ** All-to-one.
    , gatherSend
    , gatherRecv
    , allgather
-     -- ** All-to-all
+     -- ** All-to-all.
    , alltoall
      
    , module Control.Parallel.MPI.Base

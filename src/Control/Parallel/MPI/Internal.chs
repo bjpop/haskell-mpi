@@ -28,12 +28,12 @@ either "Control.Parallel.MPI.Storable" or "Control.Parallel.MPI.Serializable".
 module Control.Parallel.MPI.Internal
    (
 
-     -- * MPI runtime management
+     -- * MPI runtime management.
      -- ** Initialization, finalization, termination.
      init, finalize, initialized, finalized, abort,
-     -- ** Multi-threaded environment support
+     -- ** Multi-threaded environment support.
      ThreadSupport (..), initThread, queryThread, isThreadMain,
-     -- ** Predefined constants
+     -- ** Predefined constants.
      maxProcessorName, maxErrorString,
      -- ** Runtime attributes.
      getProcessorName, Version (..), getVersion,
@@ -65,24 +65,24 @@ module Control.Parallel.MPI.Internal
      -- * Data types.
      Datatype, char, wchar, short, int, long, longLong, unsignedChar, unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double, longDouble, byte, packed, typeSize,
 
-     -- * Point-to-point operations
+     -- * Point-to-point operations.
      -- ** Tags.
      Tag, toTag, fromTag, anyTag, unitTag, tagUpperBound,
 
-     -- ** Blocking operations
+     -- ** Blocking operations.
      BufferPtr, Count, -- XXX: what will break if we don't export those?
      send, bsend, ssend, rsend, recv,
-     -- ** Non-blocking operations
+     -- ** Non-blocking operations.
      isend, ibsend, issend, irecv,
      isendPtr, ibsendPtr, issendPtr, irecvPtr,
 
 
-     -- * Collective operations
-     -- ** One-to-all
+     -- * Collective operations.
+     -- ** One-to-all.
      bcast, scatter, scatterv,
-     -- ** All-to-one
+     -- ** All-to-one.
      gather, gatherv, reduce,
-     -- ** All-to-all
+     -- ** All-to-all.
      allgather, allgatherv,
      alltoall, alltoallv,
      allreduce, reduceScatter,
