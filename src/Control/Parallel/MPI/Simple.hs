@@ -126,32 +126,32 @@ import Control.Parallel.MPI.Base
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
 
--- | Serializes the supplied value to ByteString and sends to specified process (using @MPI_Send@)
+-- | Serializes the supplied value to ByteString and sends to specified process as the array of 'byte's using 'Internal.send'.
 --
 --  This call could complete before the matching receive is posted by some other process.
 send :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 send  c r t m = sendBSwith Internal.send  c r t $ encode m
 
--- | Serializes the supplied value and sends to specified process (using @MPI_BSend@)
+-- | Serializes the supplied value and sends to specified process as the array of 'byte's using 'Internal.bsend'.
 --
 --   Application has to allocate the buffer and @attach@ it to MPI using (TODO: we are currently missing this)
 bsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 bsend c r t m = sendBSwith Internal.bsend c r t $ encode m
 
--- | Serializes the supplied value and sends to specified process (using @MPI_SSend@)
+-- | Serializes the supplied value and sends to specified process as the array of 'byte's using 'Internal.ssend'.
 --
 --   This is so-called \"synchronous blocking send\" mode - this call would not complete until
 --   matching receive is posted and started to receive data.
 ssend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 ssend c r t m = sendBSwith Internal.ssend c r t $ encode m
 
--- | Serializes the supplied value and sends to specified process (using @MPI_RSend@)
+-- | Serializes the supplied value and sends to specified process as the array of 'byte's using 'Internal.rsend'.
 --
 --   This call expects the matching receive already to be posted, otherwise error will occur.
 rsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 rsend c r t m = sendBSwith Internal.rsend c r t $ encode m
 
--- | Sends ByteString to specified process. Internally uses @MPI_Send@.
+-- | Sends ByteString to specified process as the array of 'byte's using 'Internal.send'.
 sendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO ()
 sendBS = sendBSwith Internal.send
 
@@ -166,7 +166,8 @@ sendBSwith send_function comm rank tag bs = do
 -- | Receives arbitrary serializable message from specified process. Operation status
 -- is returned as second component of the tuple, and usually could be discarded.
 --
--- This function uses @MPI_Recv@ internally
+-- This function uses @MPI_Recv@ internally and relies on 'probe' to get the size of incoming message
+-- and allocate sufficient memory in receiving buffer, which incurs slight additional overhead. 
 recv :: Serialize msg => Comm -> Rank -> Tag -> IO (msg, Status)
 recv comm rank tag = do
    (bs, status) <- recvBS comm rank tag
@@ -174,7 +175,8 @@ recv comm rank tag = do
       Left e -> fail e
       Right val -> return (val, status)
 
--- | Receives ByteString from specified process. Internally uses @MPI_Recv@.
+-- | Receives ByteString from specified process. Internally uses 'Internal.recv' and relies on 'probe' to
+-- get the size of incoming message, which incurs slight additional overhead.
 recvBS :: Comm -> Rank -> Tag -> IO (BS.ByteString, Status)
 recvBS comm rank tag = do
    probeStatus <- probe rank tag comm
@@ -186,7 +188,7 @@ recvBS comm rank tag = do
           message <- BS.packCStringLen (castPtr bufferPtr, count)
           return (message, recvStatus))
 
--- | Sends message to specified process in non-blocking mode (using @MPI_ISend@).
+-- | Serializes message to ByteString and sends it to specified process in non-blocking mode as the array of 'byte's using 'Internal.isend'.
 --
 -- User have to utilise `wait' on the
 -- returned `Request' object to find out when operation is completed.
@@ -202,18 +204,18 @@ recvBS comm rank tag = do
 isend  :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
 isend  c r t m = isendBSwith Internal.isend  c r t $ encode m
 
--- | Sends message to specified process utilising buffer attached with TODO in non-blocking mode (using @MPI_BSend@)
+-- | Serializes message to ByteString and sends it to the specified process utilising buffer attached with TODO in non-blocking mode as the array of 'byte's using 'Internal.bsend'.
 ibsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
 ibsend c r t m = isendBSwith Internal.ibsend c r t $ encode m
 
--- | Sends message to specified process in non-blocking mode (using @MPI_BSend@)
+-- | Serializes message to ByteString and sends it to the specified process in non-blocking mode as the array of 'byte's using 'Internal.bsend'.
 --
 -- Calling `wait' on returned `Request' object would complete once the receiving
 -- process has actually started receiving data.
 issend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
 issend c r t m = isendBSwith Internal.issend c r t $ encode m
 
--- | Sends ByteString to specified process in non-blocking mode (using @MPI_ISend@).
+-- | Serializes message to ByteString and sends it to the specified process in non-blocking mode as the array of 'byte's using 'Internal.isend'.
 isendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO Request
 isendBS = isendBSwith Internal.isend
 
@@ -272,7 +274,8 @@ cancelFuture = killThread . futureThread
 
 -- | Non-blocking receive of the message. Returns value of type `Future',
 -- which could be used to check status of the operation using `getFutureStatus'
--- and extract actual value using either `waitFuture' or `pollFuture':
+-- and extract actual value using either `waitFuture' or `pollFuture'. 
+-- Internally this uses the blocking 'recv' in a separate execution thread.
 --
 -- Example:
 --
@@ -292,9 +295,10 @@ recvFuture comm rank tag = do
    return $ Future { futureThread = threadId, futureStatus = statusRef, futureVal = valRef }
 
 -- | Broadcasts message to all members of specified inter- or intra-communicator.
--- `Rank' of the sending process should be provided, as mandated by MPI.
+-- `Rank' of the sending process should be provided, as mandated by MPI. Internally uses two 'Fast.bcastSend' calls to
+-- distribute length of the message before the message itself.
 --
--- This function handles both inter- and intracommunicators, provided that the caller makes proper use of `theRoot' and `procNull'
+-- This function handles both inter- and intracommunicators, provided that the caller makes proper use of `theRoot' and `procNull'.
 --
 -- See `bcastRecv' for complete example.
 bcastSend :: Serialize msg => Comm -> Rank -> msg -> IO ()
@@ -323,7 +327,8 @@ bcastSend comm rootRank msg = do
       -- then broadcast the actual message
       Fast.bcastSend comm rootRank bs
 
-{- | Receive the message being broadcasted in the communicator from the process with specified `Rank'
+{- | Receive the message being broadcasted in the communicator from the process with specified `Rank'.
+Internally uses two 'Fast.bcastRecv' calls to receive the length of the message and after that the message itself.
 
 Example:
 
@@ -341,7 +346,9 @@ bcastRecv comm rootRank = do
     Left e -> fail e
     Right val -> return val
 
--- | Send a message to the specified process, to be collected using `gatherRecv'.
+{- | Send a message to the specified process, to be collected using `gatherRecv'.
+Internally uses 'Fast.gatherSend' to send the message length and 'Fast.gathervSend' to send the message itself.
+-}
 gatherSend :: Serialize msg => Comm -> Rank -> msg -> IO ()
 gatherSend comm root msg = do
   let enc_msg = encode msg
@@ -351,7 +358,8 @@ gatherSend comm root msg = do
   Fast.gathervSend comm root enc_msg
 
 {- | Collects the messages sent with `gatherSend' and returns them as list.
-Note that per MPI semantics collecting process is expected to supply the message as well.
+Note that per MPI semantics collecting process is expected to supply the message as well. 
+Internally uses 'Fast.gatherRecv' to obtain the message lengths and 'Fast.gathervRecv' to collect the messages.
 
 This function handles both inter- and intracommunicators, provided that the caller makes proper use of `theRoot' and `procNull'.
 
@@ -389,7 +397,8 @@ decodeList lengths bs = unfoldr decodeNext (lengths,bs)
         Left e -> fail e
         Right val -> Just (val, (ls, BS.drop (cIntConv l) bs))
 
-{- | Receives single message from the process that distributes them with `scatterSend'
+{- | Receives single message from the process that distributes them with `scatterSend'.
+Internally uses 'Fast.scatterRecv' to get the length of the message followed by 'Fast.scattervRecv' to get the message itself.
 
 Example. Scattering @\"Hello world\"@ to all processes from process with rank 0:
 
@@ -412,6 +421,8 @@ scatterRecv comm root = do
 -- | Distributes a list of messages between processes in the given communicator
 -- so that each process gets exactly one message. It is caller's responsibility
 -- to ensure that list has proper amount of messages (error would be raised otherwise).
+--
+-- Internally uses 'Fast.scatterSend' to distribute the lengths of the messages followed by 'Fast.scattervSend' to distribute the serialized messages.
 --
 -- This function handles both inter- and intracommunicators.
 scatterSend :: Serialize msg => Comm -> Rank -> [msg] -> IO msg
@@ -448,6 +459,9 @@ scatterSend comm root msgs = do
 by every process in the communicator. Value returned from this function would be identical across
 all processes.
 
+Internally uses 'Fast.allgather' to send length of the message and collect lengths of messages coming from other processes, and then uses
+'Fast.allgatherv' to send own message and collect messages from other processes.
+
 This function handles both inter- and intracommunicators.
 
 Example. Each process shares it's rank number, so that all processes have to full list of all participating ranks:
@@ -471,6 +485,8 @@ allgather comm msg = do
 
 {- | Each processes in the given communicator sends one message to every other process
 and receives a list of messages, one from every process in the communicator.
+
+Internally uses 'Fast.alltoall' to communicate lengths of the messages followed by 'Fast.alltoallv' to communicate the serialized messages.
 
 This function handles both inter- and intracommunicators.
 
