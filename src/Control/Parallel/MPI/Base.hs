@@ -19,23 +19,6 @@
 
 module Control.Parallel.MPI.Base
    (
-   -- * Notable changes from the C interface to MPI
-   --
-   -- ** Collective operations are split
-   -- $collectives-split
-
-   -- ** Reversed order of arguments
-   -- $arg-order
-
-   -- ** Rank checking in collective functions
-   -- $rank-checking
-
-   -- ** Error handling
-   -- $err-handling
-
-   -- * Example
-   -- $example
-
    -- * Initialization, finalization, termination.
      init
    , finalize
@@ -225,6 +208,10 @@ pollFuture = tryTakeMVar . futureVal
 cancelFuture :: Future a -> IO ()
 cancelFuture = killThread . futureThread
 -- XXX May want to stop people from waiting on Futures which are killed...
+
+
+-- XXX I'm temporarily leaving these comments below until we are happy with
+-- the haddocks.
 
 {- $collectives-split
 Collective operations in MPI usually take a large set of arguments

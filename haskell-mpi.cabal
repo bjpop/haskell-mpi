@@ -15,7 +15,7 @@ description:         Haskell bindings to the MPI library.
  beneficial to consult the MPI-2 standard documentation provided by the
  MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
  the MPI implementation linked to this library (that is, the MPI
- implementation which is chosen when this Haskell library is compiled).
+ implementation which was chosen when this Haskell library was compiled).
  .
  "Control.Parallel.MPI.Fast" contains a high-performance interface
  for working with (possibly mutable) arrays of storable Haskell data types.
@@ -29,6 +29,41 @@ description:         Haskell bindings to the MPI library.
  "Control.Parallel.MPI.Base" contains essential MPI functionality
  which is independent of the message passing API. This is re-exported
  by the Fast and Simple modules.
+ .
+ Notable changes from the C interface to MPI:
+ .
+    1. Certain collective message passing operations are split into send
+       and recv parts to create a more idiomatic Haskell style of programming.
+       For example, C provides the @MPI_Gather@ gather function which is called
+       by all processes participating in the communication, whereas
+       Haskell-MPI provides 'gatherSend' and 'gatherRecv' which are called
+       by the sending and receiving processes respectively.
+ .
+    2. The order of arguments for some functions is changed to allow
+       for the most common patterns of partial function application.
+ .
+    3. Errors are raised as exceptions rather than return codes (assuming
+       that the error handler to 'errorsThrowExceptions', otherwise errors
+       will terminate the computation just like C interface).
+ .
+      Below is a small but complete MPI program. Process 1 sends the message
+      @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
+      to standard output. It assumes that there are at least two MPI processes
+      available; a more robust program would check this condition first, before
+      trying to send messages.
+ .
+      >module Main where
+      >import Control.Parallel.MPI.Simple
+      >import Control.Monad (when)
+      >
+      >main :: IO ()
+      >main = mpi $ do
+      >  rank <- commRank commWorld
+      >  when (rank == 1) $
+      >     send commWorld 0 unitTag "Hello World"
+      >  when (rank == 0) $ do
+      >     (msg, _status) <- recv commWorld 1 unitTag
+      >  putStrLn msg
 
 category:            FFI, Distributed Computing
 license:             BSD3
