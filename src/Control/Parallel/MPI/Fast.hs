@@ -392,10 +392,13 @@ class Repr e where
   -- How many elements of given datatype do we need to represent given
   -- type in MPI transfers
   representation :: e -> (Int, Datatype)
-  
+
+-- | Representation is 'unsigned'
 instance Repr Bool where
   representation _ = (1,unsigned)
 
+-- | Note that C @int@ is alway 32-bit, while Haskell @Int@ size is platform-dependent. Therefore on 32-bit platforms 'int' 
+-- is used to represent 'Int', and on 64-bit platforms 'longLong' is used
 instance Repr Int where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,int)
@@ -405,17 +408,23 @@ instance Repr Int where
 #error Haskell MPI bindings not tested on architecture where size of Haskell Int is not 4 or 8
 #endif
 
+-- | Representation is 'byte'
 instance Repr Int8 where
    representation _ = (1,byte)
+-- | Representation is 'short'
 instance Repr Int16 where
    representation _ = (1,short)
+-- | Representation is 'int'
 instance Repr Int32 where
    representation _ = (1,int)
+-- | Representation is 'longLong'
 instance Repr Int64 where
    representation _ = (1,longLong)
+-- | Representation is 'int'
 instance Repr CInt where
   representation _ = (1,int)
 
+-- | Representation is either 'int' or 'longLong', depending on the platform. See comments for @Repr Int@.
 instance Repr Word where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,unsigned)
@@ -423,22 +432,30 @@ instance Repr Word where
   representation _ = (1,unsignedLongLong)
 #endif
 
+-- | Representation is 'byte'
 instance Repr Word8 where
   representation _ = (1,byte)
+-- | Representation is 'unsignedShort'
 instance Repr Word16 where
   representation _ = (1,unsignedShort)
+-- | Representation is 'unsigned'
 instance Repr Word32 where
   representation _ = (1,unsigned)
+-- | Representation is 'unsignedLongLong'
 instance Repr Word64 where
   representation _ = (1,unsignedLongLong)
 
+-- | Representation is 'wchar'
 instance Repr Char where
   representation _ = (1,wchar)
+-- | Representation is 'char'
 instance Repr CChar where
   representation _ = (1,char)
 
+-- | Representation is 'double'
 instance Repr Double where
   representation _ = (1,double)
+-- | Representation is 'float'
 instance Repr Float where
   representation _ = (1,float)
 
