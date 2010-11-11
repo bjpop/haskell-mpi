@@ -592,6 +592,74 @@ intoNewBS_ len f = do
   (bs, _) <- intoNewBS len f
   return bs
 
-opCreate :: Storable t => Bool -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) -> IO Operation
+{- |
+Binds a user-dened reduction operation to an 'Operation' handle that can
+subsequently be used in 'reduceSend', 'reduceRecv', 'allreduce', and 'reduceScatter'.
+The user-defined operation is assumed to be associative. 
+
+If first argument to @opCreate@ is @True@, then the operation should be both commutative and associative. If
+it is not commutative, then the order of operands is fixed and is defined to be in ascending,
+process rank order, beginning with process zero. The order of evaluation can be changed,
+taking advantage of the associativity of the operation. If operation
+is commutative then the order
+of evaluation can be changed, taking advantage of commutativity and
+associativity.
+
+User-defined operation accepts four arguments, @invec@, @inoutvec@,
+@len@ and @datatype@ and applies reduction operation to the elements
+of @invec@ and @inoutvec@ in pariwise manner. In pseudocode:
+
+@
+for i in [0..len-1] { inoutvec[i] = op invec[i] inoutvec[i] }
+@
+
+Full example with user-defined function that mimics standard operation
+'sumOp':
+
+@
+import "Control.Parallel.MPI.Fast"
+
+foreign import ccall \"wrapper\" 
+  wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()) 
+          -> IO (FunPtr (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()))
+reduceUserOpTest myRank = do
+  numProcs <- commSize commWorld
+  userSumPtr <- wrap userSum
+  mySumOp <- opCreate True userSumPtr
+  (src :: StorableArray Int Double) <- newListArray (0,99) [0..99]
+  if myRank /= root
+    then reduceSend commWorld root sumOp src
+    else do
+    (result :: StorableArray Int Double) <- intoNewArray_ (0,99) $ reduceRecv commWorld root mySumOp src
+    recvMsg <- getElems result
+  freeHaskellFunPtr userSumPtr
+  where
+    userSum :: Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()
+    userSum inPtr inoutPtr lenPtr _ = do
+      len <- peek lenPtr
+      let offs = sizeOf ( undefined :: CDouble )
+      let loop 0 _ _ = return ()
+          loop n inPtr inoutPtr = do
+            a <- peek inPtr
+            b <- peek inoutPtr
+            poke inoutPtr (a+b)
+            loop (n-1) (plusPtr inPtr offs) (plusPtr inoutPtr offs)
+      loop len inPtr inoutPtr
+@
+-}
+opCreate :: Storable t => Bool
+            -- ^ Whether the operation is commutative
+            -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) 
+            {- ^ Pointer to function that accepts, in order:
+ 
+            * @invec@, pointer to first input vector
+
+            * @inoutvec@, pointer to second input vector, which is also the output vector
+
+            * @len@, pointer to length of both vectors
+
+            * @datatype@, pointer to 'Datatype' of elements in both vectors
+            -}
+            -> IO Operation -- ^ Handle to the created user-defined operation
 opCreate commute f = do
   Internal.opCreate (castFunPtr f) commute
