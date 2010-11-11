@@ -95,17 +95,9 @@ module Control.Parallel.MPI.Fast
    , alltoallv
    , allreduce
    , reduceScatter
-   -- * TODO
-   , SendFrom (..)
-   , RecvInto (..)
-   , Repr (..)
    , opCreate
-   , intoNewArray
-   , intoNewArray_
-   , intoNewVal
-   , intoNewVal_
-   , intoNewBS
-   , intoNewBS_
+   , Internal.opFree
+     
    , module Data.Word
    , module Control.Parallel.MPI.Base
    ) where
