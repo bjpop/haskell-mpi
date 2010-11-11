@@ -231,7 +231,7 @@ alltoallTest myRank = do
   let recvRange = sendRange
       expected = map fromIntegral $ [0..numProcs-1]
 
-  (result::ArrMsg) <- intoNewArray_ recvRange $ alltoall commWorld msg 1
+  (result::ArrMsg) <- intoNewArray_ recvRange $ alltoall commWorld msg 1 1
   recvMsg <- getElems result
 
   recvMsg == expected @? "Got segment = " ++ show recvMsg ++ " instead of " ++ show expected

@@ -509,7 +509,7 @@ alltoall comm msgs = do
   when (length msgs /= numProcs) $ fail "Unable to deliver one message to each receiving process in alltoall"
   -- First, all-to-all payload sizes
   (sendLengthsArr :: SA.StorableArray Int CInt) <- SA.newListArray (1,numProcs) sendLengths
-  (recvLengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (1,numProcs) $ Fast.alltoall comm sendLengthsArr 1
+  (recvLengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (1,numProcs) $ Fast.alltoall comm sendLengthsArr 1 1
   recvLengths <- SA.getElems recvLengthsArr
   -- calculate displacements from sizes
   (sendDisplArr :: SA.StorableArray Int CInt) <- SA.newListArray (1,numProcs) $ Prelude.init $ scanl1 (+) (0:sendLengths)

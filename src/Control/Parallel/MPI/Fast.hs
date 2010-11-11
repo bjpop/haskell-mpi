@@ -344,16 +344,22 @@ allgatherv comm segment counts displacements recvVal = do
           recvInto recvVal $ \recvPtr _ recvType ->
             Internal.allgatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr) countsPtr displPtr recvType comm
              
--- XXX: when sending arrays, we can not measure the size of the array element with sizeOf here without
--- breaking the abstraction. Hence for now `sendCount' should be treated as "count of the underlying MPI
--- representation elements that have to be sent to each process". User is expected to know that type and its size.
--- XXX: we should probably take representation scale into account here
-alltoall :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> Int -> v2 -> IO ()
-alltoall comm sendVal sendCount recvVal = do
-  let sendCount_ = cIntConv sendCount
+{- | Scatter/Gather data from all
+members to all members of a group (also called complete exchange).
+
+Caller is expected to make sure that types of send and receive buffers and send/receive counts
+are selected in a way such that amount of bytes sent equals amount of bytes received pairwise between all processes.
+-}
+alltoall :: (SendFrom v1, RecvInto v2) => Comm 
+            -> v1 -- ^ Send buffer
+            -> Int -- ^ How many elements to /send/ to each process
+            -> Int -- ^ How many elements to /receive/ from each process
+            -> v2 -- ^ Receive buffer
+            -> IO ()
+alltoall comm sendVal sendCount recvCount recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
-    recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent must equal amount received
-      Internal.alltoall (castPtr sendPtr) sendCount_ sendType (castPtr recvPtr) sendCount_ sendType comm
+    recvInto recvVal $ \recvPtr _ recvType -> -- Since amount sent must equal amount received
+      Internal.alltoall (castPtr sendPtr) (cIntConv sendCount) sendType (castPtr recvPtr) (cIntConv recvCount) recvType comm
 
 alltoallv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
