@@ -9,6 +9,7 @@ import Control.Parallel.MPI.Base
 
 otherTests :: Rank -> [(String,TestRunnerTest)]
 otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke
+               , testCase "Querying MPI implementation" getImplementationTest
                , testCase "wtime/wtick" wtimeWtickTest
                , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
                , testCase "initialized" initializedTest
@@ -22,6 +23,10 @@ statusPeekPoke = do
     poke statusPtr s0
     s1 <- peek statusPtr
     s0 == s1 @? ("Poked " ++ show s0 ++ ", but peeked " ++ show s1)
+
+getImplementationTest :: IO ()
+getImplementationTest = do
+  putStrLn $ "Using " ++ show (getImplementation)
 
 wtimeWtickTest :: IO ()
 wtimeWtickTest = do
