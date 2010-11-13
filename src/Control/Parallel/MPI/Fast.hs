@@ -453,7 +453,7 @@ reduceScatterBlock :: (SendFrom v, RecvInto v) =>
 reduceScatterBlock comm op blocksize sendVal recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
-      Internal.reduceScatterBlock (castPtr sendPtr) (castPtr recvPtr) (cIntConv blocksize) sendType op comm
+      Internal.reduceScatterBlock (castPtr sendPtr) (castPtr recvPtr) (cIntConv blocksize :: CInt) sendType op comm
 
 -- | Combination of 'reduceSend' / 'reduceRecv' and 'scatterSend' / 'scatterRecv': reduction result
 -- is split and scattered among participating processes.
