@@ -153,14 +153,25 @@ array size as a simple number instead of range.
 
 -}
 
--- | if the user wants to call scattervRecv for the first time without
--- already having allocated the array, then they can call it like so:
---
--- (array,_) <- intoNewArray range $ scattervRecv root comm
---
--- and thereafter they can call it like so:
---
---  scattervRecv root comm array
+
+{- | Helper wrapper function that would allocate array of the given size and use it as receive buffer, without the need to
+preallocate it explicitly.
+
+Most of the functions in this API could reuse receive buffer (like 'StorableArray') over and over again.
+If you do not have preallocated buffer you could use this wrapper to get yourself one.
+
+Consider the following code that uses preallocated buffer:
+
+@
+scattervRecv root comm arr
+@
+
+Same code with buffer allocation:
+
+@
+(arr,status) <- intoNewArray range $ scattervRecv root comm
+@
+-}
 intoNewArray :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
 intoNewArray range f = do
   arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
@@ -168,7 +179,8 @@ intoNewArray range f = do
   res <- f arr
   return (arr, res)
 
--- | Same as withRange, but discards the result of the processor function
+-- | Variant of 'intoNewArray' that discards the result of the wrapped function.
+-- Useful for discarding @()@ from functions like 'scatterSend' that return @IO ()@
 intoNewArray_ :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e)
 intoNewArray_ range f = do
   arr <- unsafeNewArray_ range
@@ -443,6 +455,8 @@ allreduce comm op sendVal recvVal =
 -- is split and scattered among participating processes.
 --
 -- See 'reduceScatter' if you want to be able to specify personal block size for each process.
+-- 
+-- Note that this function is not supported with OpenMPI 1.5
 reduceScatterBlock :: (SendFrom v, RecvInto v) => 
                  Comm -- ^ Communicator engaged in reduction/
                  -> Operation -- ^ Reduction operation
@@ -470,12 +484,12 @@ reduceScatter comm op counts sendVal recvVal =
       withStorableArray counts $ \countsPtr ->
       Internal.reduceScatter (castPtr sendPtr) (castPtr recvPtr) countsPtr sendType op comm
 
+-- |  How many (consecutive) elements of given datatype do we need to represent given
+--   the Haskell type in MPI operations
 class Repr e where
-  -- How many elements of given datatype do we need to represent given
-  -- type in MPI transfers
   representation :: e -> (Int, Datatype)
 
--- | Representation is 'unsigned'
+-- | Representation is one 'unsigned'
 instance Repr Bool where
   representation _ = (1,unsigned)
 
@@ -490,23 +504,23 @@ instance Repr Int where
 #error Haskell MPI bindings not tested on architecture where size of Haskell Int is not 4 or 8
 #endif
 
--- | Representation is 'byte'
+-- | Representation is one 'byte'
 instance Repr Int8 where
    representation _ = (1,byte)
--- | Representation is 'short'
+-- | Representation is one 'short'
 instance Repr Int16 where
    representation _ = (1,short)
--- | Representation is 'int'
+-- | Representation is one 'int'
 instance Repr Int32 where
    representation _ = (1,int)
--- | Representation is 'longLong'
+-- | Representation is one 'longLong'
 instance Repr Int64 where
    representation _ = (1,longLong)
--- | Representation is 'int'
+-- | Representation is one 'int'
 instance Repr CInt where
   representation _ = (1,int)
 
--- | Representation is either 'int' or 'longLong', depending on the platform. See comments for @Repr Int@.
+-- | Representation is either one 'int' or one 'longLong', depending on the platform. See comments for @Repr Int@.
 instance Repr Word where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,unsigned)
@@ -514,30 +528,30 @@ instance Repr Word where
   representation _ = (1,unsignedLongLong)
 #endif
 
--- | Representation is 'byte'
+-- | Representation is one 'byte'
 instance Repr Word8 where
   representation _ = (1,byte)
--- | Representation is 'unsignedShort'
+-- | Representation is one 'unsignedShort'
 instance Repr Word16 where
   representation _ = (1,unsignedShort)
--- | Representation is 'unsigned'
+-- | Representation is one 'unsigned'
 instance Repr Word32 where
   representation _ = (1,unsigned)
--- | Representation is 'unsignedLongLong'
+-- | Representation is one 'unsignedLongLong'
 instance Repr Word64 where
   representation _ = (1,unsignedLongLong)
 
--- | Representation is 'wchar'
+-- | Representation is one 'wchar'
 instance Repr Char where
   representation _ = (1,wchar)
--- | Representation is 'char'
+-- | Representation is one 'char'
 instance Repr CChar where
   representation _ = (1,char)
 
--- | Representation is 'double'
+-- | Representation is one 'double'
 instance Repr Double where
   representation _ = (1,double)
--- | Representation is 'float'
+-- | Representation is one 'float'
 instance Repr Float where
   representation _ = (1,float)
 
@@ -550,14 +564,27 @@ instance Repr e => Repr (IOArray i e) where
 instance Repr e => Repr (IOUArray i e) where
   representation _ = representation (undefined::e)
 
--- Note that 'e' is not bound by the typeclass, so all kinds of foul play
--- are possible. However, since MPI declares all buffers as 'void*' anyway, 
--- we are not making life all _that_ unsafe with this
-class SendFrom v where
-   sendFrom :: v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
+{- | Treat @v@ as send buffer suitable for the purposes of this API.
 
+Method 'sendFrom' is expected to deduce how to use @v@ as a memory-mapped buffer that consist of a number of
+elements of some 'Datatype'. It would then call the supplied function, passing it the pointer to the buffer,
+its size (in elements) and type of the element.
+
+Note that @e@ is not bound by the typeclass, so all kinds of foul play
+are possible. However, since MPI declares all buffers as @void*@ anyway, 
+we are not making life all /that/ unsafe with this.
+-}
+class SendFrom v where
+   sendFrom :: v -- ^ Value to use as send buffer
+               -> (Ptr e -> CInt -> Datatype -> IO a) -- ^ Function that will accept pointer to buffer, its length and type of buffer elements
+               -> IO a
+
+{- | Treat @v@ as receive buffer for the purposes of this API.
+-}
 class RecvInto v where
-   recvInto :: v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
+   recvInto :: v -- ^ Value to use as receive buffer 
+               -> (Ptr e -> CInt -> Datatype -> IO a)  -- ^ Function that will accept pointer to buffer, its length and type of buffer elements
+               -> IO a
 
 -- Sending from a single Storable values
 instance SendFrom CInt where
@@ -592,7 +619,7 @@ instance SendFrom Char where
   sendFrom = sendFromSingleValue
 instance SendFrom CChar where
   sendFrom = sendFromSingleValue
-
+  
 sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 sendFromSingleValue v f = do
   alloca $ \ptr -> do
@@ -600,10 +627,13 @@ sendFromSingleValue v f = do
     let (1, dtype) = representation v
     f (castPtr ptr) (1::CInt) dtype
 
--- Sending-receiving arrays of such values
+-- | Sending from Storable arrays requres knowing MPI representation 'Repr' of its elements. This is very
+-- fast and efficient, since array would be updated in-place.
 instance (Storable e, Repr e, Ix i) => SendFrom (StorableArray i e) where
   sendFrom = withStorableArrayAndSize
 
+-- | Receiving into Storable arrays requres knowing MPI representation 'Repr' of its elements. This is very
+-- fast and efficient, since array would be updated in-place.
 instance (Storable e, Repr e, Ix i) => RecvInto (StorableArray i e) where
   recvInto = withStorableArrayAndSize
 
@@ -614,9 +644,12 @@ withStorableArrayAndSize arr f = do
        numElements = cIntConv (rSize * scale)
    withStorableArray arr $ \ptr -> f (castPtr ptr) numElements dtype
 
--- Same, for IOArray
+-- | This is less efficient than using 'StorableArray'
+-- since extra memory copy is required to represent array as continuous memory buffer.   
 instance (Storable e, Repr (IOArray i e), Ix i) => SendFrom (IOArray i e) where
   sendFrom = sendWithMArrayAndSize
+-- | This is less efficient than using 'StorableArray'
+-- since extra memory copy is required to construct the resulting array.
 instance (Storable e, Repr (IOArray i e), Ix i) => RecvInto (IOArray i e) where
   recvInto = recvWithMArrayAndSize
 
@@ -646,7 +679,7 @@ fillArrayFromPtr indices numElements startPtr array = do
    elems <- peekArray numElements startPtr
    mapM_ (\(index, element) -> writeArray array index element ) (zip indices elems)
 
--- ByteString
+-- | Sending from ByteString is efficient, since it already has the necessary memory layout.
 instance SendFrom BS.ByteString where
   sendFrom = sendWithByteStringAndSize
 
@@ -654,17 +687,19 @@ sendWithByteStringAndSize :: BS.ByteString -> (Ptr z -> CInt -> Datatype -> IO a
 sendWithByteStringAndSize bs f = do
   unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (cIntConv len) byte
 
--- Pointers to storable with known on-wire representation
+-- | Receiving into pointers to 'Storable' scalars with known MPI representation
 instance (Storable e, Repr e) => RecvInto (Ptr e) where
   recvInto = recvIntoElemPtr (representation (undefined :: e))
     where
       recvIntoElemPtr (cnt,datatype) p f = f (castPtr p) (cIntConv cnt) datatype
 
+-- | Receiving into pointers to 'Storable' vectors with known MPI representation and length
 instance (Storable e, Repr e) => RecvInto (Ptr e, Int) where
   recvInto = recvIntoVectorPtr (representation (undefined :: e))
     where
       recvIntoVectorPtr (scale, datatype) (p,len) f = f (castPtr p) (cIntConv (len * scale) :: CInt) datatype
 
+-- | Allocate new 'Storable' value and use it as receive buffer
 intoNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
 intoNewVal f = do
   alloca $ \ptr -> do
@@ -672,12 +707,13 @@ intoNewVal f = do
     val <- peek ptr
     return (val, res)
 
+-- | Variant of 'intoNewVal' that discards result of the wrapped function
 intoNewVal_ :: (Storable e) => (Ptr e -> IO r) -> IO e
 intoNewVal_ f = do
   (val, _) <- intoNewVal f
   return val
 
--- Receiving into new bytestrings
+-- | Allocate new 'ByteString' of the given length and use it as receive buffer
 intoNewBS :: Integral a => a -> ((Ptr CChar,Int) -> IO r) -> IO (BS.ByteString, r)
 intoNewBS len f = do
   let l = fromIntegral len
@@ -686,6 +722,7 @@ intoNewBS len f = do
     bs <- BS.packCStringLen (ptr, l)
     return (bs, res)
 
+-- | Variant of 'intoNewBS' that discards result of the wrapped function
 intoNewBS_ :: Integral a => a -> ((Ptr CChar,Int) -> IO r) -> IO BS.ByteString
 intoNewBS_ len f = do
   (bs, _) <- intoNewBS len f
