@@ -9,11 +9,8 @@ Maintainer  : florbitous@gmail.com
 Stability   : experimental
 Portability : ghc
 
-This module provides MPI functionality for arbitrary Haskell values that could be
-represented as continuous memory-mapped regions, possibly comprised of the
-values of the same bytesize.
-
-Such values require very little extra (de)serialization effort, or sometimes no effort at all,
+This module provides MPI functionality for arbitrary Haskell types that could be
+represented by corresponding MPI types without additional conversion or serialization,
 which allows fast application of MPI operations.
 
 TODO: expand
@@ -56,9 +53,24 @@ process rank
 -----------------------------------------------------------------------------
 module Control.Parallel.MPI.Fast
    ( 
+     -- * Mapping between Haskell and MPI types
+     Repr (..)
+     
+     -- * Treating Haskell values as send or receive buffers
+   , SendFrom (..)
+   , RecvInto (..)
+
+     -- * On-the-fly buffer allocation helpers
+   , intoNewArray
+   , intoNewArray_
+   , intoNewVal
+   , intoNewVal_
+   , intoNewBS
+   , intoNewBS_
+     
      -- * Point-to-point operations.
      -- ** Blocking.
-     send
+   , send
    , bsend
    , ssend
    , rsend
@@ -95,17 +107,9 @@ module Control.Parallel.MPI.Fast
    , alltoallv
    , allreduce
    , reduceScatter
-   -- * TODO
-   , SendFrom (..)
-   , RecvInto (..)
-   , Repr (..)
    , opCreate
-   , intoNewArray
-   , intoNewArray_
-   , intoNewVal
-   , intoNewVal_
-   , intoNewBS
-   , intoNewBS_
+   , Internal.opFree
+     
    , module Data.Word
    , module Control.Parallel.MPI.Base
    ) where
@@ -238,7 +242,7 @@ isendWithPtr send_function comm recvRank tag requestPtr val = do
    copied when the wait was complete.
 -}
 
--- Pointer to Request is provided by called. Usefull for filling arrays of Requests for further consumption
+-- Pointer to Request is provided by caller. Usefull for filling arrays of Requests for further consumption
 -- by waitall
 irecvPtr :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> Ptr Request -> StorableArray i e -> IO ()
 irecvPtr comm sendRank tag requestPtr recvVal = do
@@ -330,13 +334,26 @@ gathervSend comm root segment = do
      -- the recvPtr, counts and displacements are ignored in this case, so we can make it NULL
      Internal.gatherv (castPtr sendPtr) sendElements sendType nullPtr nullPtr nullPtr byte root comm
 
+{- | A variation of 'gatherSend' and 'gatherRecv' where all members of
+a group receive the result.
+
+Caller is expected to make sure that types of send and receive buffers
+are selected in a way such that amount of bytes sent equals amount of bytes received pairwise between all processes.
+-}
 allgather :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> v2 -> IO ()
 allgather comm sendVal recvVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ -> -- Since amount sent equals amount received
       Internal.allgather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType comm
 
-allgatherv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
+-- | A variation of 'allgather' that allows to use data segments of
+--   different length.
+allgatherv :: (SendFrom v1, RecvInto v2) => Comm
+              -> v1 -- ^ Send buffer
+              -> StorableArray Int CInt -- ^ Lengths of segments in the send buffer
+              -> StorableArray Int CInt -- ^ Displacements of the segments in the send buffer
+              -> v2 -- ^ Receive buffer
+              -> IO ()
 allgatherv comm segment counts displacements recvVal = do
    sendFrom segment $ \sendPtr sendElements sendType ->
      withStorableArray counts $ \countsPtr ->  
@@ -400,10 +417,13 @@ class Repr e where
   -- How many elements of given datatype do we need to represent given
   -- type in MPI transfers
   representation :: e -> (Int, Datatype)
-  
+
+-- | Representation is 'unsigned'
 instance Repr Bool where
   representation _ = (1,unsigned)
 
+-- | Note that C @int@ is alway 32-bit, while Haskell @Int@ size is platform-dependent. Therefore on 32-bit platforms 'int' 
+-- is used to represent 'Int', and on 64-bit platforms 'longLong' is used
 instance Repr Int where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,int)
@@ -413,17 +433,23 @@ instance Repr Int where
 #error Haskell MPI bindings not tested on architecture where size of Haskell Int is not 4 or 8
 #endif
 
+-- | Representation is 'byte'
 instance Repr Int8 where
    representation _ = (1,byte)
+-- | Representation is 'short'
 instance Repr Int16 where
    representation _ = (1,short)
+-- | Representation is 'int'
 instance Repr Int32 where
    representation _ = (1,int)
+-- | Representation is 'longLong'
 instance Repr Int64 where
    representation _ = (1,longLong)
+-- | Representation is 'int'
 instance Repr CInt where
   representation _ = (1,int)
 
+-- | Representation is either 'int' or 'longLong', depending on the platform. See comments for @Repr Int@.
 instance Repr Word where
 #if SIZEOF_HSINT == 4  
   representation _ = (1,unsigned)
@@ -431,22 +457,30 @@ instance Repr Word where
   representation _ = (1,unsignedLongLong)
 #endif
 
+-- | Representation is 'byte'
 instance Repr Word8 where
   representation _ = (1,byte)
+-- | Representation is 'unsignedShort'
 instance Repr Word16 where
   representation _ = (1,unsignedShort)
+-- | Representation is 'unsigned'
 instance Repr Word32 where
   representation _ = (1,unsigned)
+-- | Representation is 'unsignedLongLong'
 instance Repr Word64 where
   representation _ = (1,unsignedLongLong)
 
+-- | Representation is 'wchar'
 instance Repr Char where
   representation _ = (1,wchar)
+-- | Representation is 'char'
 instance Repr CChar where
   representation _ = (1,char)
 
+-- | Representation is 'double'
 instance Repr Double where
   representation _ = (1,double)
+-- | Representation is 'float'
 instance Repr Float where
   representation _ = (1,float)
 
@@ -600,6 +634,74 @@ intoNewBS_ len f = do
   (bs, _) <- intoNewBS len f
   return bs
 
-opCreate :: Storable t => Bool -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) -> IO Operation
+{- |
+Binds a user-dened reduction operation to an 'Operation' handle that can
+subsequently be used in 'reduceSend', 'reduceRecv', 'allreduce', and 'reduceScatter'.
+The user-defined operation is assumed to be associative. 
+
+If first argument to @opCreate@ is @True@, then the operation should be both commutative and associative. If
+it is not commutative, then the order of operands is fixed and is defined to be in ascending,
+process rank order, beginning with process zero. The order of evaluation can be changed,
+taking advantage of the associativity of the operation. If operation
+is commutative then the order
+of evaluation can be changed, taking advantage of commutativity and
+associativity.
+
+User-defined operation accepts four arguments, @invec@, @inoutvec@,
+@len@ and @datatype@ and applies reduction operation to the elements
+of @invec@ and @inoutvec@ in pariwise manner. In pseudocode:
+
+@
+for i in [0..len-1] { inoutvec[i] = op invec[i] inoutvec[i] }
+@
+
+Full example with user-defined function that mimics standard operation
+'sumOp':
+
+@
+import "Control.Parallel.MPI.Fast"
+
+foreign import ccall \"wrapper\" 
+  wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()) 
+          -> IO (FunPtr (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()))
+reduceUserOpTest myRank = do
+  numProcs <- commSize commWorld
+  userSumPtr <- wrap userSum
+  mySumOp <- opCreate True userSumPtr
+  (src :: StorableArray Int Double) <- newListArray (0,99) [0..99]
+  if myRank /= root
+    then reduceSend commWorld root sumOp src
+    else do
+    (result :: StorableArray Int Double) <- intoNewArray_ (0,99) $ reduceRecv commWorld root mySumOp src
+    recvMsg <- getElems result
+  freeHaskellFunPtr userSumPtr
+  where
+    userSum :: Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()
+    userSum inPtr inoutPtr lenPtr _ = do
+      len <- peek lenPtr
+      let offs = sizeOf ( undefined :: CDouble )
+      let loop 0 _ _ = return ()
+          loop n inPtr inoutPtr = do
+            a <- peek inPtr
+            b <- peek inoutPtr
+            poke inoutPtr (a+b)
+            loop (n-1) (plusPtr inPtr offs) (plusPtr inoutPtr offs)
+      loop len inPtr inoutPtr
+@
+-}
+opCreate :: Storable t => Bool
+            -- ^ Whether the operation is commutative
+            -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) 
+            {- ^ Pointer to function that accepts, in order:
+ 
+            * @invec@, pointer to first input vector
+
+            * @inoutvec@, pointer to second input vector, which is also the output vector
+
+            * @len@, pointer to length of both vectors
+
+            * @datatype@, pointer to 'Datatype' of elements in both vectors
+            -}
+            -> IO Operation -- ^ Handle to the created user-defined operation
 opCreate commute f = do
   Internal.opCreate (castFunPtr f) commute
