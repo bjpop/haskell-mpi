@@ -89,16 +89,16 @@ main = do
     else do when (rank /= 0) $ do _ <- dupTo stdError stdOutput  -- redirect stdout to stderr for non-root processes
                                   return ()
             putStrLn $ "MPI implementation provides thread support level: " ++ show provided
-            testRunnerMain $ tests rank
+            testRunnerMain $ tests provided rank
             barrier commWorld -- synchronize processes after all tests
             -- Dump profiling data
             tix <- examineTix
             writeTix ("rank" ++ (show rank) ++ ".tix") tix
   finalize
 
-tests :: Rank -> [(String, TestRunnerTest)]
-tests rank =
-   otherTests rank
+tests :: ThreadSupport -> Rank -> [(String, TestRunnerTest)]
+tests threadSupport rank =
+   otherTests threadSupport rank
    ++ primTypeTests rank
    ++ simpleTests rank
    ++ storableArrayTests rank

@@ -201,7 +201,8 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
 
 -- | Returns the current provided level of thread support. This will be the value
 -- returned as \"provided level of support\" by 'initThread' as well.
-{# fun unsafe Query_thread as ^ {alloca- `Bool' peekBool* } -> `()' checkError*- #}
+-- {# fun unsafe Query_thread as ^ {alloca- `Bool' peekBool* } -> `()' checkError*- #}
+{# fun unsafe Query_thread as ^ {alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
 -- | This function can be called by a thread to find out whether it is the main thread (the
 -- thread that called 'init' or 'initThread'.
