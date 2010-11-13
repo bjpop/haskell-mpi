@@ -36,7 +36,7 @@ module Control.Parallel.MPI.Internal
      -- ** Predefined constants.
      maxProcessorName, maxErrorString,
      -- ** Runtime attributes.
-     getProcessorName, Version (..), getVersion,
+     getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
 
      -- * Requests and statuses.
      Request, Status (..), probe, test, cancel, wait, waitall,
@@ -246,6 +246,18 @@ getVersion = do
   where
     getVersion' = {# fun unsafe Get_version as getVersion_
                      {alloca- `Int' peekIntConv*, alloca- `Int' peekIntConv*} -> `()' checkError*- #}
+
+-- | Supported MPI implementations
+data Implementation = MPICH2 | OpenMPI deriving (Eq,Show)
+
+-- | Which MPI implementation was used during linking
+getImplementation :: Implementation
+getImplementation =
+#ifdef MPICH2
+       MPICH2
+#else
+       OpenMPI
+#endif
 
 -- | Return the number of processes involved in a communicator. For 'commWorld'
 -- it returns the total number of processes available. If the communicator is
