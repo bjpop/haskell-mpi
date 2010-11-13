@@ -57,33 +57,33 @@ arrMsg = newListArray range arrMsgContent
 
 syncSendRecvTest sendf rank
   | rank == sender   = do msg <- arrMsg
-                          sendf commWorld receiver tag2 msg
-  | rank == receiver = do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender tag2
-                          checkStatus status sender tag2
+                          sendf commWorld receiver 789 msg
+  | rank == receiver = do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender 789
+                          checkStatus status sender 789
                           elems <- getElems newMsg
                           elems == arrMsgContent @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
 
 rsendRecvTest rank = do
-  when (rank == receiver) $ do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender tag2
-                               checkStatus status sender tag2
+  when (rank == receiver) $ do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender 789
+                               checkStatus status sender 789
                                elems <- getElems newMsg
                                elems == arrMsgContent @? "Got wrong array: " ++ show elems
   when (rank == sender)   $ do msg <- arrMsg
                                threadDelay (2* 10^(6 :: Integer))
-                               rsend commWorld receiver tag2 msg
+                               rsend commWorld receiver 789 msg
   return ()
 
 {-
 asyncSendRecvTest isendf rank
   | rank == sender   = do msg <- arrMsg
-                          req <- isendf commWorld receiver tag3 msg
+                          req <- isendf commWorld receiver 123456 msg
                           stat <- wait req
-                          checkStatus stat sender tag3
+                          checkStatus stat sender 123456
   -- XXX this type annotation is ugly. Is there a way to make it nicer?
-  | rank == receiver = do (newMsg, req) <- intoNewArray range $ (irecv commWorld sender tag3 :: IOArray Int Int -> IO Request)
+  | rank == receiver = do (newMsg, req) <- intoNewArray range $ (irecv commWorld sender 123456 :: IOArray Int Int -> IO Request)
                           stat <- wait req
-                          checkStatus stat sender tag3
+                          checkStatus stat sender 123456
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()

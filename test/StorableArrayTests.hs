@@ -59,32 +59,32 @@ arrMsg = newListArray range [low..hi]
 
 syncSendRecvTest sendf rank
   | rank == sender   = do msg <- arrMsg
-                          sendf commWorld receiver tag2 msg
-  | rank == receiver = do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender tag2
-                          checkStatus status sender tag2
+                          sendf commWorld receiver 789 msg
+  | rank == receiver = do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender 789
+                          checkStatus status sender 789
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
 
 rsendRecvTest rank = do
-  when (rank == receiver) $ do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender tag2
-                               checkStatus status sender tag2
+  when (rank == receiver) $ do (newMsg::ArrMsg, status) <- intoNewArray range $ recv commWorld sender 789
+                               checkStatus status sender 789
                                elems <- getElems newMsg
                                elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   when (rank == sender)   $ do msg <- arrMsg
                                threadDelay (2* 10^(6 :: Integer))
-                               rsend commWorld receiver tag2 msg
+                               rsend commWorld receiver 789 msg
   return ()
 
 asyncSendRecvTest isendf rank
   | rank == sender   = do msg <- arrMsg
-                          req <- isendf commWorld receiver tag3 msg
+                          req <- isendf commWorld receiver 123456 msg
                           stat <- wait req
-                          checkStatusIfNotMPICH2 stat sender tag3
+                          checkStatusIfNotMPICH2 stat sender 123456
   -- XXX this type annotation is ugly. Is there a way to make it nicer?
-  | rank == receiver = do (newMsg, req) <- intoNewArray range $ irecv commWorld sender tag3
+  | rank == receiver = do (newMsg, req) <- intoNewArray range $ irecv commWorld sender 123456
                           stat <- wait req
-                          checkStatus stat sender tag3
+                          checkStatus stat sender 123456
                           elems <- getElems newMsg
                           elems == [low..hi::Int] @? "Got wrong array: " ++ show elems
   | otherwise        = return ()
@@ -94,23 +94,23 @@ asyncSendRecvWaitallTest rank
                           reqstat :: StorableArray Int Status  <- newArray_ (1,2)
                           msg <- arrMsg
                           withStorableArray request $ \reqPtr -> do
-                            isendPtr commWorld receiver tag1 reqPtr msg 
-                            issendPtr commWorld receiver tag2 (advancePtr reqPtr 1) msg
+                            isendPtr commWorld receiver 456 reqPtr msg 
+                            issendPtr commWorld receiver 789 (advancePtr reqPtr 1) msg
                           waitall request reqstat
                           statuses <- getElems reqstat
-                          checkStatusIfNotMPICH2 (statuses!!0) sender tag1
-                          checkStatusIfNotMPICH2 (statuses!!1) sender tag2
+                          checkStatusIfNotMPICH2 (statuses!!0) sender 456
+                          checkStatusIfNotMPICH2 (statuses!!1) sender 789
   -- XXX this type annotation is ugly. Is there a way to make it nicer?
   | rank == receiver = do request :: StorableArray Int Request <- newArray_ (1,2)
                           reqstat :: StorableArray Int Status  <- newArray_ (1,2)
                           (newMsg1, newMsg2) <- withStorableArray request $ \reqPtr -> do
-                            msg1 <- intoNewArray_ range $ irecvPtr commWorld sender tag1 reqPtr
-                            msg2 <- intoNewArray_ range $ irecvPtr commWorld sender tag2 (advancePtr reqPtr 1)
+                            msg1 <- intoNewArray_ range $ irecvPtr commWorld sender 456 reqPtr
+                            msg2 <- intoNewArray_ range $ irecvPtr commWorld sender 789 (advancePtr reqPtr 1)
                             return (msg1, msg2)
                           waitall request reqstat
                           statuses <- getElems reqstat
-                          checkStatus (statuses!!0) sender tag1
-                          checkStatus (statuses!!1) sender tag2
+                          checkStatus (statuses!!0) sender 456
+                          checkStatus (statuses!!1) sender 789
                           elems1 <- getElems newMsg1
                           elems2 <- getElems newMsg2
                           elems1 == [low..hi::Int] @? "Got wrong array 1: " ++ show elems1

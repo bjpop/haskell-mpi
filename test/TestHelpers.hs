@@ -9,7 +9,6 @@ module TestHelpers (
   Actor(..),
   sender,
   receiver,
-  tag0, tag1, tag2, tag3
   ) where
 
 import Test.Runner
@@ -51,10 +50,3 @@ data Actor = Sender | Receiver
 sender, receiver :: Rank
 sender = toRank Sender
 receiver = toRank Receiver
-
-tag0, tag1, tag2, tag3 :: Tag
-tag0 = toTag (0 :: Int)
-tag1 = toTag (1 :: Int)
-tag2 = toTag (2 :: Int)
-tag3 = toTag (3 :: Int)
-
