@@ -136,6 +136,8 @@ module Control.Parallel.MPI.Base
    , getProcessorName
    , Version (..)
    , getVersion
+   , Implementation (..)
+   , getImplementation
 
    -- * Error handling.
    , MPIError(..)
