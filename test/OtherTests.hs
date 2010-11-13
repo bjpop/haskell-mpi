@@ -7,14 +7,24 @@ import Foreign.Marshal (alloca)
 import Foreign.C.Types (CInt)
 import Control.Parallel.MPI.Base
 
-otherTests :: Rank -> [(String,TestRunnerTest)]
-otherTests _ = [ testCase "Peeking/poking Status" statusPeekPoke
-               , testCase "Querying MPI implementation" getImplementationTest
-               , testCase "wtime/wtick" wtimeWtickTest
-               , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
-               , testCase "initialized" initializedTest
-               , testCase "finalized" finalizedTest 
-               , testCase "tag value upper bound" tagUpperBoundTest ]
+otherTests :: ThreadSupport -> Rank -> [(String,TestRunnerTest)]
+otherTests threadSupport _ =
+   [ testCase "Peeking/poking Status" statusPeekPoke
+   , testCase "Querying MPI implementation" getImplementationTest
+   , testCase "wtime/wtick" wtimeWtickTest
+   , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
+   , testCase "initialized" initializedTest
+   , testCase "finalized" finalizedTest
+   , testCase "tag value upper bound" tagUpperBoundTest
+   , testCase "queryThread" $ queryThreadTest threadSupport
+   ]
+
+queryThreadTest :: ThreadSupport -> IO ()
+queryThreadTest threadSupport = do
+   newThreadSupport <- queryThread
+   threadSupport == newThreadSupport @?
+      ("Result from queryThread: " ++ show newThreadSupport ++
+       ", differs from result from initThread: " ++ show threadSupport)
 
 statusPeekPoke :: IO ()
 statusPeekPoke = do
@@ -58,4 +68,3 @@ tagUpperBoundTest :: IO ()
 tagUpperBoundTest = do
   putStrLn $ "Maximum tag value is " ++ show tagUpperBound
   tagUpperBound /= (-1) @? "tagUpperBound has no value"
-  

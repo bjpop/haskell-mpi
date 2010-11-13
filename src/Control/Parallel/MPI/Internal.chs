@@ -202,8 +202,9 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
                 {cFromEnum `ThreadSupport', alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
 -- | Returns the current provided level of thread support. This will be the value
--- returned as \"provided level of support\" by 'initThread' as well.
-{# fun unsafe Query_thread as ^ {alloca- `Bool' peekBool* } -> `()' checkError*- #}
+-- returned as \"provided level of support\" by 'initThread' as well. This function
+-- corresponds to @MPI_Query_thread@.
+{# fun unsafe Query_thread as ^ {alloca- `ThreadSupport' peekEnum* } -> `()' checkError*- #}
 
 -- | This function can be called by a thread to find out whether it is the main thread (the
 -- thread that called 'init' or 'initThread'.
@@ -633,22 +634,34 @@ every millisecond, the value returned by @wtick@ should be 10^(-3).
 {# fun unsafe Comm_group as ^
                {fromComm `Comm', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
+-- | Returns the rank of the calling process in the given group. This function corresponds to @MPI_Group_rank@.
+groupRank :: Group -> Rank
 groupRank = unsafePerformIO <$> groupRank'
   where groupRank' = {# fun unsafe Group_rank as groupRank_
                         {fromGroup `Group', alloca- `Rank' peekIntConv*} -> `()' checkError*- #}
 
+-- | Returns the size of a group. This function corresponds to @MPI_Group_size@.
+groupSize :: Group -> Int
 groupSize = unsafePerformIO <$> groupSize'
   where groupSize' = {# fun unsafe Group_size as groupSize_
                         {fromGroup `Group', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
 
+-- | Constructs the union of two groups: all the members of the first group, followed by all the members of the 
+-- second group that do not appear in the first group. This function corresponds to @MPI_Group_union@.
+groupUnion :: Group -> Group -> Group
 groupUnion g1 g2 = unsafePerformIO $ groupUnion' g1 g2
   where groupUnion' = {# fun unsafe Group_union as groupUnion_
                          {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
+-- | Constructs a new group which is the intersection of two groups. This function corresponds to @MPI_Group_intersection@.
+groupIntersection :: Group -> Group -> Group
 groupIntersection g1 g2 = unsafePerformIO $ groupIntersection' g1 g2
   where groupIntersection' = {# fun unsafe Group_intersection as groupIntersection_
                                 {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
+-- | Constructs a new group which contains all the elements of the first group which are not in the second group. 
+-- This function corresponds to @MPI_Group_difference@.
+groupDifference :: Group -> Group -> Group
 groupDifference g1 g2 = unsafePerformIO $ groupDifference' g1 g2
   where groupDifference' = {# fun unsafe Group_difference as groupDifference_
                               {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
