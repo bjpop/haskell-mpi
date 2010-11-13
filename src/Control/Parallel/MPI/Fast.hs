@@ -106,6 +106,7 @@ module Control.Parallel.MPI.Fast
    , alltoall
    , alltoallv
    , allreduce
+   , reduceScatterBlock
    , reduceScatter
    , opCreate
    , Internal.opFree
@@ -438,8 +439,24 @@ allreduce comm op sendVal recvVal =
     recvInto recvVal $ \recvPtr _ _ ->
       Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
 
--- | Variant of 'reduceSend' and 'reduceRecv' (or 'allreduce') where result is split into parts that are scattered
--- among the participating processes.
+-- | Combination of 'reduceSend' + 'reduceRecv' and 'scatterSend' + 'scatterRecv': reduction result
+-- is split and scattered among participating processes.
+--
+-- See 'reduceScatter' if you want to be able to specify personal block size for each process.
+reduceScatterBlock :: (SendFrom v, RecvInto v) => 
+                 Comm -- ^ Communicator engaged in reduction/
+                 -> Operation -- ^ Reduction operation
+                 -> Int -- ^ Size of the result block sent to each process
+                 -> v -- ^ Value supplied by this process
+                 -> v -- ^ Reduction result
+                 -> IO ()
+reduceScatterBlock comm op blocksize sendVal recvVal =
+  sendFrom sendVal $ \sendPtr _ sendType ->
+    recvInto recvVal $ \recvPtr _ _ ->
+      Internal.reduceScatterBlock (castPtr sendPtr) (castPtr recvPtr) (cIntConv blocksize) sendType op comm
+
+-- | Combination of 'reduceSend' / 'reduceRecv' and 'scatterSend' / 'scatterRecv': reduction result
+-- is split and scattered among participating processes.
 reduceScatter :: (SendFrom v, RecvInto v) => 
                  Comm -- ^ Communicator engaged in reduction/
                  -> Operation -- ^ Reduction operation

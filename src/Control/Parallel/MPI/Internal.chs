@@ -85,7 +85,9 @@ module Control.Parallel.MPI.Internal
      -- ** All-to-all.
      allgather, allgatherv,
      alltoall, alltoallv,
-     allreduce, reduceScatter,
+     allreduce, 
+     reduceScatterBlock,
+     reduceScatter,
      barrier,
 
      -- ** Reduction operations.
@@ -504,7 +506,21 @@ withRequest req f = do alloca $ \ptr -> do poke ptr req
    { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
      fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
 
--- | A combined reduction and scatter operation
+#ifdef MPICH2
+-- | A combined reduction and scatter operation - result is split and
+--   parts are distributed among the participating processes.
+--
+-- See 'reduceScatter' for variant that allows to specify personal
+-- block size for each process.
+{# fun Reduce_scatter_block as ^
+   { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
+     fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
+#else
+reduceScatterBlock = error "reduceScatterBlock is not supported by OpenMPI"
+#endif
+
+-- | A combined reduction and scatter operation - result is split and
+--   parts are distributed among the participating processes.
 {# fun Reduce_scatter as ^
    { id `BufferPtr', id `BufferPtr', id `Ptr CInt', fromDatatype `Datatype',
      fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
