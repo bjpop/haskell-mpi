@@ -29,11 +29,9 @@ testCase title body = (title, TestRunnerTest $ TestCase body)
 -- Dissect status returned by some multi-target functions
 checkStatus :: Status -> Rank -> Tag -> IO ()
 checkStatus _status src tag = do
-  let s = fromRank src
-  let t = fromTag tag
-  status_source _status    == s @? "Wrong source in status: expected " ++ show s ++ ", but got " ++ show (status_source _status)
-  status_tag _status       == t @? "Wrong tag in status: expected " ++ show t ++ ", but got " ++ show (status_tag  _status)
-  status_cancelled _status == 0 @? "Status says cancelled: " ++ show (status_cancelled _status)
+  status_source _status    == src @? "Wrong source in status: expected " ++ show src ++ ", but got " ++ show (status_source _status)
+  status_tag _status       == tag @? "Wrong tag in status: expected " ++ show tag ++ ", but got " ++ show (status_tag  _status)
+  not (status_cancelled _status) @? "Status says \"cancelled\""
   -- Error status is not checked every time - see NOTES.txt for details
   -- status_error _status     == 0 @? "Non-zero error code: " ++ show (status_error _status)
 

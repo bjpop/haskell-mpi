@@ -938,7 +938,7 @@ data Status =
    , status_tag :: Tag -- ^ tag assigned at source
    , status_error :: CInt -- ^ error code, if any
    , status_count :: CInt -- ^ number of received elements, if applicable
-   , status_cancelled :: CInt -- ^ whether the request was cancelled
+   , status_cancelled :: Bool -- ^ whether the request was cancelled
    }
    deriving (Eq, Ord, Show)
 
@@ -953,10 +953,10 @@ instance Storable Status where
     -- MPICH2 and OpenMPI use different names for the status struct
     -- fields-
     <*> liftM cIntConv ({#get MPI_Status->count #} p)
-    <*> liftM cIntConv ({#get MPI_Status->cancelled #} p)
+    <*> liftM cToEnum ({#get MPI_Status->cancelled #} p)
 #else
     <*> liftM cIntConv ({#get MPI_Status->_count #} p)
-    <*> liftM cIntConv ({#get MPI_Status->_cancelled #} p)
+    <*> liftM cToEnum ({#get MPI_Status->_cancelled #} p)
 #endif
   poke p x = do
     {#set MPI_Status.MPI_SOURCE #} p (fromRank $ status_source x)
@@ -966,10 +966,10 @@ instance Storable Status where
     -- MPICH2 and OpenMPI use different names for the status struct
     -- fields AND different order of fields
     {#set MPI_Status.count #} p (cIntConv $ status_count x)
-    {#set MPI_Status.cancelled #} p (cIntConv $ status_cancelled x)
+    {#set MPI_Status.cancelled #} p (cFromEnum $ status_cancelled x)
 #else
     {#set MPI_Status._count #} p (cIntConv $ status_count x)
-    {#set MPI_Status._cancelled #} p (cIntConv $ status_cancelled x)
+    {#set MPI_Status._cancelled #} p (cFromEnum $ status_cancelled x)
 #endif
 
 -- NOTE: Int here is picked arbitrary
