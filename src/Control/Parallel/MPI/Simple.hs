@@ -147,9 +147,14 @@ ssend c r t m = sendBSwith Internal.ssend c r t $ encode m
 
 -- | Serializes the supplied value and sends to specified process as the array of 'byte's using 'Internal.rsend'.
 --
---   This call expects the matching receive already to be posted, otherwise error will occur.
+--  This call expects the matching receive already to be posted, otherwise error will occur.
+--
+--  Due to the bug in MPICH2 v.1.2.1.1 size of messages posted with rsend could not be 'probe'd, which breaks
+--  all variants of point-to-point receving code in this module. Therefore, when liked with MPICH2, this function
+--  will use 'Internal.send' instead.
 rsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
-rsend c r t m = sendBSwith Internal.rsend c r t $ encode m
+rsend c r t m = sendBSwith impl c r t $ encode m
+  where impl = if Internal.getImplementation == Internal.MPICH2 then Internal.send else Internal.rsend
 
 -- | Sends ByteString to specified process as the array of 'byte's using 'Internal.send'.
 sendBS :: Comm -> Rank -> Tag -> BS.ByteString -> IO ()
