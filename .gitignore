@@ -19,3 +19,9 @@ docs/HCAR/Issue19/template.aux
 docs/HCAR/Issue19/template.log
 docs/HCAR/Issue19/template.out
 docs/HCAR/Issue19/template.pdf
+/test/examples/programs/speed/Bandwidth
+/test/examples/programs/speed/BidirectionalBandwidth
+/test/examples/programs/speed/AllToAll
+/test/examples/programs/speed/serializable/Bandwidth
+/sender.log
+/receivers.log
