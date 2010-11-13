@@ -80,7 +80,7 @@ asyncSendRecvTest isendf rank
   | rank == sender   = do msg <- arrMsg
                           req <- isendf commWorld receiver tag3 msg
                           stat <- wait req
-                          checkStatus stat sender tag3
+                          checkStatusIfNotMPICH2 stat sender tag3
   -- XXX this type annotation is ugly. Is there a way to make it nicer?
   | rank == receiver = do (newMsg, req) <- intoNewArray range $ irecv commWorld sender tag3
                           stat <- wait req
@@ -98,8 +98,8 @@ asyncSendRecvWaitallTest rank
                             issendPtr commWorld receiver tag2 (advancePtr reqPtr 1) msg
                           waitall request reqstat
                           statuses <- getElems reqstat
-                          checkStatus (statuses!!0) sender tag1
-                          checkStatus (statuses!!1) sender tag2
+                          checkStatusIfNotMPICH2 (statuses!!0) sender tag1
+                          checkStatusIfNotMPICH2 (statuses!!1) sender tag2
   -- XXX this type annotation is ugly. Is there a way to make it nicer?
   | rank == receiver = do request :: StorableArray Int Request <- newArray_ (1,2)
                           reqstat :: StorableArray Int Status  <- newArray_ (1,2)

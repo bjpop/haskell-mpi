@@ -5,6 +5,7 @@ module TestHelpers (
   mpiTestCase,
   testCase,
   checkStatus,
+  checkStatusIfNotMPICH2,
   Actor(..),
   sender,
   receiver,
@@ -32,9 +33,16 @@ checkStatus _status src tag = do
   status_source _status    == src @? "Wrong source in status: expected " ++ show src ++ ", but got " ++ show (status_source _status)
   status_tag _status       == tag @? "Wrong tag in status: expected " ++ show tag ++ ", but got " ++ show (status_tag  _status)
   not (status_cancelled _status) @? "Status says \"cancelled\""
-  -- Error status is not checked every time - see NOTES.txt for details
+  -- Error status is not checked since MPI implementation does not have to set it to 0 if there were no error
   -- status_error _status     == 0 @? "Non-zero error code: " ++ show (status_error _status)
 
+-- | MPICH2 does not fill Status for non-blocking point-to-point sends, which would mark many tests as errors.
+-- Hence, this kludge.
+checkStatusIfNotMPICH2 :: Status -> Rank -> Tag -> IO ()
+checkStatusIfNotMPICH2 status src tag =
+  if getImplementation == MPICH2 
+  then return ()
+  else checkStatus status src tag
 
 -- Commonly used constants
 data Actor = Sender | Receiver
