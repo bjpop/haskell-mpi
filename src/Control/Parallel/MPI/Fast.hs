@@ -378,7 +378,16 @@ alltoall comm sendVal sendCount recvCount recvVal =
     recvInto recvVal $ \recvPtr _ recvType -> -- Since amount sent must equal amount received
       Internal.alltoall (castPtr sendPtr) (cIntConv sendCount) sendType (castPtr recvPtr) (cIntConv recvCount) recvType comm
 
-alltoallv :: (SendFrom v1, RecvInto v2) => Comm -> v1 -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
+-- | A variation of 'alltoall' that allows to use data segments of
+--   different length.
+alltoallv :: (SendFrom v1, RecvInto v2) => Comm 
+             -> v1 -- ^ Send buffer
+             -> StorableArray Int CInt -- ^ Lengths of segments in the send buffer
+             -> StorableArray Int CInt -- ^ Displacements of the segments in the send buffer
+             -> StorableArray Int CInt -- ^ Lengths of segments in the receive buffer
+             -> StorableArray Int CInt -- ^ Displacements of the segments in the receive buffer
+             -> v2 -- ^ Receive buffer
+             -> IO ()
 alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements recvVal = do
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ recvType ->
@@ -389,24 +398,55 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
               Internal.alltoallv (castPtr sendPtr) sendCountsPtr sendDisplPtr sendType
                                  (castPtr recvPtr) recvCountsPtr recvDisplPtr recvType comm
   
-reduceSend :: SendFrom v => Comm -> Rank -> Operation -> v -> IO ()
+{-| Reduce values from a group of processes into single value, which is delivered to single (so-called root) process.
+See 'reduceRecv' for function that should be called by root process.
+
+If the value is scalar, then reduction is similar to 'fold1'. For example, if the opreration is 'sumOp', then
+@reduceSend@ would compute sum of values supplied by all processes.
+-}
+reduceSend :: SendFrom v => Comm 
+              -> Rank -- ^ Rank of the root process
+              -> Operation -- ^ Reduction operation
+              -> v -- ^ Value supplied by this process
+              -> IO ()
 reduceSend comm root op sendVal = do
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     Internal.reduce (castPtr sendPtr) nullPtr sendElements sendType op root comm
 
-reduceRecv :: (SendFrom v, RecvInto v) => Comm -> Rank -> Operation -> v -> v -> IO ()
+{-| Obtain result of reduction initiated by 'reduceSend'. Note that root process supplies value for reduction as well.
+-}
+reduceRecv :: (SendFrom v, RecvInto v) => Comm 
+              -> Rank -- ^ Rank of the root process
+              -> Operation  -- ^ Reduction operation
+              -> v -- ^ Value supplied by this process
+              -> v -- ^ Reduction result
+              -> IO ()
 reduceRecv comm root op sendVal recvVal =
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
       Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op root comm
 
-allreduce :: (SendFrom v, RecvInto v) => Comm -> Operation -> v -> v -> IO ()
+-- | Variant of 'reduceSend' and 'reduceRecv', where result is delivered to all participating processes.
+allreduce :: (SendFrom v, RecvInto v) => 
+             Comm -- ^ Communicator engaged in reduction/
+             -> Operation -- ^ Reduction operation
+             -> v -- ^ Value supplied by this process
+             -> v -- ^ Reduction result
+             -> IO ()
 allreduce comm op sendVal recvVal = 
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
       Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
 
-reduceScatter :: (SendFrom v, RecvInto v) => Comm -> Operation -> StorableArray Int CInt -> v -> v -> IO ()
+-- | Variant of 'reduceSend' and 'reduceRecv' (or 'allreduce') where result is split into parts that are scattered
+-- among the participating processes.
+reduceScatter :: (SendFrom v, RecvInto v) => 
+                 Comm -- ^ Communicator engaged in reduction/
+                 -> Operation -- ^ Reduction operation
+                 -> StorableArray Int CInt -- ^ Sizes of block distributed to each process
+                 -> v -- ^ Value supplied by this process
+                 -> v -- ^ Reduction result
+                 -> IO ()
 reduceScatter comm op counts sendVal recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
