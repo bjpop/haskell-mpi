@@ -149,9 +149,10 @@ ssend c r t m = sendBSwith Internal.ssend c r t $ encode m
 --
 --  This call expects the matching receive already to be posted, otherwise error will occur.
 --
---  Due to the bug in MPICH2 v.1.2.1.1 size of messages posted with rsend could not be 'probe'd, which breaks
+--  Due to the difference between OpenMPI and MPICH2 (tested on v.1.2.1.1) size of messages posted with @rsend@ 
+--  could not be 'probe'd, which breaks
 --  all variants of point-to-point receving code in this module. Therefore, when liked with MPICH2, this function
---  will use 'Internal.send' instead.
+--  will use 'Internal.send' internally.
 rsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 rsend c r t m = sendBSwith impl c r t $ encode m
   where impl = if Internal.getImplementation == Internal.MPICH2 then Internal.send else Internal.rsend
