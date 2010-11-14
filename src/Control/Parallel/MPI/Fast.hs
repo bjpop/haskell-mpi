@@ -71,17 +71,14 @@ module Control.Parallel.MPI.Fast
      -- * Point-to-point operations.
      -- ** Blocking.
    , send
-   , bsend
    , ssend
    , rsend
    , recv
      -- ** Non-blocking.
    , isend
-   , ibsend
    , issend
    , irecv
    , isendPtr
-   , ibsendPtr
    , issendPtr
    , irecvPtr
    , waitall
@@ -187,9 +184,8 @@ intoNewArray_ range f = do
   _ <- f arr
   return arr
 
-send, bsend, ssend, rsend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
+send, ssend, rsend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
 send  = sendWith Internal.send
-bsend = sendWith Internal.bsend
 ssend = sendWith Internal.ssend
 rsend = sendWith Internal.rsend
 
@@ -215,9 +211,8 @@ bcastRecv comm sendRank val = do
    recvInto val $ \valPtr numBytes dtype -> do
       Internal.bcast (castPtr valPtr) numBytes dtype sendRank comm
 
-isend, ibsend, issend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
+isend, issend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
 isend  = isendWith Internal.isend
-ibsend = isendWith Internal.ibsend
 issend = isendWith Internal.issend
 
 type ISendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO (Request)
@@ -228,9 +223,8 @@ isendWith send_function comm recvRank tag val = do
     send_function valPtr numBytes dtype recvRank tag comm
 
 
-isendPtr, ibsendPtr, issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
+isendPtr, issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
 isendPtr  = isendWithPtr Internal.isendPtr
-ibsendPtr = isendWithPtr Internal.ibsendPtr
 issendPtr = isendWithPtr Internal.issendPtr
 
 type ISendPtrPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> Ptr Request -> IO ()

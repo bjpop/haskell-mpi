@@ -50,13 +50,11 @@ module Control.Parallel.MPI.Simple
      -- * Point-to-point operations.
      -- ** Blocking.
      send
-   , bsend
    , ssend
    , rsend
    , recv
      -- ** Non-blocking.
    , isend
-   , ibsend
    , issend
    , waitall
    -- *** Futures.
@@ -132,12 +130,6 @@ import Data.List (unfoldr)
 send :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 send  c r t m = sendBSwith Internal.send  c r t $ encode m
 
--- | Serializes the supplied value and sends to specified process as the array of 'byte's using 'Internal.bsend'.
---
---   Application has to allocate the buffer and @attach@ it to MPI using (TODO: we are currently missing this)
-bsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
-bsend c r t m = sendBSwith Internal.bsend c r t $ encode m
-
 -- | Serializes the supplied value and sends to specified process as the array of 'byte's using 'Internal.ssend'.
 --
 --   This is so-called \"synchronous blocking send\" mode - this call would not complete until
@@ -210,11 +202,7 @@ recvBS comm rank tag = do
 isend  :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
 isend  c r t m = isendBSwith Internal.isend  c r t $ encode m
 
--- | Serializes message to ByteString and sends it to the specified process utilising buffer attached with TODO in non-blocking mode as the array of 'byte's using 'Internal.bsend'.
-ibsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO Request
-ibsend c r t m = isendBSwith Internal.ibsend c r t $ encode m
-
--- | Serializes message to ByteString and sends it to the specified process in non-blocking mode as the array of 'byte's using 'Internal.bsend'.
+-- | Serializes message to ByteString and sends it to the specified process in non-blocking mode as the array of 'byte's using 'Internal.issend'.
 --
 -- Calling `wait' on returned `Request' object would complete once the receiving
 -- process has actually started receiving data.

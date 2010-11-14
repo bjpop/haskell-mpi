@@ -71,10 +71,10 @@ module Control.Parallel.MPI.Internal
 
      -- ** Blocking operations.
      BufferPtr, Count, -- XXX: what will break if we don't export those?
-     send, bsend, ssend, rsend, recv,
+     send, ssend, rsend, recv,
      -- ** Non-blocking operations.
-     isend, ibsend, issend, irecv,
-     isendPtr, ibsendPtr, issendPtr, irecvPtr,
+     isend, issend, irecv,
+     isendPtr, issendPtr, irecvPtr,
 
 
      -- * Collective operations.
@@ -368,8 +368,6 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 
 {# fun unsafe Send as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
-{# fun unsafe Bsend as ^
-          { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
 {# fun unsafe Ssend as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
 {# fun unsafe Rsend as ^
@@ -377,8 +375,6 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 {# fun unsafe Recv as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast* } -> `()' checkError*- #}
 {# fun unsafe Isend as ^
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
-{# fun unsafe Ibsend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
 {# fun unsafe Issend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
@@ -388,11 +384,6 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 -- | Like 'isend', but stores @Request@ at the supplied pointer. Useful
 -- for making arrays of @Requests@ that could be passed to 'waitall'
 {# fun unsafe Isend as isendPtr
-           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
-
--- | Like 'ibsend', but stores @Request@ at the supplied pointer. Useful
--- for making arrays of @Requests@ that could be passed to 'waitall'
-{# fun unsafe Ibsend as ibsendPtr
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Request'} -> `()' checkError*- #}
 
 -- | Like 'issend', but stores @Request@ at the supplied pointer. Useful
