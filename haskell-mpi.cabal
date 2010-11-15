@@ -1,8 +1,8 @@
 name:                haskell-mpi
 version:             0.0.1
 cabal-version:       >= 1.6
-synopsis:            Haskell bindings to the MPI library.
-description:         Haskell bindings to the MPI library.
+synopsis:            Distributed parallel programming in Haskell using MPI.
+description:
  MPI is defined by the Message-Passing Interface Standard,
  as specified by the Message Passing Interface Forum. The latest release
  of the standard is known as MPI-2. These Haskell
@@ -15,7 +15,7 @@ description:         Haskell bindings to the MPI library.
  beneficial to consult the MPI-2 standard documentation provided by the
  MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
  the MPI implementation linked to this library (that is, the MPI
- implementation which was chosen when this Haskell library was compiled).
+ implementation that was chosen when this Haskell library was compiled).
  .
  "Control.Parallel.MPI.Fast" contains a high-performance interface
  for working with (possibly mutable) arrays of storable Haskell data types.
@@ -28,13 +28,14 @@ description:         Haskell bindings to the MPI library.
  .
  "Control.Parallel.MPI.Base" contains essential MPI functionality
  which is independent of the message passing API. This is re-exported
- by the Fast and Simple modules.
+ by the Fast and Simple modules, and usually does not need to be
+ explcitly imported itself.
  .
- Notable changes from the C interface to MPI:
+ Notable differences between Haskell-MPI and the standard C interface to MPI:
  .
-    1. Certain collective message passing operations are split into send
-       and recv parts to create a more idiomatic Haskell style of programming.
-       For example, C provides the @MPI_Gather@ gather function which is called
+    1. Some collective message passing operations are split into send
+       and receive parts to facilitate a more idiomatic Haskell style of programming.
+       For example, C provides the @MPI_Gather@ function which is called
        by all processes participating in the communication, whereas
        Haskell-MPI provides 'gatherSend' and 'gatherRecv' which are called
        by the sending and receiving processes respectively.
@@ -47,23 +48,23 @@ description:         Haskell bindings to the MPI library.
        will terminate the computation just like C interface).
  .
       Below is a small but complete MPI program. Process 1 sends the message
-      @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
-      to standard output. It assumes that there are at least two MPI processes
-      available; a more robust program would check this condition first, before
-      trying to send messages.
+      @\"Hello World\"@ to process 0, which in turn receives the message and
+      prints it to standard output. All other processes, if there are any,
+      do nothing.
  .
       >module Main where
-      >import Control.Parallel.MPI.Simple
-      >import Control.Monad (when)
+      >
+      >import Control.Parallel.MPI.Simple (mpiWorld, commWorld, unitTag, send, recv)
       >
       >main :: IO ()
-      >main = mpi $ do
-      >  rank <- commRank commWorld
-      >  when (rank == 1) $
-      >     send commWorld 0 unitTag "Hello World"
-      >  when (rank == 0) $ do
-      >     (msg, _status) <- recv commWorld 1 unitTag
-      >     putStrLn msg
+      >main = mpiWorld $ \size rank ->
+      >   if size < 2
+      >      then putStrLn "At least two processes are needed"
+      >      else case rank of
+      >         0 -> do (msg, _status) <- recv commWorld 1 unitTag
+      >                 putStrLn msg
+      >         1 -> send commWorld 0 unitTag "Hello World"
+      >         _ -> return ()
 
 category:            FFI, Distributed Computing
 license:             BSD3

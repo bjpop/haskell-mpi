@@ -12,7 +12,7 @@ root = 0
 simpleTests :: Rank -> [(String,TestRunnerTest)]
 simpleTests rank =
   [ mpiTestCase rank "send+recv simple message" $ syncSendRecv send
-  , mpiTestCase rank "send+recv simple message (with sending process blocking)" syncSendRecvBlock
+  -- , mpiTestCase rank "send+recv simple message (with sending process blocking)" syncSendRecvBlock
   , mpiTestCase rank "ssend+recv simple message" $ syncSendRecv ssend
   , mpiTestCase rank "rsend+recv simple message" $ syncRSendRecv
   , mpiTestCase rank "send+recvFuture simple message" syncSendRecvFuture

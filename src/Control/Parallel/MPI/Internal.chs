@@ -56,7 +56,7 @@ module Control.Parallel.MPI.Internal
      ComparisonResult (..),
 
      -- * Error handling.
-     Errhandler, errorsAreFatal, errorsReturn, commSetErrhandler, commGetErrhandler,
+     Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
      ErrorClass (..), MPIError(..),
 
      -- Ranks.
@@ -213,10 +213,10 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
 
 -- | Terminate the MPI execution environment.
 -- Once 'finalize' is called no other MPI functions may be called except
--- 'getVersion', 'initialized' and 'finalized'. Each process must complete
+-- 'getVersion', 'initialized' and 'finalized', however non-MPI computations
+-- may continue. Each process must complete
 -- any pending communication that it initiated before calling 'finalize'.
--- If 'finalize' returns then regular (non-MPI) computations may continue,
--- but no further MPI computation is possible. Note: the error code returned
+--  Note: the error code returned
 -- by 'finalize' is not checked. This function corresponds to @MPI_Finalize@.
 {# fun unsafe Finalize as ^ {} -> `()' discard*- #}
 discard _ = return ()
@@ -519,7 +519,7 @@ withRequest req f = do alloca $ \ptr -> do poke ptr req
    { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
      fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
 
-#ifdef MPICH2
+#if 0
 -- | A combined reduction and scatter operation - result is split and
 --   parts are distributed among the participating processes.
 --
@@ -666,6 +666,8 @@ groupDifference g1 g2 = unsafePerformIO $ groupDifference' g1 g2
   where groupDifference' = {# fun unsafe Group_difference as groupDifference_
                               {fromGroup `Group', fromGroup `Group', alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
+-- | Compares two groups. Returns 'MPI_IDENT' if the order and members of the two groups are the same,
+-- 'MPI_SIMILAR' if only the members are the same, and 'MPI_UNEQUAL' otherwise.
 groupCompare g1 g2 = unsafePerformIO $ groupCompare' g1 g2
   where
     groupCompare' = {# fun unsafe Group_compare as groupCompare_
@@ -774,16 +776,17 @@ longDouble = MkDatatype <$> unsafePerformIO $ peek longDouble_
 byte = MkDatatype <$> unsafePerformIO $ peek byte_
 packed = MkDatatype <$> unsafePerformIO $ peek packed_
 
-
 type MPIErrhandler = {# type MPI_Errhandler #}
 newtype Errhandler = MkErrhandler { fromErrhandler :: MPIErrhandler } deriving Storable
 peekErrhandler ptr = MkErrhandler <$> peek ptr
 
 foreign import ccall "&mpi_errors_are_fatal" errorsAreFatal_ :: Ptr MPIErrhandler
 foreign import ccall "&mpi_errors_return" errorsReturn_ :: Ptr MPIErrhandler
-errorsAreFatal, errorsReturn :: Errhandler
+errorsAreFatal, errorsReturn, errorsThrowExceptions :: Errhandler
 errorsAreFatal = MkErrhandler <$> unsafePerformIO $ peek errorsAreFatal_
 errorsReturn = MkErrhandler <$> unsafePerformIO $ peek errorsReturn_
+-- This is a more meaningful name than errorsReturn
+errorsThrowExceptions = errorsReturn
 
 {# enum ErrorClass {underscoreToCase} deriving (Eq,Ord,Show,Typeable) #}
 
@@ -797,7 +800,7 @@ newtype Group = MkGroup { fromGroup :: MPIGroup } deriving Storable
 peekGroup ptr = MkGroup <$> peek ptr
 
 foreign import ccall "&mpi_group_empty" groupEmpty_ :: Ptr MPIGroup
--- | Predefined handle for group without any members. Corresponds to @MPI_GROUP_EMPTY@
+-- | A group without any members. Corresponds to @MPI_GROUP_EMPTY@.
 groupEmpty :: Group
 groupEmpty = MkGroup <$> unsafePerformIO $ peek groupEmpty_
 
@@ -1051,6 +1054,9 @@ make MPI calls, but only one at a time: MPI calls are not made concurrently from
 two distinct threads
 
 [@Multiple@] Multiple threads may call MPI, with no restrictions.
+
+XXX Make sure we have the correct ordering as defined by MPI. Also we should
+describe the ordering here (other parts of the docs need it to be explained - see initThread).
 
 -}
 {# enum ThreadSupport {underscoreToCase} deriving (Eq,Ord,Show) #}

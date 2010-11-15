@@ -11,10 +11,8 @@
 --
 -- This module provides common MPI functionality that is independent of
 -- the type of message
--- being transferred between processes. Many functions in this module bear
--- a close correspondence with those provided by the C API. Such
--- correspondences are noted in the documentation of this module where
--- relevant.
+-- being transferred between processes. Correspondences with the C API are
+-- noted in the documentation where relevant.
 -----------------------------------------------------------------------------
 
 module Control.Parallel.MPI.Base
@@ -155,9 +153,12 @@ import Control.Parallel.MPI.Internal
 mpi :: IO () -> IO ()
 mpi action = init >> (action `finally` finalize)
 
--- | A convenience wrapper with a similar behaviour to 'mpi'.
--- The difference is that the MPI computation is a function which is abstracted over
--- the communicator size and the process rank, both with respect to 'commWorld'.
+-- | A convenience wrapper which takes an MPI computation as its argument and wraps it
+-- inside calls to 'init' (before the computation) and 'finalize' (after the computation).
+-- Similar to 'mpi' but the computation is a function which is abstracted over the size of 'commWorld'
+-- and the rank of the current process in 'commWorld'.
+-- It will make sure that 'finalize' is called even if the MPI computation raises
+-- an exception (assuming the error handler is set to 'errorsThrowExceptions').
 --
 -- @
 -- main = mpiWorld $ \\size rank -> do
