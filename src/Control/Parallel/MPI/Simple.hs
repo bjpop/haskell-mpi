@@ -22,21 +22,23 @@
 -- exactly the case here), and implementation of reduction in Haskell heavily depends on the nature of data being
 -- processed, so there is no need to try and implement some general case in this module.
 --
--- Below is a small but complete MPI program utilising this Module. Process 1 sends the message
--- @\"Hello World\"@ to process 0. Process 0 receives the message and prints it
--- to standard output. It assumes that there are at least 2 MPI processes
--- available. Further examples in this module would provide different implementation of
+-- Below is a small but complete MPI program utilising this module.
+-- Process 1 sends the message
+-- @\"Hello World\"@ to process 0, which in turn receives the message and
+-- prints it to standard output. All other processes, if there are any,
+-- do nothing.
+-- Further examples in this module provide different implementations of the
 -- @process@ function.
 --
--- >module Main where
--- >
--- >import Control.Parallel.MPI.Simple (mpi, commRank, commWorld, unitTag, send, recv)
+-- >import Control.Parallel.MPI.Simple (Rank, mpiWorld, commWorld, unitTag, send, recv)
 -- >
 -- >main :: IO ()
--- >main = mpi $ do
--- >   rank <- commRank commWorld
--- >   process rank
+-- >main = mpiWorld $ \size rank ->
+-- >   if size < 2
+-- >      then putStrLn "At least two processes are needed"
+-- >      else process rank
 -- >
+-- >process :: Rank -> IO ()
 -- >process rank
 -- >   | rank == 1 = send commWorld 0 unitTag "Hello World"
 -- >   | rank == 0 = do
