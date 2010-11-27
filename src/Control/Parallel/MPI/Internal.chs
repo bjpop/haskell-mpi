@@ -37,7 +37,7 @@ module Control.Parallel.MPI.Internal
      -- ** Runtime attributes.
      getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
 
-     -- * Requests and statuses.
+     -- * Requests and statuses. DONE
      Request, Status (..), probe, test, cancel, wait, waitall,
 
      -- * Process management.
@@ -54,34 +54,34 @@ module Control.Parallel.MPI.Internal
      -- ** Comparisons.
      ComparisonResult (..),
 
-     -- * Error handling.
+     -- * Error handling. DONE
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
      ErrorClass (..), MPIError(..),
 
-     -- Ranks.
+     -- * Ranks. DONE
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
 
      -- * Data types.
      Datatype, char, wchar, short, int, long, longLong, unsignedChar, unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double, longDouble, byte, packed, typeSize,
 
-     -- * Point-to-point operations.
-     -- ** Tags.
+     -- * Point-to-point operations. DONE
+     -- ** Tags. DONE
      Tag, toTag, fromTag, anyTag, unitTag, tagUpperBound,
 
-     -- ** Blocking operations.
+     -- ** Blocking operations. DONE
      BufferPtr, Count, -- XXX: what will break if we don't export those?
      send, ssend, rsend, recv,
-     -- ** Non-blocking operations.
+     -- ** Non-blocking operations. DONE
      isend, issend, irecv,
      isendPtr, issendPtr, irecvPtr,
 
 
-     -- * Collective operations.
-     -- ** One-to-all.
+     -- * Collective operations. DONE
+     -- ** One-to-all. DONE
      bcast, scatter, scatterv,
-     -- ** All-to-one.
+     -- ** All-to-one. DONE
      gather, gatherv, reduce,
-     -- ** All-to-all.
+     -- ** All-to-all. DONE
      allgather, allgatherv,
      alltoall, alltoallv,
      allreduce, 
@@ -89,11 +89,11 @@ module Control.Parallel.MPI.Internal
      reduceScatter,
      barrier,
 
-     -- ** Reduction operations.
+     -- ** Reduction operations. DONE
      Operation, maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp, borOp, lxorOp, bxorOp,
      opCreate, opFree,
 
-     -- * Timing.
+     -- * Timing. DONE
      wtime, wtick, wtimeIsGlobal, wtimeIsGlobalKey
 
    ) where
@@ -227,6 +227,9 @@ discard _ = return ()
 -- checkError calls Internal.errorClass and Internal.errorString.
 -- These cannot be called after finalize (at least on OpenMPI).
 
+-- | Return the name of the current processing host. From this value it
+-- must be possible to identify a specic piece of hardware on which
+-- the code is running.
 getProcessorName :: IO String
 getProcessorName = do
   allocaBytes (fromIntegral maxProcessorName) $ \ptr -> do
@@ -236,8 +239,11 @@ getProcessorName = do
     getProcessorName' = {# fun unsafe Get_processor_name as getProcessorName_
                            {id `Ptr CChar', alloca- `CInt' peekIntConv*} -> `()' checkError*- #}
 
+-- | MPI implementation version
 data Version =
-   Version { version :: Int, subversion :: Int }
+   Version { version :: Int -- ^ Major part
+           , subversion :: Int -- ^ Minor part
+           }
    deriving (Eq, Ord)
 
 instance Show Version where
@@ -369,18 +375,43 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
       -> Comm       -- ^ Communicator.
       -> IO Status  -- ^ Information about the incoming message (but not the content of the message). -}
 
+{-| Send the values (as specified by @BufferPtr@, @Count@, @Datatype@) to
+    the process specified by (@Comm@, @Rank@, @Tag@). Caller will
+    block until data is copied from the send buffer by the MPI
+-}
 {# fun unsafe Send as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
+{-| Variant of 'send' that would terminate only when receiving side
+actually starts receiving data. 
+-}
 {# fun unsafe Ssend as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
+{-| Variant of 'send' that expects the relevant 'recv' to be already
+started, otherwise this call could terminate with MPI error.
+-}
 {# fun unsafe Rsend as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm' } -> `()' checkError*- #}
+-- | Receives data from the process
+--   specified by (@Comm@, @Rank@, @Tag@) and stores it into buffer specified
+--   by (@BufferPtr@, @Count@, @Datatype@).
 {# fun unsafe Recv as ^
           { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast* } -> `()' checkError*- #}
+-- | Send the values (as specified by @BufferPtr@, @Count@, @Datatype@) to
+--   the process specified by (@Comm@, @Rank@, @Tag@) in non-blocking mode.
+-- 
+-- Use 'probe' or 'test' to check the status of the operation,
+-- 'cancel' to terminate it or 'wait' to block until it completes.
+-- Operation would be considered complete as soon as MPI finishes
+-- copying the data from the send buffer. 
 {# fun unsafe Isend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
+-- | Variant of the 'isend' that would be considered complete only when
+--   receiving side actually starts receiving data. 
 {# fun unsafe Issend as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
+-- | Non-blocking variant of 'recv'. Receives data from the process
+--   specified by (@Comm@, @Rank@, @Tag@) and stores it into buffer specified
+--   by (@BufferPtr@, @Count@, @Datatype@).
 {# fun Irecv as ^
            { id `BufferPtr', id `Count', fromDatatype `Datatype', fromRank `Rank', fromTag `Tag', fromComm `Comm', alloca- `Request' peekRequest*} -> `()' checkError*- #}
 
@@ -513,16 +544,20 @@ withRequest req f = do alloca $ \ptr -> do poke ptr req
    { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
      fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
 
-#if 0
 -- | A combined reduction and scatter operation - result is split and
 --   parts are distributed among the participating processes.
 --
 -- See 'reduceScatter' for variant that allows to specify personal
 -- block size for each process.
+--
+-- Note that this call is not supported with some MPI implementations,
+-- like OpenMPI <= 1.5 and would cause a run-time 'error' in that case.
+#if 0
 {# fun Reduce_scatter_block as ^
    { id `BufferPtr', id `BufferPtr', id `Count', fromDatatype `Datatype',
      fromOperation `Operation', fromComm `Comm'} -> `()' checkError*- #}
 #else
+reduceScatterBlock :: BufferPtr -> BufferPtr -> Count -> Datatype -> Operation -> Comm -> IO ()
 reduceScatterBlock = error "reduceScatterBlock is not supported by OpenMPI"
 #endif
 
@@ -771,15 +806,26 @@ byte = MkDatatype <$> unsafePerformIO $ peek byte_
 packed = MkDatatype <$> unsafePerformIO $ peek packed_
 
 type MPIErrhandler = {# type MPI_Errhandler #}
+
+-- | Haskell datatype that represents values usable as @MPI_Errhandler@
 newtype Errhandler = MkErrhandler { fromErrhandler :: MPIErrhandler } deriving Storable
 peekErrhandler ptr = MkErrhandler <$> peek ptr
 
 foreign import ccall "&mpi_errors_are_fatal" errorsAreFatal_ :: Ptr MPIErrhandler
 foreign import ccall "&mpi_errors_return" errorsReturn_ :: Ptr MPIErrhandler
-errorsAreFatal, errorsReturn, errorsThrowExceptions :: Errhandler
+
+-- | Predefined @Errhandler@ that will terminate the process on any
+--   MPI error
+errorsAreFatal :: Errhandler
 errorsAreFatal = MkErrhandler <$> unsafePerformIO $ peek errorsAreFatal_
+
+-- | Predefined @Errhandler@ that will convert errors into Haskell
+-- exceptions. Mimics the semantics of @MPI_Errors_return@
+errorsReturn :: Errhandler
 errorsReturn = MkErrhandler <$> unsafePerformIO $ peek errorsReturn_
--- This is a more meaningful name than errorsReturn
+
+-- | Same as 'errorsReturn', but with a more meaningful name.
+errorsThrowExceptions :: Errhandler
 errorsThrowExceptions = errorsReturn
 
 {# enum ErrorClass {underscoreToCase} deriving (Eq,Ord,Show,Typeable) #}
@@ -866,12 +912,17 @@ bxorOp :: Operation
 bxorOp = MkOperation <$> unsafePerformIO $ peek bxorOp_
 
 
-{-
-This module provides Haskell datatype that represents values which
-could be used as MPI rank designations.
--}
+{- | Haskell datatype that represents values which
+ could be used as MPI rank designations. Low-level MPI calls require
+ that you use 32-bit non-negative integer values as ranks, so any
+ non-numeric Haskell Ranks should provide a sensible instances of
+ 'Enum'.
 
-newtype Rank = MkRank { rankId :: Int }
+Attempt to supply a value that does not fit into 32 bits will cause a
+run-time 'error'.
+-}
+newtype Rank = MkRank { rankId :: Int -- ^ Extract numeric value of the 'Rank'
+                      }
    deriving (Eq, Ord, Enum, Integral, Real)
 
 instance Num Rank where
@@ -906,14 +957,18 @@ procNull  = toRank $ unsafePerformIO $ peek procNull_
 instance Show Rank where
    show = show . rankId
 
+-- | Map arbitrary 'Enum' value to 'Rank'
 toRank :: Enum a => a -> Rank
 toRank x = MkRank { rankId = fromEnum x }
 
+-- | Map 'Rank' to arbitrary 'Enum'
 fromRank :: Enum a => Rank -> a
 fromRank = toEnum . rankId
 
-{- This module provides Haskell representation of the @MPI_Request@ type. -}
 type MPIRequest = {# type MPI_Request #}
+{-| Haskell representation of the @MPI_Request@ type. Returned by
+non-blocking communication operations, could be further processed with
+'probe', 'test', 'cancel' or 'wait'. -}
 newtype Request = MkRequest MPIRequest deriving Storable
 peekRequest ptr = MkRequest <$> peek ptr
 
@@ -988,12 +1043,11 @@ allocaCast f =
 peekCast = peek . castPtr
 
 
-{-
-This module provides Haskell datatype that represents values which
-could be used as MPI tags.
+{-| Haskell datatype that represents values which could be used as
+tags for point-to-point transfers.
 -}
-
-newtype Tag = MkTag { tagVal :: Int }
+newtype Tag = MkTag { tagVal :: Int -- ^ Extract numeric value of the Tag
+                    }
    deriving (Eq, Ord, Enum, Integral, Real)
 
 instance Num Tag where
@@ -1009,9 +1063,11 @@ instance Num Tag where
 instance Show Tag where
   show = show . tagVal
 
+-- | Map arbitrary 'Enum' value to 'Tag'
 toTag :: Enum a => a -> Tag
 toTag x = MkTag { tagVal = fromEnum x }
 
+-- | Map 'Tag' to arbitrary 'Enum'
 fromTag :: Enum a => Tag -> a
 fromTag = toEnum . tagVal
 
@@ -1025,13 +1081,6 @@ anyTag = toTag $ unsafePerformIO $ peek anyTag_
 -- | A tag with unit value. Intended to be used as a convenient default.
 unitTag :: Tag
 unitTag = toTag ()
-
-
-{-
-This module provides Haskell datatypes that comprises of values of
-predefined MPI constants @MPI_THREAD_SINGLE@, @MPI_THREAD_FUNNELED@,
-@MPI_THREAD_SERIALIZED@, @MPI_THREAD_MULTIPLE@.
--}
 
 {- | Constants used to describe the required level of multithreading
    support in call to 'initThread'. They also describe provided level
