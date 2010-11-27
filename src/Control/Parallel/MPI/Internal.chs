@@ -33,8 +33,7 @@ module Control.Parallel.MPI.Internal
      init, finalize, initialized, finalized, abort,
      -- ** Multi-threaded environment support.
      ThreadSupport (..), initThread, queryThread, isThreadMain,
-     -- ** Predefined constants.
-     maxProcessorName, maxErrorString,
+
      -- ** Runtime attributes.
      getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
 
@@ -157,8 +156,12 @@ commSelf = MkComm <$> unsafePerformIO $ peek commSelf_
 
 foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr CInt
 foreign import ccall "&mpi_max_error_string" max_error_string_ :: Ptr CInt
+
+-- | Max length of "processor name" as returned by 'getProcessorName'
 maxProcessorName :: CInt
 maxProcessorName = unsafePerformIO $ peek max_processor_name_
+
+-- | Max length of error description as returned by 'errorString'
 maxErrorString :: CInt
 maxErrorString = unsafePerformIO $ peek max_error_string_
 
