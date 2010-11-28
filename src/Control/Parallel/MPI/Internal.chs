@@ -37,7 +37,7 @@ module Control.Parallel.MPI.Internal
      -- ** Runtime attributes.
      getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
 
-     -- * Requests and statuses. DONE
+     -- * Requests and statuses.
      Request, Status (..), probe, test, cancel, wait, waitall,
 
      -- * Process management.
@@ -54,34 +54,34 @@ module Control.Parallel.MPI.Internal
      -- ** Comparisons.
      ComparisonResult (..),
 
-     -- * Error handling. DONE
+     -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
      ErrorClass (..), MPIError(..),
 
-     -- * Ranks. DONE
+     -- * Ranks.
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
 
      -- * Data types.
      Datatype, char, wchar, short, int, long, longLong, unsignedChar, unsignedShort, unsigned, unsignedLong, unsignedLongLong, float, double, longDouble, byte, packed, typeSize,
 
-     -- * Point-to-point operations. DONE
-     -- ** Tags. DONE
+     -- * Point-to-point operations.
+     -- ** Tags.
      Tag, toTag, fromTag, anyTag, unitTag, tagUpperBound,
 
-     -- ** Blocking operations. DONE
+     -- ** Blocking operations.
      BufferPtr, Count, -- XXX: what will break if we don't export those?
      send, ssend, rsend, recv,
-     -- ** Non-blocking operations. DONE
+     -- ** Non-blocking operations.
      isend, issend, irecv,
      isendPtr, issendPtr, irecvPtr,
 
 
-     -- * Collective operations. DONE
-     -- ** One-to-all. DONE
+     -- * Collective operations.
+     -- ** One-to-all.
      bcast, scatter, scatterv,
-     -- ** All-to-one. DONE
+     -- ** All-to-one.
      gather, gatherv, reduce,
-     -- ** All-to-all. DONE
+     -- ** All-to-all.
      allgather, allgatherv,
      alltoall, alltoallv,
      allreduce, 
@@ -89,11 +89,11 @@ module Control.Parallel.MPI.Internal
      reduceScatter,
      barrier,
 
-     -- ** Reduction operations. DONE
+     -- ** Reduction operations.
      Operation, maxOp, minOp, sumOp, prodOp, landOp, bandOp, lorOp, borOp, lxorOp, bxorOp,
      opCreate, opFree,
 
-     -- * Timing. DONE
+     -- * Timing.
      wtime, wtick, wtimeIsGlobal, wtimeIsGlobalKey
 
    ) where
@@ -117,12 +117,12 @@ type BufferPtr = Ptr ()
 -- | Count of elements in the send/receive buffer
 type Count = CInt
 
-{-
-This module provides Haskell enum that comprises of MPI constants
+{- |
+Haskell enum that contains MPI constants
 @MPI_IDENT@, @MPI_CONGRUENT@, @MPI_SIMILAR@ and @MPI_UNEQUAL@.
 
-Those are used to compare communicators (f.e. 'commCompare') and
-process groups (f.e. 'groupCompare'). Refer to those
+Those are used to compare communicators ('commCompare') and
+process groups ('groupCompare'). Refer to those
 functions for description of comparison rules.
 -}
 {# enum ComparisonResult {underscoreToCase} deriving (Eq,Ord,Show) #}
@@ -241,14 +241,13 @@ getProcessorName = do
 
 -- | MPI implementation version
 data Version =
-   Version { version :: Int -- ^ Major part
-           , subversion :: Int -- ^ Minor part
-           }
+   Version { version :: Int, subversion :: Int }
    deriving (Eq, Ord)
 
 instance Show Version where
    show v = show (version v) ++ "." ++ show (subversion v)
 
+-- | Which MPI version the code is running on.
 getVersion :: IO Version
 getVersion = do
    (version, subversion) <- getVersion'
@@ -352,7 +351,7 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 * If both communicators are identical in constituents and rank
     order, result is `Congruent';
 
-* If they have the same members, nbut with different ranks, then
+* If they have the same members, but with different ranks, then
     result is 'Similar';
 
 * Otherwise, result is 'Unequal'.
@@ -697,6 +696,7 @@ groupDifference g1 g2 = unsafePerformIO $ groupDifference' g1 g2
 
 -- | Compares two groups. Returns 'MPI_IDENT' if the order and members of the two groups are the same,
 -- 'MPI_SIMILAR' if only the members are the same, and 'MPI_UNEQUAL' otherwise.
+groupCompare :: Group -> Group -> ComparisonResult
 groupCompare g1 g2 = unsafePerformIO $ groupCompare' g1 g2
   where
     groupCompare' = {# fun unsafe Group_compare as groupCompare_
@@ -705,11 +705,30 @@ groupCompare g1 g2 = unsafePerformIO $ groupCompare' g1 g2
 -- Technically it might make better sense to make the second argument a Set rather than a list
 -- but the order is significant in the groupIncl function (the other function, not this one).
 -- For the sake of keeping their types in sync, a list is used instead.
+{- | Create a new @Group@ from the given one. Exclude processes
+with given @Rank@s from the new @Group@. Processes in new @Group@ will
+have ranks @[0...]@.
+-}
 {# fun unsafe Group_excl as ^
                {fromGroup `Group', withRanksAsInts* `[Rank]'&, alloca- `Group' peekGroup*} -> `()' checkError*- #}
+{- | Create a new @Group@ from the given one. Include only processes
+with given @Rank@s in the new @Group@. Processes in new @Group@ will
+have ranks @[0...]@.
+-}
 {# fun unsafe Group_incl as ^
                {fromGroup `Group', withRanksAsInts* `[Rank]'&, alloca- `Group' peekGroup*} -> `()' checkError*- #}
 
+{- | Given two @Group@s and list of @Rank@s of some processes in the
+first @Group@, return @Rank@s of those processes in the second
+@Group@. If there are no corresponding @Rank@ in the second @Group@,
+'mpiUndefined' is returned.
+
+This function is important for determining the relative numbering of the same processes
+in two different groups. For instance, if one knows the ranks of certain processes in the group
+of 'commWorld', one might want to know their ranks in a subset of that group.
+Note that 'procNull' is a valid rank for input to @groupTranslateRanks@, which
+returns 'procNull' as the translated rank.
+-}
 groupTranslateRanks :: Group -> [Rank] -> Group -> [Rank]
 groupTranslateRanks group1 ranks group2 =
    unsafePerformIO $ do
@@ -724,7 +743,8 @@ groupTranslateRanks group1 ranks group2 =
 
 withRanksAsInts ranks f = withArrayLen (map fromEnum ranks) $ \size ptr -> f (cIntConv size, castPtr ptr)
 
--- | Return the number of bytes used to store an MPI 'Datatype'.
+-- | Return the number of bytes used to store an MPI @Datatype@.
+typeSize :: Datatype -> Int
 typeSize = unsafePerformIO . typeSize'
   where
     typeSize' =
@@ -765,6 +785,9 @@ abort comm code =
 
 type MPIDatatype = {# type MPI_Datatype #}
 
+-- | Haskell datatype used to represent @MPI_Datatype@. 
+-- Please refer to Chapter 4 of MPI Report v. 2.2 for a description
+-- of various datatypes.
 newtype Datatype = MkDatatype { fromDatatype :: MPIDatatype }
 
 foreign import ccall unsafe "&mpi_char" char_ :: Ptr MPIDatatype
@@ -836,11 +859,13 @@ errorsThrowExceptions = errorsReturn
 
 -- | Actual Haskell type used depends on the MPI implementation.
 type MPIGroup = {# type MPI_Group #}
+
+-- | Haskell datatype representing MPI process groups.
 newtype Group = MkGroup { fromGroup :: MPIGroup } deriving Storable
 peekGroup ptr = MkGroup <$> peek ptr
 
 foreign import ccall "&mpi_group_empty" groupEmpty_ :: Ptr MPIGroup
--- | A group without any members. Corresponds to @MPI_GROUP_EMPTY@.
+-- | A predefined group without any members. Corresponds to @MPI_GROUP_EMPTY@.
 groupEmpty :: Group
 groupEmpty = MkGroup <$> unsafePerformIO $ peek groupEmpty_
 
