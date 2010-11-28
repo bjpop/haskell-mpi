@@ -56,7 +56,7 @@ module Control.Parallel.MPI.Internal
 
      -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
-     ErrorClass (..), MPIError(..),
+     ErrorClass (..), MPIError(..), mpiUndefined,
 
      -- * Ranks.
      Rank, rankId, toRank, fromRank, anySource, theRoot, procNull,
@@ -742,6 +742,15 @@ groupTranslateRanks group1 ranks group2 =
                               {fromGroup `Group', id `CInt', id `Ptr CInt', fromGroup `Group', id `Ptr CInt'} -> `()' checkError*- #}
 
 withRanksAsInts ranks f = withArrayLen (map fromEnum ranks) $ \size ptr -> f (cIntConv size, castPtr ptr)
+
+foreign import ccall "mpi_undefined" mpiUndefined_ :: Ptr Int
+
+-- | Predefined constant that might be returned as @Rank@ by calls
+--  like 'groupTranslateRanks'. Corresponds to @MPI_UNDEFINED@. Please
+--  refer to \"MPI Report Constant And Predefined Handle Index\" for a
+--  list of situations where @mpiUndefined@ could appear.
+mpiUndefined :: Int
+mpiUndefined = unsafePerformIO $ peek mpiUndefined_
 
 -- | Return the number of bytes used to store an MPI @Datatype@.
 typeSize :: Datatype -> Int
