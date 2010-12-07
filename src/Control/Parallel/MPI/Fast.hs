@@ -9,13 +9,16 @@ Maintainer  : florbitous@gmail.com
 Stability   : experimental
 Portability : ghc
 
-This module provides MPI functionality for arbitrary Haskell types that could be
-represented by corresponding MPI types without additional conversion or serialization,
-which allows fast application of MPI operations.
+This module provides the ability to transfer via MPI any Haskell value that could be
+represented by some MPI type without expensive conversion or serialization.
 
-TODO: expand
+Most of the \"primitive\" Haskell types could be treated this way, along with Storable and IO Arrays. Full range of point-to-point and collective operation is supported, including for reduce and similar operations.
 
-Full range of point-to-point and collective operation is supported, including for reduce and similar operations.
+Typeclass 'SendFrom' incapsulates the act of representing Haskell value as a flat memory region that could be used as a \"send buffer\" in MPI calls.
+
+Likewise, 'RecvInto' captures the rules for using Haskell value as a \"receive buffer\" in MPI calls.
+
+Correspondence between Haskell types and MPI types is encoded in 'Repr' typeclass.
 
 Below is a small but complete MPI program utilising this Module. Process 0 sends the array of @Int@s
 process 1. Process 1 receives the message and prints it
@@ -184,9 +187,16 @@ intoNewArray_ range f = do
   _ <- f arr
   return arr
 
-send, ssend, rsend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
+-- | Sends @v@ to the process identified by @(Comm, Rank, Tag)@. Call will return as soon as MPI has copied data from its internal send buffer.
+send :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
 send  = sendWith Internal.send
+
+-- | Sends @v@ to the process identified by @(Comm, Rank, Tag)@. Call will return as soon as receiving process started receiving data.
+ssend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
 ssend = sendWith Internal.ssend
+
+-- | Sends @v@ to the process identified by @(Comm, Rank, Tag)@. Matching 'recv' should already be posted, otherwise MPI error could occur.
+rsend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO ()
 rsend = sendWith Internal.rsend
 
 type SendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO ()
@@ -196,23 +206,30 @@ sendWith send_function comm rank tag val = do
    sendFrom val $ \valPtr numBytes dtype -> do
       send_function (castPtr valPtr) numBytes dtype rank tag comm
 
+-- | Receives data from the process identified by @(Comm, Rank, Tag)@ and store it in @v@.
 recv :: (RecvInto v) => Comm -> Rank -> Tag -> v -> IO Status
 recv comm rank tag arr = do
    recvInto arr $ \valPtr numBytes dtype ->
       Internal.recv (castPtr valPtr) numBytes dtype rank tag comm
 
+-- | \"Root\" process identified by @(Comm, Rank)@ sends value of @v@ to all processes in communicator @Comm@.
 bcastSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 bcastSend comm sendRank val = do
    sendFrom val $ \valPtr numBytes dtype -> do
       Internal.bcast (castPtr valPtr) numBytes dtype sendRank comm
 
+-- | Receive data distributed via 'bcaseSend' and store it in @v@.
 bcastRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 bcastRecv comm sendRank val = do
    recvInto val $ \valPtr numBytes dtype -> do
       Internal.bcast (castPtr valPtr) numBytes dtype sendRank comm
 
-isend, issend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
+-- | Sends @v@ to the process identified by @(Comm, Rank, Tag)@ in non-blocking mode. @Request@ will be considered complete as soon as MPI copies the data from the send buffer. Use 'probe', 'test', 'cancel' or 'wait' to work with @Request@.
+isend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
 isend  = isendWith Internal.isend
+
+-- | Sends @v@ to the process identified by @(Comm, Rank, Tag)@ in non-blocking mode. @Request@ will be considered complete as soon as receiving process starts to receive data.
+issend :: (SendFrom v) => Comm -> Rank -> Tag -> v -> IO Request
 issend = isendWith Internal.issend
 
 type ISendPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO (Request)
@@ -222,9 +239,12 @@ isendWith send_function comm recvRank tag val = do
   sendFrom val $ \valPtr numBytes dtype -> do
     send_function valPtr numBytes dtype recvRank tag comm
 
-
-isendPtr, issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
+-- | Variant of 'isend' that stores @Request@ at the provided pointer. Useful for filling up arrays of @Request@s that would later be fed to 'waitall'.
+isendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
 isendPtr  = isendWithPtr Internal.isendPtr
+
+-- | Variant of 'issend' that stores @Request@ at the provided pointer. Useful for filling up arrays of @Request@s that would later be fed to 'waitall'.
+issendPtr :: (SendFrom v) => Comm -> Rank -> Tag -> Ptr Request -> v -> IO ()
 issendPtr = isendWithPtr Internal.issendPtr
 
 type ISendPtrPrim = Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> Ptr Request -> IO ()
@@ -233,34 +253,35 @@ isendWithPtr send_function comm recvRank tag requestPtr val = do
    sendFrom val $ \valPtr numBytes dtype ->
      send_function (castPtr valPtr) numBytes dtype recvRank tag comm requestPtr
 
-{-
-   At the moment we are limiting this to StorableArrays because they
-   are compatible with C pointers. This means that the recieved data can
-   be written directly to the array, and does not have to be copied out
-   at the end. This is important for the non-blocking operation of irecv.
-   It is not safe to copy the data from the C pointer until the transfer
-   is complete. So any array type which required copying of data after
-   receipt of the message would have to wait on complete transmission.
-   It is not clear how to incorporate the waiting automatically into
-   the same interface as the one below. One option is to use a Haskell
-   thread to do the data copying in the "background". Another option
-   is to introduce a new kind of data handle which would encapsulate the
-   wait operation, and would allow the user to request the data to be
-   copied when the wait was complete.
--}
-
--- Pointer to Request is provided by caller. Usefull for filling arrays of Requests for further consumption
--- by waitall
+-- | Variant of 'irecv' that stores @Request@ at the provided pointer.
 irecvPtr :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> Ptr Request -> StorableArray i e -> IO ()
 irecvPtr comm sendRank tag requestPtr recvVal = do
   recvInto recvVal $ \recvPtr recvElements recvType -> do
     Internal.irecvPtr (castPtr recvPtr) recvElements recvType sendRank tag comm requestPtr
 
+{-| Receive 'StorableArray' from the process identified by @(Comm, Rank, Tag)@ in non-blocking mode.
+
+At the moment we are limiting this to 'StorableArray's because they
+are compatible with C pointers. This means that the recieved data can
+be written directly to the array, and does not have to be copied out
+at the end. This is important for the non-blocking operation of @irecv@.
+
+It is not safe to copy the data from the C pointer until the transfer
+is complete. So any array type which requires copying of data after
+receipt of the message would have to wait on complete transmission.
+It is not clear how to incorporate the waiting automatically into
+the same interface as the one below. One option is to use a Haskell
+thread to do the data copying in the \"background\" (as was done for 'Simple.irecv'). Another option
+is to introduce a new kind of data handle which would encapsulate the
+wait operation, and would allow the user to request the data to be
+copied when the wait was complete.
+-}
 irecv :: (Storable e, Ix i, Repr e) => Comm -> Rank -> Tag -> StorableArray i e -> IO Request
 irecv comm sendRank tag recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType -> do
       Internal.irecv (castPtr recvPtr) recvElements recvType sendRank tag comm
 
+-- | Wrapper around 'Internal.waitall' that operates on 'StorableArray's
 waitall :: StorableArray Int Request -> StorableArray Int Status -> IO ()
 waitall requests statuses = do
   cnt <- rangeSize <$> getBounds requests
@@ -268,20 +289,29 @@ waitall requests statuses = do
     withStorableArray statuses $ \stats ->
       Internal.waitall (cIntConv cnt) (castPtr reqs) (castPtr stats)
 
+-- | Scatter elements of @v1@ to all members of communicator @Comm@ from the \"root\" process identified by @Rank@. Receive own slice of data
+-- in @v2@. Note that when @Comm@ is inter-communicator, @Rank@ could differ from the rank of the calling process.
 scatterSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 scatterSend comm root sendVal recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      sendFrom sendVal $ \sendPtr _ _ ->
        Internal.scatter (castPtr sendPtr) recvElements recvType (castPtr recvPtr) recvElements recvType root comm
 
+-- | Receive the slice of data scattered from \"root\" process identified by @(Comm, Rank)@ and store it into @v@.
 scatterRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 scatterRecv comm root recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType root comm
 
--- Counts and displacements should be presented in ready-for-use form for speed, hence the choice of StorableArrays
-scattervSend :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
-                 StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
+-- | Variant of 'scatterSend' that allows to send data in uneven chunks. 
+-- Since interface is tailored for speed, @counts@ and @displacements@ should be in 'StorableArray's.
+scattervSend :: (SendFrom v1, RecvInto v2) => Comm 
+                -> Rank 
+                -> v1 -- ^ Value (vector) to send from
+                -> StorableArray Int CInt -- ^ Length of each segment (in elements)
+                -> StorableArray Int CInt -- ^ Offset of each segment from the beginning of @v1@ (in elements)
+                -> v2
+                -> IO ()
 scattervSend comm root sendVal counts displacements recvVal  = do
    -- myRank <- commRank comm
    -- XXX: assert myRank == sendRank ?
@@ -292,6 +322,7 @@ scattervSend comm root sendVal counts displacements recvVal  = do
            Internal.scatterv (castPtr sendPtr) countsPtr displPtr sendType
                              (castPtr recvPtr) recvElements recvType root comm
 
+-- | Variant of 'scatterRecv', to be used with 'scattervSend'
 scattervRecv :: (RecvInto v) => Comm -> Rank -> v -> IO ()
 scattervRecv comm root arr = do
    -- myRank <- commRank comm
@@ -304,6 +335,8 @@ XXX we should check that the recvArray is large enough to store:
 
    segmentSize * commSize
 -}
+-- | \"Root\" process identified by @(Comm, Rank)@ collects data sent via 'gatherSend' and stores them in @v2@. Collecting process supplies
+-- its own share of data in @v1@.
 gatherRecv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 -> v2 -> IO ()
 gatherRecv comm root segment recvVal = do
    -- myRank <- commRank comm
@@ -312,6 +345,7 @@ gatherRecv comm root segment recvVal = do
      recvInto recvVal $ \recvPtr _ _ ->
        Internal.gather (castPtr sendPtr) sendElements sendType (castPtr recvPtr) sendElements sendType root comm
 
+-- | Send value of @v@ to the \"root\" process identified by @(Comm, Rank)@, to be collected with 'gatherRecv'.
 gatherSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 gatherSend comm root segment = do
    -- myRank <- commRank comm
@@ -320,6 +354,7 @@ gatherSend comm root segment = do
      -- the recvPtr is ignored in this case, so we can make it NULL, likewise recvCount can be 0
      Internal.gather (castPtr sendPtr) sendElements sendType nullPtr 0 byte root comm
 
+-- | Variant of 'gatherRecv' that allows to collect data segments of uneven size (see 'scattervSend' for details)
 gathervRecv :: (SendFrom v1, RecvInto v2) => Comm -> Rank -> v1 ->
                 StorableArray Int CInt -> StorableArray Int CInt -> v2 -> IO ()
 gathervRecv comm root segment counts displacements recvVal = do
@@ -333,6 +368,7 @@ gathervRecv comm root segment counts displacements recvVal = do
                              (castPtr recvPtr) countsPtr displPtr recvType 
                              root comm
 
+-- | Variant of 'gatherSend', to be used with 'gathervRecv'.
 gathervSend :: (SendFrom v) => Comm -> Rank -> v -> IO ()
 gathervSend comm root segment = do
    -- myRank <- commRank comm
