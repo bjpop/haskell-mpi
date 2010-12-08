@@ -228,7 +228,7 @@ discard _ = return ()
 -- These cannot be called after finalize (at least on OpenMPI).
 
 -- | Return the name of the current processing host. From this value it
--- must be possible to identify a specic piece of hardware on which
+-- must be possible to identify a specific piece of hardware on which
 -- the code is running.
 getProcessorName :: IO String
 getProcessorName = do
