@@ -275,7 +275,7 @@ getImplementation =
 {# fun unsafe Comm_size as ^
               {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
 
--- | For intercommunicators, returs size of the remote process group.
+-- | For intercommunicators, returns size of the remote process group.
 --   Corresponds to @MPI_Comm_remote_size@.
 {# fun unsafe Comm_remote_size as ^
                     {fromComm `Comm', alloca- `Int' peekIntConv* } -> `()' checkError*- #}
