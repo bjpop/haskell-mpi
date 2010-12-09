@@ -1,27 +1,31 @@
 Dear Haskellers,
 
-We are pleased to announce the release of haskell-mpi-1.0.0, a suite of Haskell bindings to C MPI library and convenience APIs on top of it.
+We are pleased to announce the release of haskell-mpi-1.0.0, a suite of Haskell bindings to the C MPI library and convenience APIs on top of it.
+
+About MPI
+---------
 
 MPI, the Message Passing Interface, is a popular communications protocol for distributed parallel computing (http://www.mpi-forum.org/).
 
-MPI applications consist of independent computing processes which share information by message passing communication. It supports both point-to-point and collective communication operators, and manages much of the mundane aspects of message delivery. There are several high-quality implementations of MPI available which adhere to the standard API specification (the latest version of which is 2.2). The MPI specification defines interfaces for C, C++ and Fortran, and bindings are available for many other programming languages. 
+MPI applications consist of independent computing processes which share information by message passing. It supports both point-to-point and collective communication operators, and manages much of the mundane aspects of message delivery. There are several high-quality implementations of MPI available, all of which conform to the standard API specification (the latest version of which is 2.2). The MPI specification defines interfaces for C, C++ and Fortran, and bindings are available for many other programming languages. 
+
+About Haskell-MPI
+-----------------
 
 As the name suggests, Haskell-MPI provides a Haskell interface to MPI, and thus facilitates distributed parallel programming in Haskell. It is implemented on top of the C API via Haskell's foreign function interface. Haskell-MPI provides three different ways to access MPI's functionality:
    * A direct binding to the C interface (see Control.Parallel.MPI.Internal).
    * A convenient interface for sending arbitrary serializable Haskell data values as messages (see Control.Parallel.MPI.Simple).
    * A high-performance interface for working with (possibly mutable) arrays of storable Haskell data types (see Control.Parallel.MPI.Fast).
 
-We do not currently provide exhaustive coverage of all the functions and types defined by MPI
-2.2, although we do provide bindings to the most commonly used parts. In future we plan
-to extend coverage based on the needs of projects which use the library.
+We do not currently provide exhaustive coverage of all the functions and types defined by MPI 2.2, although we do provide bindings to the most commonly used parts. In future we plan to extend coverage based on the needs of projects which use the library.
 
-Package is available from http://hackage.haskell.org/package/haskell-mpi, examples and testsuite of 100+ tests are included in the source distribution. 
+The package is available from http://hackage.haskell.org/package/haskell-mpi. Examples and comprehensive testsuite are included in the source distribution. 
 
-Code was tested on 32- and 64-bit platforms, with MPICH2 and OpenMPI. Fast API shows performance comparable to C, and Simple API is usually 2-7 time slower.
+Code was tested on 32- and 64-bit platforms, with MPICH2 and OpenMPI. The Fast API shows performance comparable to C, and the Simple API is generally 2-7 time slower due to (de)serialization overhead and necessity to issue additional MPI requests behind the curtains in some cases.
 
-Bernie Pope started this project as a rewrite of hMPI by Michael Weber and Hal Daume III. Later on Well-Typed LLC needed the functionality for its Parallel Haskell Project, and Dmitry Astapov joined development effort. 
+Bernie Pope started this project as a rewrite of hMPI which was written by Michael Weber and Hal Daume III. He was later joined by Dmitry Astapov, working on the library as part of Well-Typed LLP's Parallel Haskell Project.
 
-Right now code is hosted on GitHub, in git://github.com/bjpop/haskell-mpi and git://github.com/adept/haskell-mpi. Please join in!
+Development is happening on GitHub, in git://github.com/bjpop/haskell-mpi. Please join in!
 
 -- 
 Dmitry Astapov, Bernie Pope
