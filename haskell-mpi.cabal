@@ -1,5 +1,5 @@
 name:                haskell-mpi
-version:             0.5.0
+version:             1.0.0
 cabal-version:       >= 1.6
 synopsis:            Distributed parallel programming in Haskell using MPI.
 description:
@@ -69,7 +69,7 @@ description:
 category:            FFI, Distributed Computing
 license:             BSD3
 license-file:        LICENSE
-copyright:           (c) 2010 Bernard James Pope
+copyright:           (c) 2010 Bernard James Pope, Dmitry Astapov
 author:              Bernard James Pope (Bernie Pope)
 maintainer:          florbitous@gmail.com
 homepage:            http://github.com/bjpop/haskell-mpi
@@ -77,6 +77,15 @@ build-type:          Simple
 stability:           experimental
 tested-with:         GHC==6.10.4, GHC==6.12.1
 extra-source-files:  src/cbits/*.c src/include/*.h README.txt
+                     test/examples/HaskellAndC/Makefile
+                     test/examples/HaskellAndC/*.c
+                     test/examples/HaskellAndC/*.hs
+                     test/examples/PiByIntegration/*.hs
+                     test/examples/PiByIntegration/*.test
+                     test/examples/simple/*.hs
+                     test/examples/simple/*.test
+                     test/examples/speed/*.hs
+                     test/examples/speed/simple-api/*.hs
 
 source-repository head
   type: git
