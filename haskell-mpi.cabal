@@ -76,7 +76,7 @@ homepage:            http://github.com/bjpop/haskell-mpi
 build-type:          Simple
 stability:           experimental
 tested-with:         GHC==6.10.4, GHC==6.12.1
-extra-source-files:  src/cbits/*.c src/include/*.h
+extra-source-files:  src/cbits/*.c src/include/*.h README.txt
 
 source-repository head
   type: git
@@ -139,6 +139,7 @@ executable  haskell-mpi-testsuite
     GroupTests,
     PrimTypeTests,
     ExceptionTests,
+    OtherTests,
     TestHelpers
   main-is:       Testsuite.hs
   if flag(test)
