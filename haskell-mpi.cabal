@@ -78,6 +78,10 @@ stability:           experimental
 tested-with:         GHC==6.10.4, GHC==6.12.1
 extra-source-files:  src/cbits, src/include
 
+source-repository head
+  type: git
+  location: git://github.com/bjpop/haskell-mpi.git
+
 flag test
   description: Build testsuite and code coverage tests
   default: False
