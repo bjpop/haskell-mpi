@@ -969,9 +969,9 @@ instance Num Rank where
     | x < 0             = error "Negative Rank value"
     | otherwise         = MkRank (fromIntegral x)
 
-foreign import ccall "mpi_any_source" anySource_ :: Ptr Int
-foreign import ccall "mpi_root" theRoot_ :: Ptr Int
-foreign import ccall "mpi_proc_null" procNull_ :: Ptr Int
+foreign import ccall "&mpi_any_source" anySource_ :: Ptr Int
+foreign import ccall "&mpi_root" theRoot_ :: Ptr Int
+foreign import ccall "&mpi_proc_null" procNull_ :: Ptr Int
 
 -- | Predefined rank number that allows reception of point-to-point messages
 -- regardless of their source. Corresponds to @MPI_ANY_SOURCE@
