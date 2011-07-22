@@ -6,6 +6,7 @@ import Foreign.Storable (peek, poke)
 import Foreign.Marshal (alloca)
 import Foreign.C.Types (CInt)
 import Control.Parallel.MPI.Base
+import Data.Maybe (isJust)
 
 otherTests :: ThreadSupport -> Rank -> [(String,TestRunnerTest)]
 otherTests threadSupport _ =
@@ -17,6 +18,7 @@ otherTests threadSupport _ =
    , testCase "finalized" finalizedTest
    , testCase "tag value upper bound" tagUpperBoundTest
    , testCase "queryThread" $ queryThreadTest threadSupport
+   , testCase "test requestNull" $ testRequestNull
    ]
 
 queryThreadTest :: ThreadSupport -> IO ()
@@ -68,3 +70,13 @@ tagUpperBoundTest :: IO ()
 tagUpperBoundTest = do
   putStrLn $ "Maximum tag value is " ++ show tagUpperBound
   tagUpperBound /= (-1) @? "tagUpperBound has no value"
+
+testRequestNull :: IO ()
+testRequestNull = do
+  status <- test requestNull
+  isJust status @? "test requestNull does not return status"
+  let (Just s) = status
+  status_source s == anySource @? "status returned from (test requestNull) does not have source set to anySource"
+  status_tag s == anyTag @? "status returned from (test requestNull) does not have tag set to anyTag"
+  status_error s == 0 @? "status returned from (test requestNull) does not have error set to success"
+

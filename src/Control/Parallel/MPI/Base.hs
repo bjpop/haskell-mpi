@@ -31,9 +31,10 @@ module Control.Parallel.MPI.Base
    , Request
    , Status (..)
    , probe
-   , test
-   , cancel
-   , wait
+   , test, testPtr
+   , cancel, cancelPtr
+   , wait, waitPtr
+   , requestNull
 
    -- * Communicators and error handlers.
    , Comm

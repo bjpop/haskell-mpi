@@ -25,6 +25,7 @@ MPI_CONST (MPI_Datatype, mpi_packed, MPI_PACKED)
 /* Misc */
 MPI_CONST (int, mpi_any_source, MPI_ANY_SOURCE)
 MPI_CONST (int, mpi_proc_null, MPI_PROC_NULL)
+MPI_CONST (MPI_Request, mpi_request_null, MPI_REQUEST_NULL)
 MPI_CONST (int, mpi_root, MPI_ROOT)
 MPI_CONST (int, mpi_any_tag, MPI_ANY_TAG)
 MPI_CONST (int, mpi_tag_ub, MPI_TAG_UB)

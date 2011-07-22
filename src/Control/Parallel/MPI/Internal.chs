@@ -38,7 +38,7 @@ module Control.Parallel.MPI.Internal
      getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
 
      -- * Requests and statuses.
-     Request, Status (..), probe, test, cancel, wait, waitall,
+     Request, Status (..), probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull,
 
      -- * Process management.
      -- ** Communicators.
@@ -439,9 +439,14 @@ started, otherwise this call could terminate with MPI error.
 
 -- | Blocking test for the completion of a send of receive.
 -- See 'test' for a non-blocking variant.
--- This function corresponds to @MPI_Wait@.
-{# fun unsafe Wait as ^
-          {withRequest* `Request', allocaCast- `Status' peekCast*} -> `()' checkError*-  #}
+-- This function corresponds to @MPI_Wait@. Request pointer could
+-- be changed to point to @requestNull@. See @wait@ for variant that does not mutate request value.
+{# fun unsafe Wait as waitPtr
+          {castPtr `Ptr Request', allocaCast- `Status' peekCast*} -> `()' checkError*-  #}
+
+-- | Same as @waitPtr@, but does not change Haskell @Request@ value to point to @procNull@.
+-- Usually, this is harmless - your request just would be considered inactive.
+wait request = withRequest request waitPtr
 
 -- | Takes pointer to the array of Requests of given size, 'wait's on all of them,
 --   populates array of Statuses of the same size. This function corresponds to @MPI_Waitall@
@@ -451,22 +456,42 @@ started, otherwise this call could terminate with MPI error.
 
 -- | Non-blocking test for the completion of a send or receive.
 -- Returns @Nothing@ if the request is not complete, otherwise
--- it returns @Just status@. See 'wait' for a blocking variant.
+-- it returns @Just status@.
+--
+-- Note that while MPI would modify
+-- request to be @requestNull@ if the operation is complete,
+-- Haskell value would not be changed. So, if you got (Just status)
+-- as a result, consider your request to be @requestNull@. Or use @testPtr@.
+--
+-- See 'wait' for a blocking variant.
 -- This function corresponds to @MPI_Test@.
 test :: Request -> IO (Maybe Status)
-test request = do
-  (flag, status) <- test' request
+test request = withRequest request testPtr
+
+-- | Analogous to 'test' but uses pointer to @Request@. If request is completed, pointer would be 
+-- set to point to @requestNull@.
+testPtr :: Ptr Request -> IO (Maybe Status)
+testPtr reqPtr = do
+  (flag, status) <- testPtr' reqPtr
+  request' <- peek reqPtr
   if flag
-     then return $ Just status
-     else return Nothing
-  where
-    test' = {# fun unsafe Test as test_
-              {withRequest* `Request', alloca- `Bool' peekBool*, allocaCast- `Status' peekCast*} -> `()' checkError*- #}
+    then do if request' == requestNull
+               then return $ Just status
+               else error "testPtr: request modified, but not set to MPI_REQUEST_NULL!"
+    else return Nothing
+  where testPtr' = {# fun unsafe Test as testPtr_
+       {castPtr `Ptr Request', alloca- `Bool' peekBool*, allocaCast- `Status' peekCast*} -> `()' checkError*- #}
 
 -- | Cancel a pending communication request.
--- This function corresponds to @MPI_Cancel@.
-{# fun unsafe Cancel as ^
-            {withRequest* `Request'} -> `()' checkError*- #}
+-- This function corresponds to @MPI_Cancel@. Sets pointer to point to @requestNull@.
+{# fun unsafe Cancel as cancelPtr
+            {castPtr `Ptr Request'} -> `()' checkError*- #}
+
+
+-- | Same as @cancelPtr@, but does not change Haskell @Request@ value to point to @procNull@.
+-- Usually, this is harmless - your request just would be considered inactive.
+cancel request = withRequest request cancelPtr
+
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
 
@@ -972,6 +997,7 @@ instance Num Rank where
 foreign import ccall "&mpi_any_source" anySource_ :: Ptr Int
 foreign import ccall "&mpi_root" theRoot_ :: Ptr Int
 foreign import ccall "&mpi_proc_null" procNull_ :: Ptr Int
+foreign import ccall "&mpi_request_null" requestNull_ :: Ptr MPIRequest
 
 -- | Predefined rank number that allows reception of point-to-point messages
 -- regardless of their source. Corresponds to @MPI_ANY_SOURCE@
@@ -988,6 +1014,11 @@ theRoot = toRank $ unsafePerformIO $ peek theRoot_
 procNull :: Rank
 procNull  = toRank $ unsafePerformIO $ peek procNull_
 
+-- | Predefined request handle value that specifies non-existing or finished request.
+-- Corresponds to @MPI_REQUEST_NULL@
+requestNull :: Request
+requestNull  = unsafePerformIO $ peekRequest requestNull_
+
 instance Show Rank where
    show = show . rankId
 
@@ -1003,7 +1034,7 @@ type MPIRequest = {# type MPI_Request #}
 {-| Haskell representation of the @MPI_Request@ type. Returned by
 non-blocking communication operations, could be further processed with
 'probe', 'test', 'cancel' or 'wait'. -}
-newtype Request = MkRequest MPIRequest deriving Storable
+newtype Request = MkRequest MPIRequest deriving (Storable,Eq)
 peekRequest ptr = MkRequest <$> peek ptr
 
 {-

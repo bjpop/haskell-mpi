@@ -1,10 +1,11 @@
-module SimpleTests (simpleTests) where
+module SimpleTests where
 
 import TestHelpers
 import Control.Parallel.MPI.Simple
 
 import Control.Concurrent (threadDelay)
 import Data.Serialize ()
+import Data.Maybe (isJust)
 
 root :: Rank
 root = 0
@@ -19,7 +20,7 @@ simpleTests rank =
   , mpiTestCase rank "send+recvFuture simple message" syncSendRecvFuture
   , mpiTestCase rank "isend+recv simple message" $ asyncSendRecv isend
   , mpiTestCase rank "issend+recv simple message" $ asyncSendRecv issend
-  , mpiTestCase rank "isend+recv two messages"   asyncSendRecv2
+  , mpiTestCase rank "isend+recv two messages + test instead of wait"   asyncSendRecv2
   , mpiTestCase rank "isend+recvFuture two messages, out of order" asyncSendRecv2ooo
   , mpiTestCase rank "isend+recvFuture two messages (criss-cross)" crissCrossSendRecv
   , mpiTestCase rank "isend+issend+waitall two messages" waitallTest
@@ -93,7 +94,10 @@ asyncSendRecv isendf rank
 asyncSendRecv2 rank
   | rank == sender   = do req1 <- isend commWorld receiver 123 smallMsg
                           req2 <- isend commWorld receiver 456 bigMsg
-                          stat1 <- wait req1
+                          threadDelay (10^(6 :: Integer))
+                          status <- test req1
+                          isJust status @? "Got Nothing out of test, expected Just"
+                          let Just stat1 = status
                           checkStatusIfNotMPICH2 stat1 sender 123
                           stat2 <- wait req2
                           checkStatusIfNotMPICH2 stat2 sender 456
