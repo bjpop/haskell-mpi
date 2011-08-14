@@ -95,8 +95,14 @@ flag test
   description: Build testsuite and code coverage tests
   default: False
 
+flag mpich14
+  description: Link with extra libraries for MPICH 1.4
+  default: False
+
 Library
    extra-libraries:  mpi
+   if flag(mpich14)
+     extra-libraries: mpl
    build-tools:      c2hs
    ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
    c-sources:
@@ -128,6 +134,8 @@ executable  haskell-mpi-testsuite
     ./src
   build-tools:      c2hs
   extra-libraries:  mpi
+  if flag(mpich14)
+    extra-libraries: mpl
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
   c-sources:
     src/cbits/init_wrapper.c,
