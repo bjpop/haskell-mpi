@@ -12,6 +12,7 @@ otherTests :: ThreadSupport -> Rank -> [(String,TestRunnerTest)]
 otherTests threadSupport _ =
    [ testCase "Peeking/poking Status" statusPeekPoke
    , testCase "Querying MPI implementation" getImplementationTest
+   , testCase "Universe size" universeSizeTest
    , testCase "wtime/wtick" wtimeWtickTest
    , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
    , testCase "initialized" initializedTest
@@ -47,6 +48,11 @@ wtimeWtickTest = do
   tick < t @? "Timer resolution is greater than current time"
   putStrLn $ "Current time is " ++ show t ++ ", timer resolution is " ++ show tick
   putStrLn $ "Wtime is global: " ++ show wtimeIsGlobal
+
+universeSizeTest :: IO ()
+universeSizeTest = do
+  us <- universeSize commWorld
+  putStrLn $ "Universe size is " ++ show us
 
 rankSizeNameVersionTest :: IO ()
 rankSizeNameVersionTest = do

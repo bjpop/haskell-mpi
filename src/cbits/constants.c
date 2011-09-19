@@ -36,6 +36,7 @@ MPI_CONST (int, mpi_max_object_name, MPI_MAX_OBJECT_NAME)
 MPI_CONST (int, mpi_undefined, MPI_UNDEFINED)
 MPI_CONST (int, mpi_cart, MPI_CART)
 MPI_CONST (int, mpi_graph, MPI_GRAPH)
+MPI_CONST (int, mpi_universe_size, MPI_UNIVERSE_SIZE)
 
 /* MPI predefined handles */
 MPI_CONST (MPI_Comm, mpi_comm_world, MPI_COMM_WORLD)

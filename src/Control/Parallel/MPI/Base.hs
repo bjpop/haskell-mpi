@@ -137,6 +137,7 @@ module Control.Parallel.MPI.Base
    , getVersion
    , Implementation (..)
    , getImplementation
+   , universeSize
 
    -- * Error handling.
    , MPIError(..)

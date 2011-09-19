@@ -35,7 +35,7 @@ module Control.Parallel.MPI.Internal
      ThreadSupport (..), initThread, queryThread, isThreadMain,
 
      -- ** Runtime attributes.
-     getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
+     getProcessorName, Version (..), getVersion, Implementation(..), getImplementation, universeSize,
 
      -- * Requests and statuses.
      Request, Status (..), probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull,
@@ -337,6 +337,24 @@ foreign import ccall unsafe "&mpi_wtime_is_global" wtimeIsGlobal_ :: Ptr Int
 -- To be used with 'commGetAttr'.
 wtimeIsGlobalKey :: Int
 wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
+
+{- | 
+Many ``dynamic'' MPI applications are expected to exist in a static runtime environment, in which resources have been allocated before the application is run. When a user (or possibly a batch system) runs one of these quasi-static applications, she will usually specify a number of processes to start and a total number of processes that are expected. An application simply needs to know how many slots there are, i.e., how many processes it should spawn.
+
+This attribute indicates the total number of processes that are expected.
+
+When universeSize is called before 'init' or 'initThread' it would return False.
+-}
+universeSize :: Comm -> IO (Maybe Int)
+universeSize c =
+  commGetAttr c universeSizeKey
+
+foreign import ccall unsafe "&mpi_universe_size" universeSize_ :: Ptr Int
+
+-- | Numeric key for recommended MPI communicator attribute @MPI_UNIVERSE_SIZE@.
+-- To be used with 'commGetAttr'.
+universeSizeKey :: Int
+universeSizeKey = unsafePerformIO (peek universeSize_)
 
 -- | Return the rank of the calling process for the given
 -- communicator. If it is an intercommunicator, returns rank of the
