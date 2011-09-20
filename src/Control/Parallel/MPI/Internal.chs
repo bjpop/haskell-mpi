@@ -42,7 +42,7 @@ module Control.Parallel.MPI.Internal
 
      -- * Process management.
      -- ** Communicators.
-     Comm, commWorld, commSelf, commTestInter,
+     Comm, commWorld, commSelf, commNull, commTestInter,
      commSize, commRemoteSize, 
      commRank, 
      commCompare, commGroup, commGetAttr,
@@ -53,6 +53,9 @@ module Control.Parallel.MPI.Internal
      groupIncl, groupTranslateRanks,
      -- ** Comparisons.
      ComparisonResult (..),
+
+     -- ** Dynamic process management
+     commGetParent, commSpawn,
 
      -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
@@ -140,7 +143,9 @@ type MPIComm = {# type MPI_Comm #}
    which includes all running processes. You could create new
    communicators with TODO
 -}
-newtype Comm = MkComm { fromComm :: MPIComm }
+newtype Comm = MkComm { fromComm :: MPIComm } deriving Eq
+peekComm ptr = MkComm <$> peek ptr
+
 foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr MPIComm
 foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr MPIComm
 
@@ -786,6 +791,19 @@ groupTranslateRanks group1 ranks group2 =
 
 withRanksAsInts ranks f = withArrayLen (map fromEnum ranks) $ \size ptr -> f (cIntConv size, castPtr ptr)
 
+{- | If a process was started with 'commSpawn', @commGetParent@
+returns the parent intercommunicator of the current process. This
+parent intercommunicator is created implicitly inside of 'init' and
+is the same intercommunicator returned by 'commSpawn' in the
+parents. If the process was not spawned, @commGetParent@ returns
+'commNull'. After the parent communicator is freed or disconnected,
+@commGetParent@ returns 'commNull'. -} 
+
+{# fun unsafe Comm_get_parent as ^
+               {alloca- `Comm' peekComm*} -> `()' checkError*- #}
+
+commSpawn = undefined
+
 foreign import ccall "mpi_undefined" mpiUndefined_ :: Ptr Int
 
 -- | Predefined constant that might be returned as @Rank@ by calls
@@ -1016,6 +1034,7 @@ foreign import ccall "&mpi_any_source" anySource_ :: Ptr Int
 foreign import ccall "&mpi_root" theRoot_ :: Ptr Int
 foreign import ccall "&mpi_proc_null" procNull_ :: Ptr Int
 foreign import ccall "&mpi_request_null" requestNull_ :: Ptr MPIRequest
+foreign import ccall "&mpi_comm_null" commNull_ :: Ptr MPIComm
 
 -- | Predefined rank number that allows reception of point-to-point messages
 -- regardless of their source. Corresponds to @MPI_ANY_SOURCE@
@@ -1036,6 +1055,11 @@ procNull  = toRank $ unsafePerformIO $ peek procNull_
 -- Corresponds to @MPI_REQUEST_NULL@
 requestNull :: Request
 requestNull  = unsafePerformIO $ peekRequest requestNull_
+
+-- | Predefined communicator handle value that specifies non-existing or destroyed (inter-)communicator.
+-- Corresponds to @MPI_COMM_NULL@
+commNull :: Comm
+commNull  = unsafePerformIO $ peekComm commNull_
 
 instance Show Rank where
    show = show . rankId

@@ -14,6 +14,7 @@ otherTests threadSupport _ =
    , testCase "Querying MPI implementation" getImplementationTest
    , testCase "Universe size" universeSizeTest
    , testCase "wtime/wtick" wtimeWtickTest
+   , testCase "commGetParent is null" commGetParentNullTest
    , testCase "commRank, commSize, getProcessor name, version" rankSizeNameVersionTest
    , testCase "initialized" initializedTest
    , testCase "finalized" finalizedTest
@@ -86,3 +87,7 @@ testRequestNull = do
   status_tag s == anyTag @? "status returned from (test requestNull) does not have tag set to anyTag"
   status_error s == 0 @? "status returned from (test requestNull) does not have error set to success"
 
+commGetParentNullTest :: IO ()
+commGetParentNullTest = do
+  comm <- commGetParent
+  comm == commNull @? "commGetParent did not return commNull, yet this is not dynamically-spawned process"

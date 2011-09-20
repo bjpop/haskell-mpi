@@ -40,6 +40,7 @@ module Control.Parallel.MPI.Base
    , Comm
    , commWorld
    , commSelf
+   , commNull
    , commSize
    , commRank
    , commTestInter
@@ -138,6 +139,10 @@ module Control.Parallel.MPI.Base
    , Implementation (..)
    , getImplementation
    , universeSize
+     
+   -- * Dynamic process management
+   , commGetParent
+   , commSpawn
 
    -- * Error handling.
    , MPIError(..)
