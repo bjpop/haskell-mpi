@@ -146,6 +146,7 @@ module Control.Parallel.MPI.Base
    -- * Dynamic process management
    , commGetParent
    , commSpawn
+   , commSpawnSimple
 
    -- * Error handling.
    , MPIError(..)

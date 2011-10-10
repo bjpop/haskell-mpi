@@ -58,7 +58,7 @@ module Control.Parallel.MPI.Internal
      ComparisonResult (..),
 
      -- ** Dynamic process management
-     commGetParent, commSpawn,
+     commGetParent, commSpawn, commSpawnSimple,
 
      -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
@@ -805,7 +805,22 @@ parents. If the process was not spawned, @commGetParent@ returns
 {# fun unsafe Comm_get_parent as ^
                {alloca- `Comm' peekComm*} -> `()' checkError*- #}
 
-commSpawn = undefined
+withT = with
+{# fun unsafe Comm_spawn as ^
+               { `String' 
+               , withT* `Ptr CChar'
+               , id `Count'
+               , fromInfo `Info'
+               , fromRank `Rank'
+               , fromComm `Comm'
+               , alloca- `Comm' peekComm*
+               , id `Ptr CInt'} -> `()' checkError*- #}
+
+foreign import ccall "mpi_argv_null" mpiArgvNull_ :: Ptr CChar
+foreign import ccall "mpi_errcodes_ignore" mpiErrcodesIgnore_ :: Ptr CInt
+{- Simplified version of `commSpawn' that does not support argument passing and spawn error code checking -}
+commSpawnSimple rank program maxprocs =
+  commSpawn program mpiArgvNull_ maxprocs infoNull rank commSelf mpiErrcodesIgnore_
 
 foreign import ccall "mpi_undefined" mpiUndefined_ :: Ptr Int
 
@@ -1023,7 +1038,7 @@ foreign import ccall "&mpi_info_null" infoNull_ :: Ptr MPIInfo
 
 -- | Predefined info object that has no info
 infoNull :: Info
-infoNull = MkInfo <$> unsafePerformIO $ peek infoNull_
+infoNull = unsafePerformIO $ peekInfo infoNull_
 
 {- | Haskell datatype that represents values which
  could be used as MPI rank designations. Low-level MPI calls require
