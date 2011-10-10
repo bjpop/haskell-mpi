@@ -140,6 +140,9 @@ module Control.Parallel.MPI.Base
    , getImplementation
    , universeSize
      
+   -- * Info objects
+   ,Info, infoNull
+
    -- * Dynamic process management
    , commGetParent
    , commSpawn

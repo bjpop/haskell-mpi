@@ -37,6 +37,9 @@ module Control.Parallel.MPI.Internal
      -- ** Runtime attributes.
      getProcessorName, Version (..), getVersion, Implementation(..), getImplementation, universeSize,
 
+     -- ** Info objects
+     Info, infoNull,
+
      -- * Requests and statuses.
      Request, Status (..), probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull,
 
@@ -1006,6 +1009,21 @@ lxorOp = MkOperation <$> unsafePerformIO $ peek lxorOp_
 bxorOp :: Operation
 bxorOp = MkOperation <$> unsafePerformIO $ peek bxorOp_
 
+-- | Actual Haskell type used depends on the MPI implementation.
+type MPIInfo = {# type MPI_Info #}
+
+{- | Abstract type representing handle for MPI Info object
+-}
+newtype Info = MkInfo { fromInfo :: MPIInfo } deriving Storable
+peekInfo ptr = MkInfo <$> peek ptr
+withInfo op f = alloca $ \ptr -> do poke ptr (fromInfo op)
+                                    f (castPtr ptr)
+
+foreign import ccall "&mpi_info_null" infoNull_ :: Ptr MPIInfo
+
+-- | Predefined info object that has no info
+infoNull :: Info
+infoNull = MkInfo <$> unsafePerformIO $ peek infoNull_
 
 {- | Haskell datatype that represents values which
  could be used as MPI rank designations. Low-level MPI calls require

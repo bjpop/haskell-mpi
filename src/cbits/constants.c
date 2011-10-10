@@ -43,6 +43,7 @@ MPI_CONST (int, mpi_universe_size, MPI_UNIVERSE_SIZE)
 MPI_CONST (MPI_Comm, mpi_comm_world, MPI_COMM_WORLD)
 MPI_CONST (MPI_Comm, mpi_comm_self, MPI_COMM_SELF)
 MPI_CONST (MPI_Group, mpi_group_empty, MPI_GROUP_EMPTY)
+MPI_CONST (MPI_Info, mpi_info_null, MPI_INFO_NULL)
 
 /* Operations */
 MPI_CONST (MPI_Op, mpi_max    , MPI_MAX    )
