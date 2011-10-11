@@ -147,6 +147,8 @@ module Control.Parallel.MPI.Base
    , commGetParent
    , commSpawn
    , commSpawnSimple
+   , argvNull
+   , errcodesIgnore
 
    -- * Error handling.
    , MPIError(..)

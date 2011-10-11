@@ -58,7 +58,7 @@ module Control.Parallel.MPI.Internal
      ComparisonResult (..),
 
      -- ** Dynamic process management
-     commGetParent, commSpawn, commSpawnSimple,
+     commGetParent, commSpawn, commSpawnSimple, argvNull, errcodesIgnore,
 
      -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
@@ -816,13 +816,16 @@ withT = with
                , alloca- `Comm' peekComm*
                , id `Ptr CInt'} -> `()' checkError*- #}
 
-foreign import ccall "mpi_argv_null" mpiArgvNull_ :: Ptr CChar
-foreign import ccall "mpi_errcodes_ignore" mpiErrcodesIgnore_ :: Ptr CInt
-{- Simplified version of `commSpawn' that does not support argument passing and spawn error code checking -}
-commSpawnSimple rank program maxprocs =
-  commSpawn program mpiArgvNull_ maxprocs infoNull rank commSelf mpiErrcodesIgnore_
+foreign import ccall unsafe "&mpi_argv_null" mpiArgvNull_ :: Ptr (Ptr CChar)
+foreign import ccall unsafe "&mpi_errcodes_ignore" mpiErrcodesIgnore_ :: Ptr (Ptr CInt)
+argvNull = unsafePerformIO $ peek mpiArgvNull_
+errcodesIgnore = unsafePerformIO $ peek mpiErrcodesIgnore_
 
-foreign import ccall "mpi_undefined" mpiUndefined_ :: Ptr Int
+{-| Simplified version of `commSpawn' that does not support argument passing and spawn error code checking -}
+commSpawnSimple rank program maxprocs =
+  commSpawn program argvNull maxprocs infoNull rank commSelf errcodesIgnore
+
+foreign import ccall "&mpi_undefined" mpiUndefined_ :: Ptr Int
 
 -- | Predefined constant that might be returned as @Rank@ by calls
 --  like 'groupTranslateRanks'. Corresponds to @MPI_UNDEFINED@. Please
