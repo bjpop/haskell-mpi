@@ -38,7 +38,7 @@ module Control.Parallel.MPI.Internal
      getProcessorName, Version (..), getVersion, Implementation(..), getImplementation, universeSize,
 
      -- ** Info objects
-     Info, infoNull,
+     Info, infoNull, infoCreate, infoSet, infoDelete, infoGet,
 
      -- * Requests and statuses.
      Request, Status (..), probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull,
@@ -1034,14 +1034,43 @@ type MPIInfo = {# type MPI_Info #}
 -}
 newtype Info = MkInfo { fromInfo :: MPIInfo } deriving Storable
 peekInfo ptr = MkInfo <$> peek ptr
-withInfo op f = alloca $ \ptr -> do poke ptr (fromInfo op)
-                                    f (castPtr ptr)
 
 foreign import ccall "&mpi_info_null" infoNull_ :: Ptr MPIInfo
 
 -- | Predefined info object that has no info
 infoNull :: Info
 infoNull = unsafePerformIO $ peekInfo infoNull_
+
+{-| Creates new empty info object -}
+{# fun unsafe Info_create as ^
+               {alloca- `Info' peekInfo*} -> `()' checkError*- #}
+
+{-| Adds specified (key, value) pair to info object -}
+{# fun unsafe Info_set as ^
+               {fromInfo `Info', `String', `String'} -> `()' checkError*- #}
+
+{-| Deletes the specified key from info object -}
+{# fun unsafe Info_delete as ^
+               {fromInfo `Info', `String'} -> `()' checkError*- #}
+
+{-| Gets the specified key -}
+infoGet :: Info -> String -> IO (Maybe String)
+infoGet info key = do
+  (len, found) <- infoGetValuelen' info key 
+  -- len+1 is required to allow for the terminating \NULL
+  if found/=0 then allocaBytes (fromIntegral len + 1)
+                   (\bufferPtr -> do
+                       found <- infoGet' info key (len+1) bufferPtr
+                       if found/=0 then Just <$> peekCStringLen (bufferPtr, fromIntegral len)
+                                   else return Nothing)
+           else return Nothing
+
+infoGetValuelen' = {# fun unsafe Info_get_valuelen as infoGetValuelen_
+       {fromInfo `Info', `String', alloca- `CInt' peek*, alloca- `CInt' peek* } -> `()' checkError*- #}
+
+infoGet' = {# fun unsafe Info_get as infoGet_
+            {fromInfo `Info', `String', id `CInt', castPtr `Ptr CChar', alloca- `CInt' peek*} -> `()' checkError*- #}
+
 
 {- | Haskell datatype that represents values which
  could be used as MPI rank designations. Low-level MPI calls require

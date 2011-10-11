@@ -21,6 +21,7 @@ otherTests threadSupport _ =
    , testCase "tag value upper bound" tagUpperBoundTest
    , testCase "queryThread" $ queryThreadTest threadSupport
    , testCase "test requestNull" $ testRequestNull
+   , testCase "Info objects" $ testInfoObjects
    ]
 
 queryThreadTest :: ThreadSupport -> IO ()
@@ -91,3 +92,15 @@ commGetParentNullTest :: IO ()
 commGetParentNullTest = do
   comm <- commGetParent
   comm == commNull @? "commGetParent did not return commNull, yet this is not dynamically-spawned process"
+
+testInfoObjects :: IO ()
+testInfoObjects = do
+  i <- infoCreate
+  v <- infoGet i "foo"
+  v == Nothing @? "Key 'foo' found in freshly-created Info object"
+  infoSet i "foo" "bar"
+  v' <- infoGet i "foo"
+  v' == (Just "bar") @? ("Key 'foo' was not set to 'bar', check retrieved " ++ show v')
+  infoDelete i "foo"
+  v'' <- infoGet i "foo"
+  v'' == Nothing @? "Key 'foo' was not deleted"

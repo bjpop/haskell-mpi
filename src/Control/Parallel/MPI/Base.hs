@@ -141,7 +141,7 @@ module Control.Parallel.MPI.Base
    , universeSize
      
    -- * Info objects
-   ,Info, infoNull
+   ,Info, infoNull, infoCreate, infoSet, infoDelete, infoGet
 
    -- * Dynamic process management
    , commGetParent
