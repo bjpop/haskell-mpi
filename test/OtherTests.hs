@@ -34,7 +34,7 @@ queryThreadTest threadSupport = do
 statusPeekPoke :: IO ()
 statusPeekPoke = do
   alloca $ \statusPtr -> do
-    let s0 = Status (fromIntegral (maxBound::CInt)) 2 3 maxBound True
+    let s0 = Status (fromIntegral (maxBound::CInt)) 2 3
     poke statusPtr s0
     s1 <- peek statusPtr
     s0 == s1 @? ("Poked " ++ show s0 ++ ", but peeked " ++ show s1)

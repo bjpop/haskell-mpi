@@ -1172,18 +1172,11 @@ blanking out freshly allocated memory, so beware!
 -}
 
 -- | Haskell structure that holds fields of @MPI_Status@.
---
--- Please note that MPI report lists only three fields as mandatory:
--- @status_source@, @status_tag@ and @status_error@. However, all
--- MPI implementations that were used to test those bindings supported
--- extended set of fields represented here.
 data Status =
    Status
    { status_source :: Rank -- ^ rank of the source process
    , status_tag :: Tag -- ^ tag assigned at source
    , status_error :: CInt -- ^ error code, if any
-   , status_count :: CInt -- ^ number of received elements, if applicable
-   , status_cancelled :: Bool -- ^ whether the request was cancelled
    }
    deriving (Eq, Ord, Show)
 
@@ -1197,28 +1190,10 @@ instance Storable Status where
     <$> liftM (MkRank . cIntConv) ({#get MPI_Status->MPI_SOURCE #} p)
     <*> liftM (MkTag . cIntConv) ({#get MPI_Status->MPI_TAG #} p)
     <*> liftM cIntConv ({#get MPI_Status->MPI_ERROR #} p)
-#ifdef MPICH2
-    -- MPICH2 and OpenMPI use different names for the status struct
-    -- fields-
-    <*> liftM cIntConv ({#get MPI_Status->count #} p)
-    <*> liftM cToEnum ({#get MPI_Status->cancelled #} p)
-#else
-    <*> liftM cIntConv ({#get MPI_Status->_count #} p)
-    <*> liftM cToEnum ({#get MPI_Status->_cancelled #} p)
-#endif
   poke p x = do
     {#set MPI_Status.MPI_SOURCE #} p (fromRank $ status_source x)
     {#set MPI_Status.MPI_TAG #} p (fromTag $ status_tag x)
     {#set MPI_Status.MPI_ERROR #} p (cIntConv $ status_error x)
-#ifdef MPICH2
-    -- MPICH2 and OpenMPI use different names for the status struct
-    -- fields AND different order of fields
-    {#set MPI_Status.count #} p (cIntConv $ status_count x)
-    {#set MPI_Status.cancelled #} p (cFromEnum $ status_cancelled x)
-#else
-    {#set MPI_Status._count #} p (cIntConv $ status_count x)
-    {#set MPI_Status._cancelled #} p (cFromEnum $ status_cancelled x)
-#endif
 
 -- NOTE: Int here is picked arbitrary
 allocaCast f =

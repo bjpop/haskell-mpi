@@ -31,7 +31,6 @@ checkStatus :: Status -> Rank -> Tag -> IO ()
 checkStatus _status src tag = do
   status_source _status    == src @? "Wrong source in status: expected " ++ show src ++ ", but got " ++ show (status_source _status)
   status_tag _status       == tag @? "Wrong tag in status: expected " ++ show tag ++ ", but got " ++ show (status_tag  _status)
-  not (status_cancelled _status) @? "Status says \"cancelled\""
   -- Error status is not checked since MPI implementation does not have to set it to 0 if there were no error
   -- status_error _status     == 0 @? "Non-zero error code: " ++ show (status_error _status)
 
