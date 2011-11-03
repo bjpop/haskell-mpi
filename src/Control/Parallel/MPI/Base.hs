@@ -30,6 +30,7 @@ module Control.Parallel.MPI.Base
      -- * Requests and statuses.
    , Request
    , Status (..)
+   , getCount
    , probe
    , test, testPtr
    , cancel, cancelPtr

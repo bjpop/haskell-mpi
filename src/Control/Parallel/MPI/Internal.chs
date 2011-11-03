@@ -41,7 +41,7 @@ module Control.Parallel.MPI.Internal
      Info, infoNull, infoCreate, infoSet, infoDelete, infoGet,
 
      -- * Requests and statuses.
-     Request, Status (..), probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull,
+     Request, Status (..), getCount, probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull, 
 
      -- * Process management.
      -- ** Communicators.
@@ -399,6 +399,14 @@ universeSizeKey = unsafePerformIO (peek universeSize_)
       -> Tag        -- ^ Tag of the sent message.
       -> Comm       -- ^ Communicator.
       -> IO Status  -- ^ Information about the incoming message (but not the content of the message). -}
+
+{-| Returns the number of entries received. (we count entries, each of
+type @Datatype@, not bytes.) The datatype argument should match the
+argument provided by the receive call that set the status variable. -}
+getCount status datatype = withStatus status (\ptr -> getCount_ ptr datatype)
+{# fun Get_count as getCount_
+           {castPtr `Ptr Status', fromDatatype `Datatype', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
+
 
 {-| Send the values (as specified by @BufferPtr@, @Count@, @Datatype@) to
     the process specified by (@Comm@, @Rank@, @Tag@). Caller will
@@ -1178,6 +1186,9 @@ data Status =
    , status_cancelled :: Bool -- ^ whether the request was cancelled
    }
    deriving (Eq, Ord, Show)
+
+withStatus stat f = do alloca $ \ptr -> do poke ptr stat
+                                           f (castPtr ptr)
 
 instance Storable Status where
   sizeOf _ = {#sizeof MPI_Status #}
