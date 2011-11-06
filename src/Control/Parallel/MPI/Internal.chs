@@ -41,7 +41,7 @@ module Control.Parallel.MPI.Internal
      Info, infoNull, infoCreate, infoSet, infoDelete, infoGet,
 
      -- * Requests and statuses.
-     Request, Status (..), getCount, probe, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull, 
+     Request, Status (..), getCount, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull, 
 
      -- * Process management.
      -- ** Communicators.
@@ -393,8 +393,11 @@ universeSizeKey = unsafePerformIO (peek universeSize_)
 -- This allows the current process to check for an incoming message and decide
 -- how to receive it, based on the information in the 'Status'.
 -- This function corresponds to @MPI_Probe@.
+-- The most common usecase is to call @probe@ first and then use 'getCount' to find out size of incoming message.
+-- However since different implementations provide additional fields in @Status@, we cannot deserialize Status into Haskell land
+-- and serialize it back without losing information. Hence the use of Ptr Status.
 {# fun Probe as ^
-           {fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast*} -> `()' checkError*- #}
+           {fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Status'} -> `()' checkError*- #}
 {- probe :: Rank       -- ^ Rank of the sender.
       -> Tag        -- ^ Tag of the sent message.
       -> Comm       -- ^ Communicator.
@@ -403,9 +406,15 @@ universeSizeKey = unsafePerformIO (peek universeSize_)
 {-| Returns the number of entries received. (we count entries, each of
 type @Datatype@, not bytes.) The datatype argument should match the
 argument provided by the receive call that set the status variable. -}
-getCount status datatype = withStatus status (\ptr -> getCount_ ptr datatype)
-{# fun Get_count as getCount_
-           {castPtr `Ptr Status', fromDatatype `Datatype', alloca- `Int' peekIntConv*} -> `()' checkError*- #}
+getCount :: Comm -> Rank -> Tag -> Datatype -> IO Int
+getCount comm rank tag datatype =
+  alloca $ \statusPtr -> do
+    probe rank tag comm statusPtr
+    cnt <- getCount' statusPtr datatype
+    return $ fromIntegral cnt
+  where
+    getCount' = {# fun unsafe Get_count as getCount_
+           {castPtr `Ptr Status', fromDatatype `Datatype', alloca- `CInt' peekIntConv*} -> `()' checkError*- #}
 
 
 {-| Send the values (as specified by @BufferPtr@, @Count@, @Datatype@) to
@@ -1179,9 +1188,6 @@ data Status =
    , status_error :: CInt -- ^ error code, if any
    }
    deriving (Eq, Ord, Show)
-
-withStatus stat f = do alloca $ \ptr -> do poke ptr stat
-                                           f (castPtr ptr)
 
 instance Storable Status where
   sizeOf _ = {#sizeof MPI_Status #}
