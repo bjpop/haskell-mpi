@@ -25,6 +25,8 @@ MPI_CONST (MPI_Datatype, mpi_packed, MPI_PACKED)
 /* Misc */
 MPI_CONST (int, mpi_any_source, MPI_ANY_SOURCE)
 MPI_CONST (int, mpi_proc_null, MPI_PROC_NULL)
+MPI_CONST (MPI_Request, mpi_request_null, MPI_REQUEST_NULL)
+MPI_CONST (MPI_Comm, mpi_comm_null, MPI_COMM_NULL)
 MPI_CONST (int, mpi_root, MPI_ROOT)
 MPI_CONST (int, mpi_any_tag, MPI_ANY_TAG)
 MPI_CONST (int, mpi_tag_ub, MPI_TAG_UB)
@@ -35,11 +37,15 @@ MPI_CONST (int, mpi_max_object_name, MPI_MAX_OBJECT_NAME)
 MPI_CONST (int, mpi_undefined, MPI_UNDEFINED)
 MPI_CONST (int, mpi_cart, MPI_CART)
 MPI_CONST (int, mpi_graph, MPI_GRAPH)
+MPI_CONST (int, mpi_universe_size, MPI_UNIVERSE_SIZE)
+MPI_CONST (char **, mpi_argv_null, MPI_ARGV_NULL)
+MPI_CONST (int *, mpi_errcodes_ignore, MPI_ERRCODES_IGNORE)
 
 /* MPI predefined handles */
 MPI_CONST (MPI_Comm, mpi_comm_world, MPI_COMM_WORLD)
 MPI_CONST (MPI_Comm, mpi_comm_self, MPI_COMM_SELF)
 MPI_CONST (MPI_Group, mpi_group_empty, MPI_GROUP_EMPTY)
+MPI_CONST (MPI_Info, mpi_info_null, MPI_INFO_NULL)
 
 /* Operations */
 MPI_CONST (MPI_Op, mpi_max    , MPI_MAX    )

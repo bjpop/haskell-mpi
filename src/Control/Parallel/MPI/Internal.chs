@@ -35,14 +35,17 @@ module Control.Parallel.MPI.Internal
      ThreadSupport (..), initThread, queryThread, isThreadMain,
 
      -- ** Runtime attributes.
-     getProcessorName, Version (..), getVersion, Implementation(..), getImplementation,
+     getProcessorName, Version (..), getVersion, Implementation(..), getImplementation, universeSize,
+
+     -- ** Info objects
+     Info, infoNull, infoCreate, infoSet, infoDelete, infoGet,
 
      -- * Requests and statuses.
-     Request, Status (..), probe, test, cancel, wait, waitall,
+     Request, Status (..), getCount, test, testPtr, cancel, cancelPtr, wait, waitPtr, waitall, requestNull, 
 
      -- * Process management.
      -- ** Communicators.
-     Comm, commWorld, commSelf, commTestInter,
+     Comm, commWorld, commSelf, commNull, commTestInter,
      commSize, commRemoteSize, 
      commRank, 
      commCompare, commGroup, commGetAttr,
@@ -53,6 +56,9 @@ module Control.Parallel.MPI.Internal
      groupIncl, groupTranslateRanks,
      -- ** Comparisons.
      ComparisonResult (..),
+
+     -- ** Dynamic process management
+     commGetParent, commSpawn, commSpawnSimple, argvNull, errcodesIgnore,
 
      -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
@@ -140,7 +146,9 @@ type MPIComm = {# type MPI_Comm #}
    which includes all running processes. You could create new
    communicators with TODO
 -}
-newtype Comm = MkComm { fromComm :: MPIComm }
+newtype Comm = MkComm { fromComm :: MPIComm } deriving Eq
+peekComm ptr = MkComm <$> peek ptr
+
 foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr MPIComm
 foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr MPIComm
 
@@ -338,6 +346,24 @@ foreign import ccall unsafe "&mpi_wtime_is_global" wtimeIsGlobal_ :: Ptr Int
 wtimeIsGlobalKey :: Int
 wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 
+{- | 
+Many ``dynamic'' MPI applications are expected to exist in a static runtime environment, in which resources have been allocated before the application is run. When a user (or possibly a batch system) runs one of these quasi-static applications, she will usually specify a number of processes to start and a total number of processes that are expected. An application simply needs to know how many slots there are, i.e., how many processes it should spawn.
+
+This attribute indicates the total number of processes that are expected.
+
+When universeSize is called before 'init' or 'initThread' it would return False.
+-}
+universeSize :: Comm -> IO (Maybe Int)
+universeSize c =
+  commGetAttr c universeSizeKey
+
+foreign import ccall unsafe "&mpi_universe_size" universeSize_ :: Ptr Int
+
+-- | Numeric key for recommended MPI communicator attribute @MPI_UNIVERSE_SIZE@.
+-- To be used with 'commGetAttr'.
+universeSizeKey :: Int
+universeSizeKey = unsafePerformIO (peek universeSize_)
+
 -- | Return the rank of the calling process for the given
 -- communicator. If it is an intercommunicator, returns rank of the
 -- process in the local group.
@@ -367,12 +393,29 @@ wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
 -- This allows the current process to check for an incoming message and decide
 -- how to receive it, based on the information in the 'Status'.
 -- This function corresponds to @MPI_Probe@.
+-- The most common usecase is to call @probe@ first and then use 'getCount' to find out size of incoming message.
+-- However since different implementations provide additional fields in @Status@, we cannot deserialize Status into Haskell land
+-- and serialize it back without losing information. Hence the use of Ptr Status.
 {# fun Probe as ^
-           {fromRank `Rank', fromTag `Tag', fromComm `Comm', allocaCast- `Status' peekCast*} -> `()' checkError*- #}
+           {fromRank `Rank', fromTag `Tag', fromComm `Comm', castPtr `Ptr Status'} -> `()' checkError*- #}
 {- probe :: Rank       -- ^ Rank of the sender.
       -> Tag        -- ^ Tag of the sent message.
       -> Comm       -- ^ Communicator.
       -> IO Status  -- ^ Information about the incoming message (but not the content of the message). -}
+
+{-| Returns the number of entries received. (we count entries, each of
+type @Datatype@, not bytes.) The datatype argument should match the
+argument provided by the receive call that set the status variable. -}
+getCount :: Comm -> Rank -> Tag -> Datatype -> IO Int
+getCount comm rank tag datatype =
+  alloca $ \statusPtr -> do
+    probe rank tag comm statusPtr
+    cnt <- getCount' statusPtr datatype
+    return $ fromIntegral cnt
+  where
+    getCount' = {# fun unsafe Get_count as getCount_
+           {castPtr `Ptr Status', fromDatatype `Datatype', alloca- `CInt' peekIntConv*} -> `()' checkError*- #}
+
 
 {-| Send the values (as specified by @BufferPtr@, @Count@, @Datatype@) to
     the process specified by (@Comm@, @Rank@, @Tag@). Caller will
@@ -439,9 +482,14 @@ started, otherwise this call could terminate with MPI error.
 
 -- | Blocking test for the completion of a send of receive.
 -- See 'test' for a non-blocking variant.
--- This function corresponds to @MPI_Wait@.
-{# fun unsafe Wait as ^
-          {withRequest* `Request', allocaCast- `Status' peekCast*} -> `()' checkError*-  #}
+-- This function corresponds to @MPI_Wait@. Request pointer could
+-- be changed to point to @requestNull@. See @wait@ for variant that does not mutate request value.
+{# fun unsafe Wait as waitPtr
+          {castPtr `Ptr Request', allocaCast- `Status' peekCast*} -> `()' checkError*-  #}
+
+-- | Same as @waitPtr@, but does not change Haskell @Request@ value to point to @procNull@.
+-- Usually, this is harmless - your request just would be considered inactive.
+wait request = withRequest request waitPtr
 
 -- | Takes pointer to the array of Requests of given size, 'wait's on all of them,
 --   populates array of Statuses of the same size. This function corresponds to @MPI_Waitall@
@@ -451,22 +499,42 @@ started, otherwise this call could terminate with MPI error.
 
 -- | Non-blocking test for the completion of a send or receive.
 -- Returns @Nothing@ if the request is not complete, otherwise
--- it returns @Just status@. See 'wait' for a blocking variant.
+-- it returns @Just status@.
+--
+-- Note that while MPI would modify
+-- request to be @requestNull@ if the operation is complete,
+-- Haskell value would not be changed. So, if you got (Just status)
+-- as a result, consider your request to be @requestNull@. Or use @testPtr@.
+--
+-- See 'wait' for a blocking variant.
 -- This function corresponds to @MPI_Test@.
 test :: Request -> IO (Maybe Status)
-test request = do
-  (flag, status) <- test' request
+test request = withRequest request testPtr
+
+-- | Analogous to 'test' but uses pointer to @Request@. If request is completed, pointer would be 
+-- set to point to @requestNull@.
+testPtr :: Ptr Request -> IO (Maybe Status)
+testPtr reqPtr = do
+  (flag, status) <- testPtr' reqPtr
+  request' <- peek reqPtr
   if flag
-     then return $ Just status
-     else return Nothing
-  where
-    test' = {# fun unsafe Test as test_
-              {withRequest* `Request', alloca- `Bool' peekBool*, allocaCast- `Status' peekCast*} -> `()' checkError*- #}
+    then do if request' == requestNull
+               then return $ Just status
+               else error "testPtr: request modified, but not set to MPI_REQUEST_NULL!"
+    else return Nothing
+  where testPtr' = {# fun unsafe Test as testPtr_
+       {castPtr `Ptr Request', alloca- `Bool' peekBool*, allocaCast- `Status' peekCast*} -> `()' checkError*- #}
 
 -- | Cancel a pending communication request.
--- This function corresponds to @MPI_Cancel@.
-{# fun unsafe Cancel as ^
-            {withRequest* `Request'} -> `()' checkError*- #}
+-- This function corresponds to @MPI_Cancel@. Sets pointer to point to @requestNull@.
+{# fun unsafe Cancel as cancelPtr
+            {castPtr `Ptr Request'} -> `()' checkError*- #}
+
+
+-- | Same as @cancelPtr@, but does not change Haskell @Request@ value to point to @procNull@.
+-- Usually, this is harmless - your request just would be considered inactive.
+cancel request = withRequest request cancelPtr
+
 withRequest req f = do alloca $ \ptr -> do poke ptr req
                                            f (castPtr ptr)
 
@@ -743,7 +811,38 @@ groupTranslateRanks group1 ranks group2 =
 
 withRanksAsInts ranks f = withArrayLen (map fromEnum ranks) $ \size ptr -> f (cIntConv size, castPtr ptr)
 
-foreign import ccall "mpi_undefined" mpiUndefined_ :: Ptr Int
+{- | If a process was started with 'commSpawn', @commGetParent@
+returns the parent intercommunicator of the current process. This
+parent intercommunicator is created implicitly inside of 'init' and
+is the same intercommunicator returned by 'commSpawn' in the
+parents. If the process was not spawned, @commGetParent@ returns
+'commNull'. After the parent communicator is freed or disconnected,
+@commGetParent@ returns 'commNull'. -} 
+
+{# fun unsafe Comm_get_parent as ^
+               {alloca- `Comm' peekComm*} -> `()' checkError*- #}
+
+withT = with
+{# fun unsafe Comm_spawn as ^
+               { `String' 
+               , withT* `Ptr CChar'
+               , id `Count'
+               , fromInfo `Info'
+               , fromRank `Rank'
+               , fromComm `Comm'
+               , alloca- `Comm' peekComm*
+               , id `Ptr CInt'} -> `()' checkError*- #}
+
+foreign import ccall unsafe "&mpi_argv_null" mpiArgvNull_ :: Ptr (Ptr CChar)
+foreign import ccall unsafe "&mpi_errcodes_ignore" mpiErrcodesIgnore_ :: Ptr (Ptr CInt)
+argvNull = unsafePerformIO $ peek mpiArgvNull_
+errcodesIgnore = unsafePerformIO $ peek mpiErrcodesIgnore_
+
+{-| Simplified version of `commSpawn' that does not support argument passing and spawn error code checking -}
+commSpawnSimple rank program maxprocs =
+  commSpawn program argvNull maxprocs infoNull rank commSelf errcodesIgnore
+
+foreign import ccall "&mpi_undefined" mpiUndefined_ :: Ptr Int
 
 -- | Predefined constant that might be returned as @Rank@ by calls
 --  like 'groupTranslateRanks'. Corresponds to @MPI_UNDEFINED@. Please
@@ -945,6 +1044,50 @@ lxorOp = MkOperation <$> unsafePerformIO $ peek lxorOp_
 bxorOp :: Operation
 bxorOp = MkOperation <$> unsafePerformIO $ peek bxorOp_
 
+-- | Actual Haskell type used depends on the MPI implementation.
+type MPIInfo = {# type MPI_Info #}
+
+{- | Abstract type representing handle for MPI Info object
+-}
+newtype Info = MkInfo { fromInfo :: MPIInfo } deriving Storable
+peekInfo ptr = MkInfo <$> peek ptr
+
+foreign import ccall "&mpi_info_null" infoNull_ :: Ptr MPIInfo
+
+-- | Predefined info object that has no info
+infoNull :: Info
+infoNull = unsafePerformIO $ peekInfo infoNull_
+
+{-| Creates new empty info object -}
+{# fun unsafe Info_create as ^
+               {alloca- `Info' peekInfo*} -> `()' checkError*- #}
+
+{-| Adds specified (key, value) pair to info object -}
+{# fun unsafe Info_set as ^
+               {fromInfo `Info', `String', `String'} -> `()' checkError*- #}
+
+{-| Deletes the specified key from info object -}
+{# fun unsafe Info_delete as ^
+               {fromInfo `Info', `String'} -> `()' checkError*- #}
+
+{-| Gets the specified key -}
+infoGet :: Info -> String -> IO (Maybe String)
+infoGet info key = do
+  (len, found) <- infoGetValuelen' info key 
+  -- len+1 is required to allow for the terminating \NULL
+  if found/=0 then allocaBytes (fromIntegral len + 1)
+                   (\bufferPtr -> do
+                       found <- infoGet' info key (len+1) bufferPtr
+                       if found/=0 then Just <$> peekCStringLen (bufferPtr, fromIntegral len)
+                                   else return Nothing)
+           else return Nothing
+
+infoGetValuelen' = {# fun unsafe Info_get_valuelen as infoGetValuelen_
+       {fromInfo `Info', `String', alloca- `CInt' peek*, alloca- `CInt' peek* } -> `()' checkError*- #}
+
+infoGet' = {# fun unsafe Info_get as infoGet_
+            {fromInfo `Info', `String', id `CInt', castPtr `Ptr CChar', alloca- `CInt' peek*} -> `()' checkError*- #}
+
 
 {- | Haskell datatype that represents values which
  could be used as MPI rank designations. Low-level MPI calls require
@@ -969,9 +1112,11 @@ instance Num Rank where
     | x < 0             = error "Negative Rank value"
     | otherwise         = MkRank (fromIntegral x)
 
-foreign import ccall "mpi_any_source" anySource_ :: Ptr Int
-foreign import ccall "mpi_root" theRoot_ :: Ptr Int
-foreign import ccall "mpi_proc_null" procNull_ :: Ptr Int
+foreign import ccall "&mpi_any_source" anySource_ :: Ptr Int
+foreign import ccall "&mpi_root" theRoot_ :: Ptr Int
+foreign import ccall "&mpi_proc_null" procNull_ :: Ptr Int
+foreign import ccall "&mpi_request_null" requestNull_ :: Ptr MPIRequest
+foreign import ccall "&mpi_comm_null" commNull_ :: Ptr MPIComm
 
 -- | Predefined rank number that allows reception of point-to-point messages
 -- regardless of their source. Corresponds to @MPI_ANY_SOURCE@
@@ -988,6 +1133,16 @@ theRoot = toRank $ unsafePerformIO $ peek theRoot_
 procNull :: Rank
 procNull  = toRank $ unsafePerformIO $ peek procNull_
 
+-- | Predefined request handle value that specifies non-existing or finished request.
+-- Corresponds to @MPI_REQUEST_NULL@
+requestNull :: Request
+requestNull  = unsafePerformIO $ peekRequest requestNull_
+
+-- | Predefined communicator handle value that specifies non-existing or destroyed (inter-)communicator.
+-- Corresponds to @MPI_COMM_NULL@
+commNull :: Comm
+commNull  = unsafePerformIO $ peekComm commNull_
+
 instance Show Rank where
    show = show . rankId
 
@@ -1003,7 +1158,7 @@ type MPIRequest = {# type MPI_Request #}
 {-| Haskell representation of the @MPI_Request@ type. Returned by
 non-blocking communication operations, could be further processed with
 'probe', 'test', 'cancel' or 'wait'. -}
-newtype Request = MkRequest MPIRequest deriving Storable
+newtype Request = MkRequest MPIRequest deriving (Storable,Eq)
 peekRequest ptr = MkRequest <$> peek ptr
 
 {-
@@ -1026,18 +1181,11 @@ blanking out freshly allocated memory, so beware!
 -}
 
 -- | Haskell structure that holds fields of @MPI_Status@.
---
--- Please note that MPI report lists only three fields as mandatory:
--- @status_source@, @status_tag@ and @status_error@. However, all
--- MPI implementations that were used to test those bindings supported
--- extended set of fields represented here.
 data Status =
    Status
    { status_source :: Rank -- ^ rank of the source process
    , status_tag :: Tag -- ^ tag assigned at source
    , status_error :: CInt -- ^ error code, if any
-   , status_count :: CInt -- ^ number of received elements, if applicable
-   , status_cancelled :: Bool -- ^ whether the request was cancelled
    }
    deriving (Eq, Ord, Show)
 
@@ -1048,28 +1196,10 @@ instance Storable Status where
     <$> liftM (MkRank . cIntConv) ({#get MPI_Status->MPI_SOURCE #} p)
     <*> liftM (MkTag . cIntConv) ({#get MPI_Status->MPI_TAG #} p)
     <*> liftM cIntConv ({#get MPI_Status->MPI_ERROR #} p)
-#ifdef MPICH2
-    -- MPICH2 and OpenMPI use different names for the status struct
-    -- fields-
-    <*> liftM cIntConv ({#get MPI_Status->count #} p)
-    <*> liftM cToEnum ({#get MPI_Status->cancelled #} p)
-#else
-    <*> liftM cIntConv ({#get MPI_Status->_count #} p)
-    <*> liftM cToEnum ({#get MPI_Status->_cancelled #} p)
-#endif
   poke p x = do
     {#set MPI_Status.MPI_SOURCE #} p (fromRank $ status_source x)
     {#set MPI_Status.MPI_TAG #} p (fromTag $ status_tag x)
     {#set MPI_Status.MPI_ERROR #} p (cIntConv $ status_error x)
-#ifdef MPICH2
-    -- MPICH2 and OpenMPI use different names for the status struct
-    -- fields AND different order of fields
-    {#set MPI_Status.count #} p (cIntConv $ status_count x)
-    {#set MPI_Status.cancelled #} p (cFromEnum $ status_cancelled x)
-#else
-    {#set MPI_Status._count #} p (cIntConv $ status_count x)
-    {#set MPI_Status._cancelled #} p (cFromEnum $ status_cancelled x)
-#endif
 
 -- NOTE: Int here is picked arbitrary
 allocaCast f =

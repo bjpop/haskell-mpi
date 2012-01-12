@@ -7,6 +7,8 @@ How to build
 Use "cabal install --extra-include-dirs=/usr/include/mpi" or something similar.
 Make sure that you have libmpi.a and libmpi.so available.
 
+When building against MPICH 1.4, pass extra flag "-fmpich14"
+
 Testing
 -------
 

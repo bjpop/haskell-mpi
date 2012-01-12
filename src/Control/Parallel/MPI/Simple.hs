@@ -179,9 +179,8 @@ recv comm rank tag = do
 -- get the size of incoming message, which incurs slight additional overhead.
 recvBS :: Comm -> Rank -> Tag -> IO (BS.ByteString, Status)
 recvBS comm rank tag = do
-   probeStatus <- probe rank tag comm
-   let count = fromIntegral $ status_count probeStatus
-       cCount  = cIntConv count
+   count <- getCount comm rank tag byte
+   let cCount = cIntConv count
    allocaBytes count
       (\bufferPtr -> do
           recvStatus <- Internal.recv bufferPtr cCount byte rank tag comm

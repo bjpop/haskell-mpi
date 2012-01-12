@@ -30,15 +30,17 @@ module Control.Parallel.MPI.Base
      -- * Requests and statuses.
    , Request
    , Status (..)
-   , probe
-   , test
-   , cancel
-   , wait
+   , getCount
+   , test, testPtr
+   , cancel, cancelPtr
+   , wait, waitPtr
+   , requestNull
 
    -- * Communicators and error handlers.
    , Comm
    , commWorld
    , commSelf
+   , commNull
    , commSize
    , commRank
    , commTestInter
@@ -136,6 +138,17 @@ module Control.Parallel.MPI.Base
    , getVersion
    , Implementation (..)
    , getImplementation
+   , universeSize
+     
+   -- * Info objects
+   ,Info, infoNull, infoCreate, infoSet, infoDelete, infoGet
+
+   -- * Dynamic process management
+   , commGetParent
+   , commSpawn
+   , commSpawnSimple
+   , argvNull
+   , errcodesIgnore
 
    -- * Error handling.
    , MPIError(..)
