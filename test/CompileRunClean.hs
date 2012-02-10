@@ -22,7 +22,7 @@
 
 module Main where
 
-import System (getArgs)
+import System.Environment (getArgs)
 import System.Cmd (system)
 import System.Exit (ExitCode (..), exitWith)
 import Control.Monad (when)

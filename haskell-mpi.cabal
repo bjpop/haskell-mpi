@@ -114,7 +114,6 @@ Library
       src
    build-depends:
       base > 3 && <= 5,
-      haskell98,
       bytestring,
       cereal,
       extensible-exceptions,
