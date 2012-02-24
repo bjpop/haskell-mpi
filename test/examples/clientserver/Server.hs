@@ -15,13 +15,12 @@ main = mpi $ do
   size <- commSize commWorld
   if size == 1
     then do
-    	port <- openPort infoNull
-        putStrLn $ "Server available at port: " ++ show port ++ "."
-        forever $ do
-          clientComm <- commAccept port infoNull 0 commWorld
-          handleRequest port clientComm
-    else
-    	putStrLn $ "Server too big."
+    port <- openPort infoNull
+    putStrLn $ "Server available at port: " ++ show port ++ "."
+    forever $ do
+      clientComm <- commAccept port infoNull 0 commWorld
+      handleRequest port clientComm
+    else putStrLn $ "Server too big."
 
 handleRequest :: String -> Comm -> IO ()
 handleRequest port client = do
