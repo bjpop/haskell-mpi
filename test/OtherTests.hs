@@ -22,6 +22,7 @@ otherTests threadSupport _ =
    , testCase "queryThread" $ queryThreadTest threadSupport
    , testCase "test requestNull" $ testRequestNull
    , testCase "Info objects" $ testInfoObjects
+   , testCase "anySource/anySize values" anySourceTagTest
    ]
 
 queryThreadTest :: ThreadSupport -> IO ()
@@ -104,3 +105,10 @@ testInfoObjects = do
   infoDelete i "foo"
   v'' <- infoGet i "foo"
   v'' == Nothing @? "Key 'foo' was not deleted"
+
+anySourceTagTest :: IO ()
+anySourceTagTest = do
+  if (anySource) == (toEnum (-1)) then return ()
+    else putStrLn ("anySource is not -1, but rather " ++ show anySource)
+  if (anyTag) == (toEnum (-1)) then return ()
+    else putStrLn ("anyTag is not -1, but rather " ++ show anyTag)
