@@ -1148,7 +1148,7 @@ infoGet' = {# fun unsafe Info_get as infoGet_
 Attempt to supply a value that does not fit into 32 bits will cause a
 run-time 'error'.
 -}
-newtype Rank = MkRank { rankId :: Int -- ^ Extract numeric value of the 'Rank'
+newtype Rank = MkRank { rankId :: CInt -- ^ Extract numeric value of the 'Rank'
                       }
    deriving (Eq, Ord, Enum, Integral, Real)
 
@@ -1162,9 +1162,9 @@ instance Num Rank where
     | x < 0             = error "Negative Rank value"
     | otherwise         = MkRank (fromIntegral x)
 
-foreign import ccall "&mpi_any_source" anySource_ :: Ptr Int
-foreign import ccall "&mpi_root" theRoot_ :: Ptr Int
-foreign import ccall "&mpi_proc_null" procNull_ :: Ptr Int
+foreign import ccall "&mpi_any_source" anySource_ :: Ptr CInt
+foreign import ccall "&mpi_root" theRoot_ :: Ptr CInt
+foreign import ccall "&mpi_proc_null" procNull_ :: Ptr CInt
 foreign import ccall "&mpi_request_null" requestNull_ :: Ptr MPIRequest
 foreign import ccall "&mpi_comm_null" commNull_ :: Ptr MPIComm
 
@@ -1198,11 +1198,11 @@ instance Show Rank where
 
 -- | Map arbitrary 'Enum' value to 'Rank'
 toRank :: Enum a => a -> Rank
-toRank x = MkRank { rankId = fromEnum x }
+toRank x = MkRank { rankId = cIntConv (fromEnum x) }
 
 -- | Map 'Rank' to arbitrary 'Enum'
 fromRank :: Enum a => Rank -> a
-fromRank = toEnum . rankId
+fromRank = toEnum . cIntConv . rankId
 
 type MPIRequest = {# type MPI_Request #}
 {-| Haskell representation of the @MPI_Request@ type. Returned by
@@ -1260,7 +1260,7 @@ peekCast = peek . castPtr
 {-| Haskell datatype that represents values which could be used as
 tags for point-to-point transfers.
 -}
-newtype Tag = MkTag { tagVal :: Int -- ^ Extract numeric value of the Tag
+newtype Tag = MkTag { tagVal :: CInt -- ^ Extract numeric value of the Tag
                     }
    deriving (Eq, Ord, Enum, Integral, Real)
 
@@ -1279,13 +1279,13 @@ instance Show Tag where
 
 -- | Map arbitrary 'Enum' value to 'Tag'
 toTag :: Enum a => a -> Tag
-toTag x = MkTag { tagVal = fromEnum x }
+toTag x = MkTag { tagVal = cIntConv (fromEnum x) }
 
 -- | Map 'Tag' to arbitrary 'Enum'
 fromTag :: Enum a => Tag -> a
-fromTag = toEnum . tagVal
+fromTag = toEnum . cIntConv . tagVal
 
-foreign import ccall unsafe "&mpi_any_tag" anyTag_ :: Ptr Int
+foreign import ccall unsafe "&mpi_any_tag" anyTag_ :: Ptr CInt
 
 -- | Predefined tag value that allows reception of the messages with
 --   arbitrary tag values. Corresponds to @MPI_ANY_TAG@.

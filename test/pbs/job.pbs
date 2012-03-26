@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# PBS script for running the tests
+
+# Queue for the job:
+#PBS -q batch
+
+# The name of the job:
+#PBS -N test
+
+# Maximum number of CPU cores used by the job:
+#PBS -l procs=2
+
+# The amount of memory in gigabytes per process in the job:
+#PBS -l pvmem=3gb
+
+# The maximum running time of the job in days:hours:mins:secs
+#PBS -l walltime=0:0:10:0
+
+# Run the job from the directory where it was launched:
+cd $PBS_O_WORKDIR
+
+# The job command(s):
+mpirun -np 2 haskell-mpi-testsuite 1>sender.log 2>receiver.log
