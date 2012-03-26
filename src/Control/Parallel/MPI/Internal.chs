@@ -48,7 +48,7 @@ module Control.Parallel.MPI.Internal
      Comm, commWorld, commSelf, commNull, commTestInter,
      commSize, commRemoteSize, 
      commRank, 
-     commCompare, commGroup, commGetAttr,
+     commCompare, commFree, commGroup, commGetAttr,
 
      -- ** Process groups.
      Group, groupEmpty, groupRank, groupSize, groupUnion,
@@ -59,6 +59,7 @@ module Control.Parallel.MPI.Internal
 
      -- ** Dynamic process management
      commGetParent, commSpawn, commSpawnSimple, argvNull, errcodesIgnore,
+     openPort, closePort, commAccept, commConnect, commDisconnect,
 
      -- * Error handling.
      Errhandler, errorsAreFatal, errorsReturn, errorsThrowExceptions, commSetErrhandler, commGetErrhandler,
@@ -148,6 +149,8 @@ type MPIComm = {# type MPI_Comm #}
 -}
 newtype Comm = MkComm { fromComm :: MPIComm } deriving Eq
 peekComm ptr = MkComm <$> peek ptr
+withComm comm f = alloca $ \ptr -> do poke ptr (fromComm comm)
+                                      f (castPtr ptr)
 
 foreign import ccall "&mpi_comm_world" commWorld_ :: Ptr MPIComm
 foreign import ccall "&mpi_comm_self" commSelf_ :: Ptr MPIComm
@@ -163,11 +166,16 @@ commSelf :: Comm
 commSelf = MkComm <$> unsafePerformIO $ peek commSelf_
 
 foreign import ccall "&mpi_max_processor_name" max_processor_name_ :: Ptr CInt
+foreign import ccall "&mpi_max_port_name" max_port_name_ :: Ptr CInt
 foreign import ccall "&mpi_max_error_string" max_error_string_ :: Ptr CInt
 
 -- | Max length of "processor name" as returned by 'getProcessorName'
 maxProcessorName :: CInt
 maxProcessorName = unsafePerformIO $ peek max_processor_name_
+
+-- | Max length of "port name" as returned by 'openPort'
+maxPortName :: CInt
+maxPortName = unsafePerformIO $ peek max_port_name_
 
 -- | Max length of error description as returned by 'errorString'
 maxErrorString :: CInt
@@ -187,14 +195,14 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
 -- This function corresponds to @MPI_Initialized@.
-{# fun unsafe Initialized as ^ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
+{# fun unsafe Initialized as ^ {alloca- `Bool' peekBool*} -> `()' discard*- #}
 
 -- | Determine if the MPI environment has been finalized. Returns @True@ if the
 -- environment has been finalized and @False@ otherwise. This function
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
 -- This function corresponds to @MPI_Finalized@.
-{# fun unsafe Finalized as ^ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
+{# fun unsafe Finalized as ^ {alloca- `Bool' peekBool*} -> `()' discard*- #}
 
 -- | Initialize the MPI environment with a /required/ level of thread support.
 -- See the documentation for 'init' for more information about MPI initialization.
@@ -838,9 +846,51 @@ foreign import ccall unsafe "&mpi_errcodes_ignore" mpiErrcodesIgnore_ :: Ptr (Pt
 argvNull = unsafePerformIO $ peek mpiArgvNull_
 errcodesIgnore = unsafePerformIO $ peek mpiErrcodesIgnore_
 
-{-| Simplified version of `commSpawn' that does not support argument passing and spawn error code checking -}
+{-| Simplified version of `commSpawn' that does not support argument passing and spawn error code checking. -}
 commSpawnSimple rank program maxprocs =
   commSpawn program argvNull maxprocs infoNull rank commSelf errcodesIgnore
+
+{-| Opens up a port (network address) on the server where clients
+ can establish connections using @commConnect@.
+
+Refer to MPI Report v2.2, Section 10.4 "Establishing communication"
+for more details on client/server programming with MPI. -}
+openPort :: Info -> IO String
+openPort info = do
+  allocaBytes (fromIntegral maxPortName) $ \ptr -> do
+    openPort' info ptr
+    peekCStringLen (ptr, fromIntegral maxPortName)
+  where
+    openPort' = {# fun unsafe Open_port as openPort_
+                   {fromInfo `Info', id `Ptr CChar'} -> `()' checkError*- #}
+
+-- | Closes the specified port on the server.
+{# fun unsafe Close_port as ^
+               {`String'} -> `()' checkError*- #}
+
+{-| @commAccept@ allows a connection from a client. The intercommunicator
+ object returned can be used to communicate with the client. -}
+{# fun unsafe Comm_accept as ^
+               { `String'
+               , fromInfo `Info'
+               , fromRank `Rank'
+               , fromComm `Comm'
+               , alloca- `Comm' peekComm*} -> `()' checkError*- #}
+
+{-| @commConnect@ creates a connection to the server. The intercommunicator 
+ object returned can be used to communicate with the server. -}
+{# fun unsafe Comm_connect as ^
+               { `String'
+               , fromInfo `Info'
+               , fromRank `Rank'
+               , fromComm `Comm'
+               , alloca- `Comm' peekComm*} -> `()' checkError*- #}
+
+-- | Free a communicator object.
+{# fun Comm_free as ^ {withComm* `Comm'} -> `()' checkError*- #}
+
+-- | Stop pending communication and deallocate a communicator object.
+{# fun Comm_disconnect as ^ {withComm* `Comm'} -> `()' checkError*- #}
 
 foreign import ccall "&mpi_undefined" mpiUndefined_ :: Ptr Int
 
