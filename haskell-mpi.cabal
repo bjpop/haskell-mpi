@@ -102,11 +102,12 @@ flag mpich14
   default: False
 
 Library
-   extra-libraries:  mpi
    if flag(mpich14)
-     extra-libraries: mpl
+     extra-libraries: mpich, opa, mpl
+   else
+     extra-libraries: mpi, open-rte, open-pal
    build-tools:      c2hs
-   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
+   ghc-options: -O2 -Wall -fno-warn-name-shadowing -fno-warn-orphans
    c-sources:
       src/cbits/init_wrapper.c,
       src/cbits/constants.c
@@ -134,9 +135,10 @@ executable  haskell-mpi-testsuite
     ./test
     ./src
   build-tools:      c2hs
-  extra-libraries:  mpi
   if flag(mpich14)
-    extra-libraries: mpl
+    extra-libraries: mpich, opa, mpl
+  else
+    extra-libraries: mpi, open-rte, open-pal
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-orphans
   c-sources:
     src/cbits/init_wrapper.c,
