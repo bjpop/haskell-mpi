@@ -195,14 +195,14 @@ maxErrorString = unsafePerformIO $ peek max_error_string_
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
 -- This function corresponds to @MPI_Initialized@.
-{# fun unsafe Initialized as ^ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
+{# fun unsafe Initialized as ^ {alloca- `Bool' peekBool*} -> `()' discard*- #}
 
 -- | Determine if the MPI environment has been finalized. Returns @True@ if the
 -- environment has been finalized and @False@ otherwise. This function
 -- may be called before the MPI environment has been initialized and after it
 -- has been finalized.
 -- This function corresponds to @MPI_Finalized@.
-{# fun unsafe Finalized as ^ {alloca- `Bool' peekBool*} -> `()' checkError*- #}
+{# fun unsafe Finalized as ^ {alloca- `Bool' peekBool*} -> `()' discard*- #}
 
 -- | Initialize the MPI environment with a /required/ level of thread support.
 -- See the documentation for 'init' for more information about MPI initialization.
