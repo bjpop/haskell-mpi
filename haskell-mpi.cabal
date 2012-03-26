@@ -77,6 +77,8 @@ build-type:          Simple
 stability:           experimental
 tested-with:         GHC==6.10.4, GHC==6.12.1
 extra-source-files:  src/cbits/*.c src/include/*.h README.txt
+                     test/examples/clientserver/*.c
+                     test/examples/clientserver/*.hs
                      test/examples/HaskellAndC/Makefile
                      test/examples/HaskellAndC/*.c
                      test/examples/HaskellAndC/*.hs

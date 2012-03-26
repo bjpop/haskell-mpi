@@ -40,6 +40,7 @@ MPI_CONST (int, mpi_graph, MPI_GRAPH)
 MPI_CONST (int, mpi_universe_size, MPI_UNIVERSE_SIZE)
 MPI_CONST (char **, mpi_argv_null, MPI_ARGV_NULL)
 MPI_CONST (int *, mpi_errcodes_ignore, MPI_ERRCODES_IGNORE)
+MPI_CONST (int, mpi_max_port_name, MPI_MAX_PORT_NAME)
 
 /* MPI predefined handles */
 MPI_CONST (MPI_Comm, mpi_comm_world, MPI_COMM_WORLD)
