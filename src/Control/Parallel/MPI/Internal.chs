@@ -320,10 +320,10 @@ commGetAttr comm key = do
 -- When called before 'init' or 'initThread' would return 0.
 tagUpperBound :: Int
 tagUpperBound =
-  let key = unsafePerformIO (peek tagUB_)
+  let key = unsafePerformIO (peekIntConv tagUB_)
       in fromMaybe 0 $ unsafePerformIO (commGetAttr commWorld key)
 
-foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr Int
+foreign import ccall unsafe "&mpi_tag_ub" tagUB_ :: Ptr CInt
 
 {- | True if clocks at all processes in
 'commWorld' are synchronized, False otherwise. The expectation is that
@@ -339,12 +339,12 @@ wtimeIsGlobal :: Bool
 wtimeIsGlobal =
   fromMaybe False $ unsafePerformIO (commGetAttr commWorld wtimeIsGlobalKey)
 
-foreign import ccall unsafe "&mpi_wtime_is_global" wtimeIsGlobal_ :: Ptr Int
+foreign import ccall unsafe "&mpi_wtime_is_global" wtimeIsGlobal_ :: Ptr CInt
 
 -- | Numeric key for standard MPI communicator attribute @MPI_WTIME_IS_GLOBAL@.
 -- To be used with 'commGetAttr'.
 wtimeIsGlobalKey :: Int
-wtimeIsGlobalKey = unsafePerformIO (peek wtimeIsGlobal_)
+wtimeIsGlobalKey = unsafePerformIO (peekIntConv wtimeIsGlobal_)
 
 {- | 
 Many ``dynamic'' MPI applications are expected to exist in a static runtime environment, in which resources have been allocated before the application is run. When a user (or possibly a batch system) runs one of these quasi-static applications, she will usually specify a number of processes to start and a total number of processes that are expected. An application simply needs to know how many slots there are, i.e., how many processes it should spawn.
@@ -357,12 +357,12 @@ universeSize :: Comm -> IO (Maybe Int)
 universeSize c =
   commGetAttr c universeSizeKey
 
-foreign import ccall unsafe "&mpi_universe_size" universeSize_ :: Ptr Int
+foreign import ccall unsafe "&mpi_universe_size" universeSize_ :: Ptr CInt
 
 -- | Numeric key for recommended MPI communicator attribute @MPI_UNIVERSE_SIZE@.
 -- To be used with 'commGetAttr'.
 universeSizeKey :: Int
-universeSizeKey = unsafePerformIO (peek universeSize_)
+universeSizeKey = unsafePerformIO (peekIntConv universeSize_)
 
 -- | Return the rank of the calling process for the given
 -- communicator. If it is an intercommunicator, returns rank of the
@@ -842,14 +842,14 @@ errcodesIgnore = unsafePerformIO $ peek mpiErrcodesIgnore_
 commSpawnSimple rank program maxprocs =
   commSpawn program argvNull maxprocs infoNull rank commSelf errcodesIgnore
 
-foreign import ccall "&mpi_undefined" mpiUndefined_ :: Ptr Int
+foreign import ccall "&mpi_undefined" mpiUndefined_ :: Ptr CInt
 
 -- | Predefined constant that might be returned as @Rank@ by calls
 --  like 'groupTranslateRanks'. Corresponds to @MPI_UNDEFINED@. Please
 --  refer to \"MPI Report Constant And Predefined Handle Index\" for a
 --  list of situations where @mpiUndefined@ could appear.
 mpiUndefined :: Int
-mpiUndefined = unsafePerformIO $ peek mpiUndefined_
+mpiUndefined = unsafePerformIO $ peekIntConv mpiUndefined_
 
 -- | Return the number of bytes used to store an MPI @Datatype@.
 typeSize :: Datatype -> Int
