@@ -4,8 +4,8 @@ Haskell-mpi, Haskell bindings to the MPI library
 How to build
 ------------
 
-Use "cabal install --extra-include-dirs=/usr/include/mpi" or something similar.
-Make sure that you have libmpi.a and libmpi.so available.
+Use "cabal install --extra-include-dirs=/path/to/mpi/headers --extra-lib-dirs=/path/to/mpi/libs"
+or something similar.  Make sure that you have libmpi.a and libmpi.so available.
 
 When building against MPICH 1.4, pass extra flag "-fmpich14"
 
@@ -39,6 +39,9 @@ Run the program "haskell-mpi-testsuite" using "mpirun" like so:
 
 Process with rank 0 emits the output to stdout, and every other rank reports
 to the stderr.
+
+If you are using the PBS batch system to launch jobs, there is a sample
+job script in test/pbs/ for submittint the test case to the jobs queue.
 
 How to run standalone tests
 ---------------------------
