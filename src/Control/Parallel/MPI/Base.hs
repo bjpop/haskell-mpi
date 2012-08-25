@@ -46,6 +46,7 @@ module Control.Parallel.MPI.Base
    , commTestInter
    , commRemoteSize
    , commCompare
+   , commFree
    , commSetErrhandler
    , commGetErrhandler
    , commGroup
@@ -149,6 +150,11 @@ module Control.Parallel.MPI.Base
    , commSpawnSimple
    , argvNull
    , errcodesIgnore
+   , openPort
+   , closePort
+   , commAccept
+   , commConnect
+   , commDisconnect
 
    -- * Error handling.
    , MPIError(..)

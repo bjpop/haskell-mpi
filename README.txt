@@ -106,3 +106,9 @@ AusHac Australian Haskell Hackathon, hosted at UNSW from the 16th to the
 
 The next major injection of effort happened when Dmitry Astapov started
 contributing to the project in August 2010.
+
+Contributions have also been made by:
+
+   - Abhishek Kulkarni: support for MPI-2 intercommunicator client/server
+     functions 
+   - Andres Löh: bug fixes

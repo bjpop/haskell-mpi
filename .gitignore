@@ -23,5 +23,6 @@ docs/HCAR/Issue19/template.pdf
 /test/examples/programs/speed/BidirectionalBandwidth
 /test/examples/programs/speed/AllToAll
 /test/examples/programs/speed/serializable/Bandwidth
+/test/examples/clientserver/
 /sender.log
 /receivers.log

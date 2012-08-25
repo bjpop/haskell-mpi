@@ -23,6 +23,7 @@ otherTests threadSupport _ =
    , testCase "test requestNull" $ testRequestNull
    , testCase "Info objects" $ testInfoObjects
    , testCase "anySource/anySize values" anySourceTagTest
+   , testCase "openClosePort" openClosePortTest
    ]
 
 queryThreadTest :: ThreadSupport -> IO ()
@@ -112,3 +113,8 @@ anySourceTagTest = do
     else putStrLn ("anySource is not -1, but rather " ++ show anySource)
   if (anyTag) == (toEnum (-1)) then return ()
     else putStrLn ("anyTag is not -1, but rather " ++ show anyTag)
+
+openClosePortTest :: IO ()
+openClosePortTest = do
+  port <- openPort infoNull
+  closePort port
