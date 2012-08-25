@@ -41,7 +41,7 @@ Process with rank 0 emits the output to stdout, and every other rank reports
 to the stderr.
 
 If you are using the PBS batch system to launch jobs, there is a sample
-job script in test/pbs/ for submittint the test case to the jobs queue.
+job script in test/pbs/ for submitting the test case to the jobs queue.
 
 How to run standalone tests
 ---------------------------
