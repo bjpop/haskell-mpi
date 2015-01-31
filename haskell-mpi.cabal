@@ -127,7 +127,6 @@ Library
       Control.Parallel.MPI.Fast,
       Control.Parallel.MPI.Simple
    other-modules:
-      C2HS,
       Control.Parallel.MPI.Utils
 
 executable  haskell-mpi-testsuite
@@ -151,7 +150,6 @@ executable  haskell-mpi-testsuite
     Control.Parallel.MPI.Fast,
     Control.Parallel.MPI.Simple,
     Control.Parallel.MPI.Utils,
-    C2HS,
     IOArrayTests,
     SimpleTests,
     FastAndSimpleTests,

@@ -59,10 +59,10 @@ process rank
 -}
 -----------------------------------------------------------------------------
 module Control.Parallel.MPI.Fast
-   ( 
+   (
      -- * Mapping between Haskell and MPI types
      Repr (..)
-     
+
      -- * Treating Haskell values as send or receive buffers
    , SendFrom (..)
    , RecvInto (..)
@@ -74,7 +74,7 @@ module Control.Parallel.MPI.Fast
    , intoNewVal_
    , intoNewBS
    , intoNewBS_
-     
+
      -- * Point-to-point operations.
      -- ** Blocking.
    , send
@@ -114,14 +114,13 @@ module Control.Parallel.MPI.Fast
    , reduceScatter
    , opCreate
    , Internal.opFree
-     
+
    , module Data.Word
    , module Control.Parallel.MPI.Base
    ) where
 
 #include "MachDeps.h"
 
-import C2HS
 import Data.Array.Base (unsafeNewArray_)
 import Data.Array.IO
 import Data.Array.Storable
@@ -132,6 +131,8 @@ import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Base
 import Data.Int()
 import Data.Word
+import Foreign
+import Foreign.C.Types
 
 {-
 
@@ -146,7 +147,7 @@ buffers in StorableArray API are specified exclusively as
 If you'd rather allocate new array for a particular operation, you
 could use withNewArray/withNewArray_:
 
-Instead of (recv comm rank tag arr) you would write 
+Instead of (recv comm rank tag arr) you would write
 (arr <- withNewArray bounds $ recv comm rank tag), and new array would
 be allocated, supplied as the target of the (recv) operation and
 returned to you.
@@ -291,7 +292,7 @@ waitall requests statuses = do
   cnt <- rangeSize <$> getBounds requests
   withStorableArray requests $ \reqs ->
     withStorableArray statuses $ \stats ->
-      Internal.waitall (cIntConv cnt) (castPtr reqs) (castPtr stats)
+      Internal.waitall (fromIntegral cnt) (castPtr reqs) (castPtr stats)
 
 -- | Scatter elements of @v1@ to all members of communicator @Comm@ from the \"root\" process identified by @Rank@. Receive own slice of data
 -- in @v2@. Note that when @Comm@ is inter-communicator, @Rank@ could differ from the rank of the calling process.
@@ -307,10 +308,10 @@ scatterRecv comm root recvVal = do
    recvInto recvVal $ \recvPtr recvElements recvType ->
      Internal.scatter nullPtr 0 byte (castPtr recvPtr) recvElements recvType root comm
 
--- | Variant of 'scatterSend' that allows to send data in uneven chunks. 
+-- | Variant of 'scatterSend' that allows to send data in uneven chunks.
 -- Since interface is tailored for speed, @counts@ and @displacements@ should be in 'StorableArray's.
-scattervSend :: (SendFrom v1, RecvInto v2) => Comm 
-                -> Rank 
+scattervSend :: (SendFrom v1, RecvInto v2) => Comm
+                -> Rank
                 -> v1 -- ^ Value (vector) to send from
                 -> StorableArray Int CInt -- ^ Length of each segment (in elements)
                 -> StorableArray Int CInt -- ^ Offset of each segment from the beginning of @v1@ (in elements)
@@ -368,8 +369,8 @@ gathervRecv comm root segment counts displacements recvVal = do
      withStorableArray counts $ \countsPtr ->
         withStorableArray displacements $ \displPtr ->
           recvInto recvVal $ \recvPtr _ recvType->
-            Internal.gatherv (castPtr sendPtr) sendElements sendType 
-                             (castPtr recvPtr) countsPtr displPtr recvType 
+            Internal.gatherv (castPtr sendPtr) sendElements sendType
+                             (castPtr recvPtr) countsPtr displPtr recvType
                              root comm
 
 -- | Variant of 'gatherSend', to be used with 'gathervRecv'.
@@ -403,18 +404,18 @@ allgatherv :: (SendFrom v1, RecvInto v2) => Comm
               -> IO ()
 allgatherv comm segment counts displacements recvVal = do
    sendFrom segment $ \sendPtr sendElements sendType ->
-     withStorableArray counts $ \countsPtr ->  
-        withStorableArray displacements $ \displPtr -> 
+     withStorableArray counts $ \countsPtr ->
+        withStorableArray displacements $ \displPtr ->
           recvInto recvVal $ \recvPtr _ recvType ->
             Internal.allgatherv (castPtr sendPtr) sendElements sendType (castPtr recvPtr) countsPtr displPtr recvType comm
-             
+
 {- | Scatter/Gather data from all
 members to all members of a group (also called complete exchange).
 
 Caller is expected to make sure that types of send and receive buffers and send/receive counts
 are selected in a way such that amount of bytes sent equals amount of bytes received pairwise between all processes.
 -}
-alltoall :: (SendFrom v1, RecvInto v2) => Comm 
+alltoall :: (SendFrom v1, RecvInto v2) => Comm
             -> v1 -- ^ Send buffer
             -> Int -- ^ How many elements to /send/ to each process
             -> Int -- ^ How many elements to /receive/ from each process
@@ -423,11 +424,11 @@ alltoall :: (SendFrom v1, RecvInto v2) => Comm
 alltoall comm sendVal sendCount recvCount recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ recvType -> -- Since amount sent must equal amount received
-      Internal.alltoall (castPtr sendPtr) (cIntConv sendCount) sendType (castPtr recvPtr) (cIntConv recvCount) recvType comm
+      Internal.alltoall (castPtr sendPtr) (fromIntegral sendCount) sendType (castPtr recvPtr) (fromIntegral recvCount) recvType comm
 
 -- | A variation of 'alltoall' that allows to use data segments of
 --   different length.
-alltoallv :: (SendFrom v1, RecvInto v2) => Comm 
+alltoallv :: (SendFrom v1, RecvInto v2) => Comm
              -> v1 -- ^ Send buffer
              -> StorableArray Int CInt -- ^ Lengths of segments in the send buffer
              -> StorableArray Int CInt -- ^ Displacements of the segments in the send buffer
@@ -444,14 +445,14 @@ alltoallv comm sendVal sendCounts sendDisplacements recvCounts recvDisplacements
             withStorableArray recvDisplacements $ \recvDisplPtr ->
               Internal.alltoallv (castPtr sendPtr) sendCountsPtr sendDisplPtr sendType
                                  (castPtr recvPtr) recvCountsPtr recvDisplPtr recvType comm
-  
+
 {-| Reduce values from a group of processes into single value, which is delivered to single (so-called root) process.
 See 'reduceRecv' for function that should be called by root process.
 
 If the value is scalar, then reduction is similar to 'fold1'. For example, if the opreration is 'sumOp', then
 @reduceSend@ would compute sum of values supplied by all processes.
 -}
-reduceSend :: SendFrom v => Comm 
+reduceSend :: SendFrom v => Comm
               -> Rank -- ^ Rank of the root process
               -> Operation -- ^ Reduction operation
               -> v -- ^ Value supplied by this process
@@ -462,7 +463,7 @@ reduceSend comm root op sendVal = do
 
 {-| Obtain result of reduction initiated by 'reduceSend'. Note that root process supplies value for reduction as well.
 -}
-reduceRecv :: (SendFrom v, RecvInto v) => Comm 
+reduceRecv :: (SendFrom v, RecvInto v) => Comm
               -> Rank -- ^ Rank of the root process
               -> Operation  -- ^ Reduction operation
               -> v -- ^ Value supplied by this process
@@ -474,13 +475,13 @@ reduceRecv comm root op sendVal recvVal =
       Internal.reduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op root comm
 
 -- | Variant of 'reduceSend' and 'reduceRecv', where result is delivered to all participating processes.
-allreduce :: (SendFrom v, RecvInto v) => 
+allreduce :: (SendFrom v, RecvInto v) =>
              Comm -- ^ Communicator engaged in reduction/
              -> Operation -- ^ Reduction operation
              -> v -- ^ Value supplied by this process
              -> v -- ^ Reduction result
              -> IO ()
-allreduce comm op sendVal recvVal = 
+allreduce comm op sendVal recvVal =
   sendFrom sendVal $ \sendPtr sendElements sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
       Internal.allreduce (castPtr sendPtr) (castPtr recvPtr) sendElements sendType op comm
@@ -489,9 +490,9 @@ allreduce comm op sendVal recvVal =
 -- is split and scattered among participating processes.
 --
 -- See 'reduceScatter' if you want to be able to specify personal block size for each process.
--- 
+--
 -- Note that this function is not supported with OpenMPI 1.5
-reduceScatterBlock :: (SendFrom v, RecvInto v) => 
+reduceScatterBlock :: (SendFrom v, RecvInto v) =>
                  Comm -- ^ Communicator engaged in reduction/
                  -> Operation -- ^ Reduction operation
                  -> Int -- ^ Size of the result block sent to each process
@@ -501,11 +502,11 @@ reduceScatterBlock :: (SendFrom v, RecvInto v) =>
 reduceScatterBlock comm op blocksize sendVal recvVal =
   sendFrom sendVal $ \sendPtr _ sendType ->
     recvInto recvVal $ \recvPtr _ _ ->
-      Internal.reduceScatterBlock (castPtr sendPtr) (castPtr recvPtr) (cIntConv blocksize :: CInt) sendType op comm
+      Internal.reduceScatterBlock (castPtr sendPtr) (castPtr recvPtr) (fromIntegral blocksize :: CInt) sendType op comm
 
 -- | Combination of 'reduceSend' / 'reduceRecv' and 'scatterSend' / 'scatterRecv': reduction result
 -- is split and scattered among participating processes.
-reduceScatter :: (SendFrom v, RecvInto v) => 
+reduceScatter :: (SendFrom v, RecvInto v) =>
                  Comm -- ^ Communicator engaged in reduction/
                  -> Operation -- ^ Reduction operation
                  -> StorableArray Int CInt -- ^ Sizes of block distributed to each process
@@ -527,10 +528,10 @@ class Repr e where
 instance Repr Bool where
   representation _ = (1,unsigned)
 
--- | Note that C @int@ is alway 32-bit, while Haskell @Int@ size is platform-dependent. Therefore on 32-bit platforms 'int' 
+-- | Note that C @int@ is alway 32-bit, while Haskell @Int@ size is platform-dependent. Therefore on 32-bit platforms 'int'
 -- is used to represent 'Int', and on 64-bit platforms 'longLong' is used
 instance Repr Int where
-#if SIZEOF_HSINT == 4  
+#if SIZEOF_HSINT == 4
   representation _ = (1,int)
 #elif SIZEOF_HSINT == 8
   representation _ = (1,longLong)
@@ -556,7 +557,7 @@ instance Repr CInt where
 
 -- | Representation is either one 'int' or one 'longLong', depending on the platform. See comments for @Repr Int@.
 instance Repr Word where
-#if SIZEOF_HSINT == 4  
+#if SIZEOF_HSINT == 4
   representation _ = (1,unsigned)
 #else
   representation _ = (1,unsignedLongLong)
@@ -605,7 +606,7 @@ elements of some 'Datatype'. It would then call the supplied function, passing i
 its size (in elements) and type of the element.
 
 Note that @e@ is not bound by the typeclass, so all kinds of foul play
-are possible. However, since MPI declares all buffers as @void*@ anyway, 
+are possible. However, since MPI declares all buffers as @void*@ anyway,
 we are not making life all /that/ unsafe with this.
 -}
 class SendFrom v where
@@ -616,7 +617,7 @@ class SendFrom v where
 {- | Treat @v@ as receive buffer for the purposes of this API.
 -}
 class RecvInto v where
-   recvInto :: v -- ^ Value to use as receive buffer 
+   recvInto :: v -- ^ Value to use as receive buffer
                -> (Ptr e -> CInt -> Datatype -> IO a)  -- ^ Function that will accept pointer to buffer, its length and type of buffer elements
                -> IO a
 
@@ -653,7 +654,7 @@ instance SendFrom Char where
   sendFrom = sendFromSingleValue
 instance SendFrom CChar where
   sendFrom = sendFromSingleValue
-  
+
 sendFromSingleValue :: (Repr v, Storable v) => v -> (Ptr e -> CInt -> Datatype -> IO a) -> IO a
 sendFromSingleValue v f = do
   alloca $ \ptr -> do
@@ -675,11 +676,11 @@ withStorableArrayAndSize :: forall a i e z.(Repr e, Storable e, Ix i) => Storabl
 withStorableArrayAndSize arr f = do
    rSize <- rangeSize <$> getBounds arr
    let (scale, dtype) = (representation (undefined :: StorableArray i e))
-       numElements = cIntConv (rSize * scale)
+       numElements = fromIntegral (rSize * scale)
    withStorableArray arr $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- | This is less efficient than using 'StorableArray'
--- since extra memory copy is required to represent array as continuous memory buffer.   
+-- since extra memory copy is required to represent array as continuous memory buffer.
 instance (Storable e, Repr (IOArray i e), Ix i) => SendFrom (IOArray i e) where
   sendFrom = sendWithMArrayAndSize
 -- | This is less efficient than using 'StorableArray'
@@ -691,7 +692,7 @@ recvWithMArrayAndSize :: forall i e r a z. (Storable e, Ix i, MArray a e IO, Rep
 recvWithMArrayAndSize array f = do
    bounds <- getBounds array
    let (scale, dtype) = representation (undefined :: a i e)
-       numElements = cIntConv $ rangeSize bounds * scale
+       numElements = fromIntegral $ rangeSize bounds * scale
    allocaArray (rangeSize bounds) $ \ptr -> do
       result <- f (castPtr ptr) numElements dtype
       fillArrayFromPtr (range bounds) (rangeSize bounds) ptr array
@@ -702,7 +703,7 @@ sendWithMArrayAndSize array f = do
    elements <- getElems array
    bounds <- getBounds array
    let (scale, dtype) = representation (undefined :: a i e)
-       numElements = cIntConv $ rangeSize bounds * scale
+       numElements = fromIntegral $ rangeSize bounds * scale
    withArray elements $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- XXX I wonder if this can be written without the intermediate list?
@@ -719,19 +720,19 @@ instance SendFrom BS.ByteString where
 
 sendWithByteStringAndSize :: BS.ByteString -> (Ptr z -> CInt -> Datatype -> IO a) -> IO a
 sendWithByteStringAndSize bs f = do
-  unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (cIntConv len) byte
+  unsafeUseAsCStringLen bs $ \(bsPtr,len) -> f (castPtr bsPtr) (fromIntegral len) byte
 
 -- | Receiving into pointers to 'Storable' scalars with known MPI representation
 instance (Storable e, Repr e) => RecvInto (Ptr e) where
   recvInto = recvIntoElemPtr (representation (undefined :: e))
     where
-      recvIntoElemPtr (cnt,datatype) p f = f (castPtr p) (cIntConv cnt) datatype
+      recvIntoElemPtr (cnt,datatype) p f = f (castPtr p) (fromIntegral cnt) datatype
 
 -- | Receiving into pointers to 'Storable' vectors with known MPI representation and length
 instance (Storable e, Repr e) => RecvInto (Ptr e, Int) where
   recvInto = recvIntoVectorPtr (representation (undefined :: e))
     where
-      recvIntoVectorPtr (scale, datatype) (p,len) f = f (castPtr p) (cIntConv (len * scale) :: CInt) datatype
+      recvIntoVectorPtr (scale, datatype) (p,len) f = f (castPtr p) (fromIntegral (len * scale) :: CInt) datatype
 
 -- | Allocate new 'Storable' value and use it as receive buffer
 intoNewVal :: (Storable e) => (Ptr e -> IO r) -> IO (e, r)
@@ -765,7 +766,7 @@ intoNewBS_ len f = do
 {- |
 Binds a user-dened reduction operation to an 'Operation' handle that can
 subsequently be used in 'reduceSend', 'reduceRecv', 'allreduce', and 'reduceScatter'.
-The user-defined operation is assumed to be associative. 
+The user-defined operation is assumed to be associative.
 
 If first argument to @opCreate@ is @True@, then the operation should be both commutative and associative. If
 it is not commutative, then the order of operands is fixed and is defined to be in ascending,
@@ -789,8 +790,8 @@ Full example with user-defined function that mimics standard operation
 @
 import "Control.Parallel.MPI.Fast"
 
-foreign import ccall \"wrapper\" 
-  wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()) 
+foreign import ccall \"wrapper\"
+  wrap :: (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ())
           -> IO (FunPtr (Ptr CDouble -> Ptr CDouble -> Ptr CInt -> Ptr Datatype -> IO ()))
 reduceUserOpTest myRank = do
   numProcs <- commSize commWorld
@@ -819,9 +820,9 @@ reduceUserOpTest myRank = do
 -}
 opCreate :: Storable t => Bool
             -- ^ Whether the operation is commutative
-            -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ())) 
+            -> (FunPtr (Ptr t -> Ptr t -> Ptr CInt -> Ptr Datatype -> IO ()))
             {- ^ Pointer to function that accepts, in order:
- 
+
             * @invec@, pointer to first input vector
 
             * @inoutvec@, pointer to second input vector, which is also the output vector
