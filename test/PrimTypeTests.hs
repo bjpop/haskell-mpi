@@ -4,8 +4,9 @@ module PrimTypeTests (primTypeTests) where
 
 import TestHelpers
 import Control.Parallel.MPI.Fast
-import C2HS
 import Data.Typeable
+import Foreign
+import Foreign.C.Types
 
 primTypeTests :: Rank -> [(String,TestRunnerTest)]
 primTypeTests rank =
@@ -26,11 +27,11 @@ primTypeTests rank =
   , mpiTestCase rank "wordMaxBound" (sendRecvSingleValTest (maxBound :: Word))
   , mpiTestCase rank "wordMinBound" (sendRecvSingleValTest (minBound :: Word))
   , mpiTestCase rank "word8MaxBound" (sendRecvSingleValTest (maxBound :: Word8))
-  , mpiTestCase rank "word8MinBound" (sendRecvSingleValTest (minBound :: Word8))    
+  , mpiTestCase rank "word8MinBound" (sendRecvSingleValTest (minBound :: Word8))
   , mpiTestCase rank "word16MaxBound" (sendRecvSingleValTest (maxBound :: Word16))
-  , mpiTestCase rank "word16MinBound" (sendRecvSingleValTest (minBound :: Word16))    
+  , mpiTestCase rank "word16MinBound" (sendRecvSingleValTest (minBound :: Word16))
   , mpiTestCase rank "word32MaxBound" (sendRecvSingleValTest (maxBound :: Word32))
-  , mpiTestCase rank "word32MinBound" (sendRecvSingleValTest (minBound :: Word32))    
+  , mpiTestCase rank "word32MinBound" (sendRecvSingleValTest (minBound :: Word32))
   , mpiTestCase rank "word64MaxBound" (sendRecvSingleValTest (maxBound :: Word64))
   , mpiTestCase rank "word64MinBound" (sendRecvSingleValTest (minBound :: Word64))
   , mpiTestCase rank "intSize" (sizeSingleValTest (undefined :: Int))
@@ -52,7 +53,7 @@ primTypeTests rank =
   ]
 
 sendRecvSingleValTest :: forall a . (Typeable a, RecvInto (Ptr a), Repr a, SendFrom a, Storable a, Eq a, Show a) => a -> Rank -> IO ()
-sendRecvSingleValTest val rank 
+sendRecvSingleValTest val rank
   | rank == 0 = send commWorld 1 unitTag (val :: a)
   | rank == 1 = do
     (result :: a, _status) <- intoNewVal $ recv commWorld 0 unitTag
