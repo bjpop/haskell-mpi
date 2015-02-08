@@ -2,7 +2,7 @@ module Control.Parallel.MPI.Utils (asBool, asInt, asEnum, debugOut) where
 
 import Foreign
 import Foreign.C.Types
-import System.IO.Unsafe
+import System.IO.Unsafe as Unsafe
 
 asBool :: (Ptr CInt -> IO ()) -> IO Bool
 asBool f =
@@ -26,6 +26,6 @@ asEnum f =
     return $ toEnum $ fromIntegral res
 
 debugOut :: Show a => a -> Bool
-debugOut x = unsafePerformIO $ do
+debugOut x = Unsafe.unsafePerformIO $ do
    print x
    return False

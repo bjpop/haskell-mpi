@@ -111,7 +111,7 @@ import Data.Maybe (fromMaybe)
 import Control.Monad (liftM, unless)
 import Control.Applicative ((<$>), (<*>))
 import Control.Exception
-import Foreign
+import Foreign hiding (unsafePerformIO)
 import Foreign.C.Types
 import Foreign.C.String
 import System.IO.Unsafe

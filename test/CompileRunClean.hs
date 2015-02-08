@@ -23,7 +23,7 @@
 module Main where
 
 import System.Environment (getArgs)
-import System.Cmd (system)
+import System.Process (system)
 import System.Exit (ExitCode (..), exitWith)
 import Control.Monad (when)
 import Data.List (isSuffixOf)
