@@ -112,3 +112,4 @@ Contributions have also been made by:
    - Abhishek Kulkarni: support for MPI-2 intercommunicator client/server
      functions 
    - Andres Löh: bug fixes
+   - Ian Ross: updated the code to work with newer C2HS.
