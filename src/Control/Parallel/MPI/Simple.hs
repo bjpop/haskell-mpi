@@ -65,8 +65,8 @@ module Control.Parallel.MPI.Simple
    , getFutureStatus
    , pollFuture
    , cancelFuture
-   , recvFuture     
-     
+   , recvFuture
+
      -- ** Low-level (operating on ByteStrings).
    , sendBS
    , recvBS
@@ -108,11 +108,10 @@ module Control.Parallel.MPI.Simple
    , allgather
      -- ** All-to-all.
    , alltoall
-     
+
    , module Control.Parallel.MPI.Base
    ) where
 
-import C2HS
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar (MVar, tryTakeMVar, readMVar, newEmptyMVar, putMVar)
 import Control.Concurrent (ThreadId, killThread)
@@ -125,6 +124,10 @@ import qualified Control.Parallel.MPI.Internal as Internal
 import Control.Parallel.MPI.Base
 import qualified Data.Array.Storable as SA
 import Data.List (unfoldr)
+import Foreign.Ptr
+import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
+import Foreign.C.Types
 
 -- | Serializes the supplied value to ByteString and sends to specified process as the array of 'byte's using 'Internal.send'.
 --
@@ -143,7 +146,7 @@ ssend c r t m = sendBSwith Internal.ssend c r t $ encode m
 --
 --  This call expects the matching receive already to be posted, otherwise error will occur.
 --
---  Due to the difference between OpenMPI and MPICH2 (tested on v.1.2.1.1) size of messages posted with @rsend@ 
+--  Due to the difference between OpenMPI and MPICH2 (tested on v.1.2.1.1) size of messages posted with @rsend@
 --  could not be 'probe'd, which breaks
 --  all variants of point-to-point receving code in this module. Therefore, when liked with MPICH2, this function
 --  will use 'Internal.send' internally.
@@ -159,7 +162,7 @@ sendBSwith ::
   (Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO ()) ->
   Comm -> Rank -> Tag -> BS.ByteString -> IO ()
 sendBSwith send_function comm rank tag bs = do
-   let cCount = cIntConv $ BS.length bs
+   let cCount = fromIntegral $ BS.length bs
    unsafeUseAsCString bs $ \cString ->
        send_function (castPtr cString) cCount byte rank tag comm
 
@@ -167,7 +170,7 @@ sendBSwith send_function comm rank tag bs = do
 -- is returned as second component of the tuple, and usually could be discarded.
 --
 -- This function uses @MPI_Recv@ internally and relies on 'probe' to get the size of incoming message
--- and allocate sufficient memory in receiving buffer, which incurs slight additional overhead. 
+-- and allocate sufficient memory in receiving buffer, which incurs slight additional overhead.
 recv :: Serialize msg => Comm -> Rank -> Tag -> IO (msg, Status)
 recv comm rank tag = do
    (bs, status) <- recvBS comm rank tag
@@ -180,7 +183,7 @@ recv comm rank tag = do
 recvBS :: Comm -> Rank -> Tag -> IO (BS.ByteString, Status)
 recvBS comm rank tag = do
    count <- getCount comm rank tag byte
-   let cCount = cIntConv count
+   let cCount = fromIntegral count
    allocaBytes count
       (\bufferPtr -> do
           recvStatus <- Internal.recv bufferPtr cCount byte rank tag comm
@@ -218,7 +221,7 @@ isendBSwith ::
   (Ptr () -> CInt -> Datatype -> Rank -> Tag -> Comm -> IO Request) ->
   Comm -> Rank -> Tag -> BS.ByteString -> IO Request
 isendBSwith send_function comm rank tag bs = do
-   let cCount = cIntConv $ BS.length bs
+   let cCount = fromIntegral $ BS.length bs
    unsafeUseAsCString bs $ \cString -> do
        send_function (castPtr cString) cCount byte rank tag comm
 
@@ -233,7 +236,7 @@ waitall :: [Request] -> IO [Status]
 waitall reqs = do
   withArrayLen reqs $ \len reqPtr ->
     allocaArray len $ \statPtr -> do
-      Internal.waitall (cIntConv len) reqPtr (castPtr statPtr)
+      Internal.waitall (fromIntegral len) reqPtr (castPtr statPtr)
       peekArray len statPtr
 
 -- | A value to be computed by some thread in the future.
@@ -269,7 +272,7 @@ cancelFuture = killThread . futureThread
 
 -- | Non-blocking receive of the message. Returns value of type `Future',
 -- which could be used to check status of the operation using `getFutureStatus'
--- and extract actual value using either `waitFuture' or `pollFuture'. 
+-- and extract actual value using either `waitFuture' or `pollFuture'.
 -- Internally this uses the blocking 'recv' in a separate execution thread.
 --
 -- Example:
@@ -318,7 +321,7 @@ bcastSend comm rootRank msg = do
   where
     doSend bs = do
       -- broadcast the size of the message first
-      Fast.bcastSend comm rootRank (cIntConv (BS.length bs) :: CInt)
+      Fast.bcastSend comm rootRank (fromIntegral (BS.length bs) :: CInt)
       -- then broadcast the actual message
       Fast.bcastSend comm rootRank bs
 
@@ -348,12 +351,12 @@ gatherSend :: Serialize msg => Comm -> Rank -> msg -> IO ()
 gatherSend comm root msg = do
   let enc_msg = encode msg
   -- Send length
-  Fast.gatherSend comm root (cIntConv (BS.length enc_msg) :: CInt)
+  Fast.gatherSend comm root (fromIntegral (BS.length enc_msg) :: CInt)
   -- Send payload
   Fast.gathervSend comm root enc_msg
 
 {- | Collects the messages sent with `gatherSend' and returns them as list.
-Note that per MPI semantics collecting process is expected to supply the message as well. 
+Note that per MPI semantics collecting process is expected to supply the message as well.
 Internally uses 'Fast.gatherRecv' to obtain the message lengths and 'Fast.gathervRecv' to collect the messages.
 
 This function handles both inter- and intracommunicators, provided that the caller makes proper use of `theRoot' and `procNull'.
@@ -376,7 +379,7 @@ gatherRecv comm root msg = do
     doRecv isInter = do
       let enc_msg = encode msg
       numProcs <- if isInter then commRemoteSize comm else commSize comm
-      (lengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (0,numProcs-1) $ Fast.gatherRecv comm root (cIntConv (BS.length enc_msg) :: CInt)
+      (lengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (0,numProcs-1) $ Fast.gatherRecv comm root (fromIntegral (BS.length enc_msg) :: CInt)
       -- calculate displacements from sizes
       lengths <- SA.getElems lengthsArr
       (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
@@ -390,7 +393,7 @@ decodeList lengths bs = unfoldr decodeNext (lengths,bs)
     decodeNext ((l:ls),bs) =
       case decode bs of
         Left e -> fail e
-        Right val -> Just (val, (ls, BS.drop (cIntConv l) bs))
+        Right val -> Just (val, (ls, BS.drop (fromIntegral l) bs))
 
 {- | Receives single message from the process that distributes them with `scatterSend'.
 Internally uses 'Fast.scatterRecv' to get the length of the message followed by 'Fast.scattervRecv' to get the message itself.
@@ -436,7 +439,7 @@ scatterSend comm root msgs = do
   where
     doSend = do
       let enc_msgs = map encode msgs
-          lengths = map (cIntConv . BS.length) enc_msgs
+          lengths = map (fromIntegral . BS.length) enc_msgs
           payload = BS.concat enc_msgs
           numProcs = length msgs
       -- scatter numProcs ints - sizes of payloads to be sent to other processes
@@ -470,7 +473,7 @@ allgather comm msg = do
   isInter <- commTestInter comm
   numProcs <- if isInter then commRemoteSize comm else commSize comm
   -- Send length of my message and receive lengths from other ranks
-  (lengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (0, numProcs-1) $ Fast.allgather comm (cIntConv (BS.length enc_msg) :: CInt)
+  (lengthsArr :: SA.StorableArray Int CInt) <- Fast.intoNewArray_ (0, numProcs-1) $ Fast.allgather comm (fromIntegral (BS.length enc_msg) :: CInt)
   -- calculate displacements from sizes
   lengths <- SA.getElems lengthsArr
   (displArr :: SA.StorableArray Int CInt) <- SA.newListArray (0,numProcs-1) $ Prelude.init $ scanl1 (+) (0:lengths)
@@ -497,7 +500,7 @@ Therefore, process with rank 0 gets @[[0],[1],[2]]@, process with rank 1 gets @[
 alltoall :: (Serialize msg) => Comm -> [msg] -> IO [msg]
 alltoall comm msgs = do
   let enc_msgs = map encode msgs
-      sendLengths = map (cIntConv . BS.length) enc_msgs
+      sendLengths = map (fromIntegral . BS.length) enc_msgs
       sendPayload = BS.concat enc_msgs
   isInter <- commTestInter comm
   numProcs <- if isInter then commRemoteSize comm else commSize comm
@@ -512,4 +515,3 @@ alltoall comm msgs = do
   -- Receive payloads
   bs <- Fast.intoNewBS_ (sum recvLengths) $ Fast.alltoallv comm sendPayload sendLengthsArr sendDisplArr recvLengthsArr recvDisplArr
   return $ decodeList recvLengths bs
-
