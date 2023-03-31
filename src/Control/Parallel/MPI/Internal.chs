@@ -200,7 +200,7 @@ maxPortName = unsafePerformIO $ peek max_port_name_
 maxErrorString :: CInt
 maxErrorString = unsafePerformIO $ peek max_error_string_
 
--- | Initialize the MPI environment. The MPI environment must be intialized by each
+-- | Initialize the MPI environment. The MPI environment must be initialized by each
 -- MPI process before any other MPI function is called. Note that
 -- the environment may also be initialized by the functions 'initThread', 'mpi',
 -- and 'mpiWorld'. It is an error to attempt to initialize the environment more
@@ -415,7 +415,7 @@ universeSizeKey = unsafePerformIO (peekIntConv universeSize_)
 {# fun unsafe Comm_compare as ^
                  {fromComm `Comm', fromComm `Comm', alloca- `ComparisonResult' peekEnum*} -> `()' checkError*- #}
 
--- | Test for an incomming message, without actually receiving it.
+-- | Test for an incoming message, without actually receiving it.
 -- If a message has been sent from @Rank@ to the current process with @Tag@ on the
 -- communicator @Comm@ then 'probe' will return the 'Status' of the message. Otherwise
 -- it will block the current process until such a matching message is sent.
@@ -1357,7 +1357,7 @@ describe the ordering here (other parts of the docs need it to be explained - se
 
 -- | Value thrown as exception when MPI runtime is instructed to pass
 --   errors to user code (via 'commSetErrhandler' and 'errorsReturn').
--- Since raw MPI errors codes are not standartized and not portable,
+-- Since raw MPI errors codes are not standardized and not portable,
 -- they are not exposed.
 data MPIError
    = MPIError

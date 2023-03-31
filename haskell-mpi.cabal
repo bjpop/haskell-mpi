@@ -29,7 +29,7 @@ description:
  "Control.Parallel.MPI.Base" contains essential MPI functionality
  which is independent of the message passing API. This is re-exported
  by the Fast and Simple modules, and usually does not need to be
- explcitly imported itself.
+ explicitly imported itself.
  .
  Notable differences between Haskell-MPI and the standard C interface to MPI:
  .

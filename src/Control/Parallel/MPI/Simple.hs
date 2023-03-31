@@ -148,7 +148,7 @@ ssend c r t m = sendBSwith Internal.ssend c r t $ encode m
 --
 --  Due to the difference between OpenMPI and MPICH2 (tested on v.1.2.1.1) size of messages posted with @rsend@
 --  could not be 'probe'd, which breaks
---  all variants of point-to-point receving code in this module. Therefore, when liked with MPICH2, this function
+--  all variants of point-to-point receiving code in this module. Therefore, when liked with MPICH2, this function
 --  will use 'Internal.send' internally.
 rsend :: Serialize msg => Comm -> Rank -> Tag -> msg -> IO ()
 rsend c r t m = sendBSwith impl c r t $ encode m
@@ -316,7 +316,7 @@ bcastSend comm rootRank msg = do
    if isInter then if rootRank == theRoot then doSend (encode msg)
                    else if rootRank ==  procNull then doSend BS.empty -- do nothing
                         else fail "bcastSend with intercommunicator accepts either theRoot or procNull as Rank"
-     else -- intra-communicator, i.e. a single homogenous group of processes.
+     else -- intra-communicator, i.e. a single homogeneous group of processes.
      doSend (encode msg)
   where
     doSend bs = do

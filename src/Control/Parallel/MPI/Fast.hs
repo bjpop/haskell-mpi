@@ -267,7 +267,7 @@ irecvPtr comm sendRank tag requestPtr recvVal = do
 {-| Receive 'StorableArray' from the process identified by @(Comm, Rank, Tag)@ in non-blocking mode.
 
 At the moment we are limiting this to 'StorableArray's because they
-are compatible with C pointers. This means that the recieved data can
+are compatible with C pointers. This means that the received data can
 be written directly to the array, and does not have to be copied out
 at the end. This is important for the non-blocking operation of @irecv@.
 
@@ -528,7 +528,7 @@ class Repr e where
 instance Repr Bool where
   representation _ = (1,unsigned)
 
--- | Note that C @int@ is alway 32-bit, while Haskell @Int@ size is platform-dependent. Therefore on 32-bit platforms 'int'
+-- | Note that C @int@ is always 32-bit, while Haskell @Int@ size is platform-dependent. Therefore on 32-bit platforms 'int'
 -- is used to represent 'Int', and on 64-bit platforms 'longLong' is used
 instance Repr Int where
 #if SIZEOF_HSINT == 4
@@ -662,12 +662,12 @@ sendFromSingleValue v f = do
     let (1, dtype) = representation v
     f (castPtr ptr) (1::CInt) dtype
 
--- | Sending from Storable arrays requres knowing MPI representation 'Repr' of its elements. This is very
+-- | Sending from Storable arrays requires knowing MPI representation 'Repr' of its elements. This is very
 -- fast and efficient, since array would be updated in-place.
 instance (Storable e, Repr e, Ix i) => SendFrom (StorableArray i e) where
   sendFrom = withStorableArrayAndSize
 
--- | Receiving into Storable arrays requres knowing MPI representation 'Repr' of its elements. This is very
+-- | Receiving into Storable arrays requires knowing MPI representation 'Repr' of its elements. This is very
 -- fast and efficient, since array would be updated in-place.
 instance (Storable e, Repr e, Ix i) => RecvInto (StorableArray i e) where
   recvInto = withStorableArrayAndSize
@@ -707,7 +707,7 @@ sendWithMArrayAndSize array f = do
    withArray elements $ \ptr -> f (castPtr ptr) numElements dtype
 
 -- XXX I wonder if this can be written without the intermediate list?
--- Maybe GHC can elimiate it. We should look at the generated compiled
+-- Maybe GHC can eliminate it. We should look at the generated compiled
 -- code to see how well the loop is handled.
 fillArrayFromPtr :: (MArray a e IO, Storable e, Ix i) => [i] -> Int -> Ptr e -> a i e -> IO ()
 fillArrayFromPtr indices numElements startPtr array = do
