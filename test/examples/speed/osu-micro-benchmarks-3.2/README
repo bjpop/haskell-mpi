@@ -17,7 +17,7 @@ Example:
 	make install
 
 Configure will detect whether your library supports MPI-2 and compile the
-corresponding benchmarks.  See http://mvapich.cse.ohio-state.edu/benchmarks/ to
+corresponding benchmarks.  See https://mvapich.cse.ohio-state.edu/benchmarks/ to
 download the latest version of this package.
 
 Note:

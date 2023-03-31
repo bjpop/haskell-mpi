@@ -49,7 +49,7 @@ How to run standalone tests
 Standalone test programs can be found in the test/examples directory.
 You can test the execution of these programs using the shelltestrunner package:
 
-   http://hackage.haskell.org/package/shelltestrunner
+   https://hackage.haskell.org/package/shelltestrunner
 
 Make sure you install shelltestrunner first, for example:
 
@@ -79,13 +79,13 @@ History
 
 Around the year 2000 Michael Weber released hMPI, a Haskell binding to MPI:
 
-   http://www.foldr.org/~michaelw/hmpi/
+   https://web.archive.org/web/20161219081107/http://foldr.org/~michaelw/hmpi/
 
 Development on that code appears to have stopped in about the year 2001.
 Hal Daumé III picked up the code and got it working with (at the time)
 a more recent version of GHC:
 
-   http://www.umiacs.umd.edu/~hal/software.html
+   https://users.umiacs.umd.edu/~hal/software.html
 
 In February 2010 both Michael and Hal reported that they had not worked on
 the code for a long time, so it was open for new maintainers.

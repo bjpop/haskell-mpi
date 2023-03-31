@@ -36,7 +36,7 @@ integrate :: Int -> Int -> Int -> Double -> Double
 integrate rank size n h =
    -- XXX superfluous type annotation needed to work around
    -- confirmed GHC bug, see ticket #4321
-   -- http://hackage.haskell.org/trac/ghc/ticket/4321
+   -- https://gitlab.haskell.org/ghc/ghc/-/issues/4321
    -- (nothng to do with MPI)
    h * (sum (map area steps) :: Double)
    where

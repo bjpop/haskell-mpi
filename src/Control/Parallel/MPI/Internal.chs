@@ -1259,7 +1259,7 @@ information returned by the function itself. The current design avoids
 the additional overhead of setting it, in such cases. The field is
 needed for calls that return multiple statuses, since each request may
 have had a different failure.\"
-(this is a quote from <http://mpi-forum.org/docs/mpi22-report/node47.htm#Node47>)
+(this is a quote from <https://www.mpi-forum.org/docs/mpi-2.2/mpi22-report/node47.htm>)
 
 This means that, for example, during the call to @MPI_Wait@
 implementation is free to leave this field filled with whatever

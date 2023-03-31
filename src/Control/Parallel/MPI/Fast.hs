@@ -179,7 +179,7 @@ Same code with buffer allocation:
 -}
 intoNewArray :: (Ix i, MArray a e m, RecvInto (a i e)) => (i, i) -> (a i e -> m r) -> m (a i e, r)
 intoNewArray range f = do
-  arr <- unsafeNewArray_ range -- New, uninitialized array, According to http://hackage.haskell.org/trac/ghc/ticket/3586
+  arr <- unsafeNewArray_ range -- New, uninitialized array, According to https://hackage.haskell.org/trac/ghc/ticket/3586
                                -- should be faster than newArray_
   res <- f arr
   return (arr, res)
