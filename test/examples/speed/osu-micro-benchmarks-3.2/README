@@ -17,7 +17,7 @@ Example:
 	make install
 
 Configure will detect whether your library supports MPI-2 and compile the
-corresponding benchmarks.  See http://mvapich.cse.ohio-state.edu/benchmarks/ to
+corresponding benchmarks.  See https://mvapich.cse.ohio-state.edu/benchmarks/ to
 download the latest version of this package.
 
 Note:
@@ -106,7 +106,7 @@ Bidirectional Bandwidth Test
     * The bidirectional bandwidth test is similar to the bandwidth test, except
     * that both the nodes involved send out a fixed number of back-to-back
     * messages and wait for the reply. This test measures the maximum
-    * sustainable aggregrate bandwidth by two nodes. This test is available
+    * sustainable aggregate bandwidth by two nodes. This test is available
     * here.
 
 Multiple Bandwidth / Message Rate test
@@ -139,7 +139,7 @@ One-Sided Put Latency Test (only applicable for MVAPICH2)
     * One-Sided Put Latency Test: The sender (origin process) calls MPI_Put
     * (ping) to directly place a message of certain data size in the receiver
     * window. The receiver (target process) calls MPI_Win_wait to make sure the
-    * message has been received. Then the receiver initates a MPI_Put (pong) of
+    * message has been received. Then the receiver initiates a MPI_Put (pong) of
     * the same data size to the sender which is now waiting on a synchronization
     * call. Several iterations of this test is carried out and the average put
     * latency numbers is obtained. This test is available here.
@@ -173,7 +173,7 @@ One-Sided Put Bidirectional Bandwidth Test (only applicable for MVAPICH2)
     * One-Sided Put Bidirectional Bandwidth Test: The bidirectional bandwidth
     * test is similar to the bandwidth test,except that both the nodes involved
     * send out a fixed number of back to back put messages and wait for the
-    * completion. This test measures the maximum sustainable aggregrate
+    * completion. This test measures the maximum sustainable aggregate
     * bandwidth by two nodes. This test is available here.
 
 Accumulate Latency Test (only applicable for MVAPICH2)

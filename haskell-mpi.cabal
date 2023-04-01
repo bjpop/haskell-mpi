@@ -8,12 +8,12 @@ description:
  of the standard is known as MPI-2. These Haskell
  bindings are designed to work with any standards compliant
  implementation of MPI-2. Examples are MPICH2:
- <http://www.mcs.anl.gov/research/projects/mpich2> and
- OpenMPI: <http://www.open-mpi.org>.
+ <https://www.mpich.org> and
+ OpenMPI: <https://www.open-mpi.org>.
  .
  In addition to reading these documents, users may also find it
  beneficial to consult the MPI-2 standard documentation provided by the
- MPI Forum: <http://www.mpi-forum.org>, and also the documentation for
+ MPI Forum: <https://www.mpi-forum.org>, and also the documentation for
  the MPI implementation linked to this library (that is, the MPI
  implementation that was chosen when this Haskell library was compiled).
  .
@@ -29,7 +29,7 @@ description:
  "Control.Parallel.MPI.Base" contains essential MPI functionality
  which is independent of the message passing API. This is re-exported
  by the Fast and Simple modules, and usually does not need to be
- explcitly imported itself.
+ explicitly imported itself.
  .
  Notable differences between Haskell-MPI and the standard C interface to MPI:
  .
@@ -72,7 +72,7 @@ license-file:        LICENSE
 copyright:           (c) 2010-2015 Bernard James Pope, Dmitry Astapov, Abhishek Kulkarni, Andres Löh, Ian Ross
 author:              Bernard James Pope (Bernie Pope)
 maintainer:          florbitous@gmail.com
-homepage:            http://github.com/bjpop/haskell-mpi
+homepage:            https://github.com/bjpop/haskell-mpi
 build-type:          Simple
 stability:           experimental
 tested-with:         GHC==6.10.4, GHC==6.12.1, GHC==7.4.1

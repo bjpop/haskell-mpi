@@ -224,7 +224,7 @@ Collective operations that are split into separate send/recv parts
 (see above) take "root rank" as an argument. Right now no safeguards
 are in place to ensure that rank supplied to the send function is
 corresponding to the rank of that process. We believe that it does not
-worsen the general go-on-and-shoot-yourself-in-the-foot attitide of
+worsen the general go-on-and-shoot-yourself-in-the-foot attitude of
 the MPI API.
 -}
 
